@@ -65,8 +65,8 @@ for pathname in pathLC:
                                avg_sem))
         
         clu_id_full = sessname+' clu'+clu
-        if clu in tag_clus:
-            clu_id_full += ' tagged'
+        # if clu in tag_clus:
+        #     clu_id_full += ' tagged'
         all_cells[clu_id_full] = packed
     
 np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_waveforms.npy', 

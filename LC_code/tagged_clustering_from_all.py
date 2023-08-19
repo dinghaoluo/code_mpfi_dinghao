@@ -132,9 +132,10 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_all_tagged_clustering_hier
 #%% histogram for frequencies of occurrence
 print('plotting barplot for freq of occ...')
 
-fig, ax = plt.subplots(figsize=(4, 12))
+fig, ax = plt.subplots(figsize=(3, 6))
 ax.set(title='clusters (LC general population)',
-       ylabel='proportion of cells')
+       ylabel='proportion of cells',
+       ylim=(0, .7))
 ax.spines[['right', 'top']].set_visible(False)
 
 tot_clu = len(clstr_tagged_sr)

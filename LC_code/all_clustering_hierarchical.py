@@ -15,6 +15,7 @@ from scipy.cluster import hierarchy
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster, leaves_list
 import sys
 from scipy.stats import sem
+import pandas as pd
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
@@ -26,11 +27,22 @@ from common import normalise
 # firing rate vector, bin=1/1250s
 sr_file = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_avg_sem.npy',
                   allow_pickle=True).item()
-list_avg_sr = list(sr_file['all avg'].values())
-key_avg_sr = list(sr_file['all avg'].keys())
 
-# avg_sr_list = [list(normalise(x[2500:5000])) for x in list_avg_sr]
-avg_sr_list = [list(normalise(x[2500:7500])) for x in list_avg_sr]
+cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+
+
+#%% specify RO peaking putative Dbh cells
+putative_keys = []
+for cell in cell_prop.index:
+    pt = cell_prop['putative'][cell]  # putative
+    
+    if pt:
+        putative_keys.append(cell)
+
+avg_sr_list = []; avg_im_list = []
+for key in putative_keys:
+    avg_sr_list.append(list(normalise(sr_file['all avg'][key][2500:7500])))
+    avg_im_list.append(list(normalise(sr_file['all avg'][key])))
 
 
 #%% hierarchical clustering
@@ -43,15 +55,15 @@ ax.set(title='hierarchical clustering for all cells from tagged sessions',
        xlabel='cell ID', ylabel='depth')
 ax.axis('off')
 
-threshold = 18.1  # depth to cut the dendrogram
+threshold = 22  # depth to cut the dendrogram
 
 # clustered and cut
 all_clstr = fcluster(clstr, t=threshold, criterion='distance')
 leaves = leaves_list(clstr)
 
 # plot dendrogram with cutting threshold
-hierarchy.set_link_color_palette(['grey', 'darkorange', 'grey', 'limegreen', 'grey', 'violet', 'grey', 'grey'])
-dendrogram = dendrogram(clstr, color_threshold=threshold)
+hierarchy.set_link_color_palette(['darkorange', 'grey', 'limegreen', 'violet'])
+dendro = dendrogram(clstr, color_threshold=threshold)
 # ax.hlines(30, 0, 1000, color='grey')
 
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_dendro_{}.png'.
@@ -61,8 +73,8 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_dendro_{}.png'.
 
 #%% save into a dict
 hier_clu = {}
-for i in range(len(list_avg_sr)):
-    curr_clu_name = key_avg_sr[i]
+for i in range(len(avg_sr_list)):
+    curr_clu_name = putative_keys[i]
     hier_clu[curr_clu_name] = str(all_clstr[i])
 
 hier_clu_with_leaves = {
@@ -73,16 +85,16 @@ hier_clu_with_leaves = {
 
 #%% order based on hierarchical leaves and plot heatmap
 print('plotting heatmap aligned to leaves...')
-heatmap_mat = np.zeros((len(list_avg_sr), 6250))
-for i in range(len(list_avg_sr)):
-    heatmap_mat[i,:] = normalise(list_avg_sr[leaves[i]][2500:8750])
+heatmap_mat = np.zeros((len(avg_sr_list), 6250))
+for i in range(len(avg_sr_list)):
+    heatmap_mat[i,:] = normalise(avg_im_list[leaves[i]][2500:8750])
 
 fig, ax = plt.subplots(figsize=(6,4))
 ax.set(title='all LC cells',
        xlabel='time (s)', ylabel='cell ID')
 
 hm = ax.imshow(heatmap_mat, aspect='auto',
-               extent=[-1, 4, len(list_avg_sr), 0])
+               extent=[-1, 4, len(avg_sr_list), 0])
 plt.colorbar(hm)
 
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_dendro_heatmap.png',
@@ -102,16 +114,16 @@ group3 = []  # reward ramping
 cluster3 = []
 group4 = []  # post run-onset dip
 
-for i in range(len(list_avg_sr)):
-    if list_hier[i] == '2':
-        group1.append(list_avg_sr[i])
-        cluster1.append(key_avg_sr[i])
+for i in range(len(avg_sr_list)):
+    if list_hier[i] == '1':
+        group1.append(avg_sr_list[i])
+        cluster1.append(avg_sr_list[i])
+    if list_hier[i] == '3':
+        group2.append(avg_sr_list[i])
+        cluster2.append(avg_sr_list[i])
     if list_hier[i] == '4':
-        group2.append(list_avg_sr[i])
-        cluster2.append(key_avg_sr[i])
-    if list_hier[i] == '10':
-        group3.append(list_avg_sr[i])
-        cluster3.append(key_avg_sr[i])
+        group3.append(avg_sr_list[i])
+        cluster3.append(avg_sr_list[i])
         
 group1_mean = np.mean(group1, axis=0)
 group1_sem = sem(group1, axis=0)
@@ -164,9 +176,10 @@ np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_clustered_hierarchical_{}.npy'.
 #%% histogram for frequencies of occurrence
 print('plotting barplot for freq of occ...')
 
-fig, ax = plt.subplots(figsize=(4, 12))
-ax.set(title='clusters (LC general population)',
-       ylabel='proportion of cells')
+fig, ax = plt.subplots(figsize=(3, 6))
+ax.set(title='clusters (putative Dbh+)',
+       ylabel='proportion of cells',
+       ylim=(0, .7))
 ax.spines[['right', 'top']].set_visible(False)
 
 tot_clu = len(list_hier)

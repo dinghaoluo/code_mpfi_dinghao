@@ -38,7 +38,7 @@ def spk_w_sem(fspk, clu, nth_clu):
     clu_n_id = [int(x) for x in np.transpose(get_clu(nth_clu, clu))]  # ID of every single spike of clu
 
     # load spikes (could cut out to be a separate function)
-    rnd_sample_size = 500
+    rnd_sample_size = 1000
     if len(clu_n_id)<rnd_sample_size:
         tot_spks = len(clu_n_id)
     else:
@@ -96,7 +96,8 @@ for pathname in pathLC:
     file_name = file_stem + '\\' + file_stem[loc_A:loc_A+17]
     
     # only process if there exist not already the .npy
-    if os.path.isfile('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_spk.npy'):
+    if os.path.isfile('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_spk.npy')==False:
+    # if 1==1:
         # header
         print('\n\nProcessing {}'.format(pathname))
     

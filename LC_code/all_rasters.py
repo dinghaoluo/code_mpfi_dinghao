@@ -57,7 +57,7 @@ for pathname in pathLC:
             spike_time[i,j-1] = spike_time_file[time[j,i]][0]
             spike_time_bef[i,j-1] = spike_time_file[time_bef[j,i]][0]
     
-    max_length = 10000  # 80 seconds
+    max_length = 16250  # 3 s before, 10 s after
     spike_train_all = np.empty(shape=(tot_clu, tot_trial - 1), dtype='object')
     for i in range(tot_clu):
         for trial in range(tot_trial-1):

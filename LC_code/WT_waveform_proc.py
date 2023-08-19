@@ -2,25 +2,22 @@
 """
 Created on Mon Aug  1 18:43:47 2022
 update:
-    25 Jan 2023, input rec_list
-    
-criterion: line 166, 0.33 and <20 Hz
+    22 Jun 2023, wild type recordings
 
-saves the average and tagged waveforms of all recordings in rec_list, pathLC
+saves the average waveforms of all recordings in rec_list, pathLC
 @author: Dinghao Luo
 """
 
 
 #%% imports
-
 import sys
-import os
 import numpy as np
 from random import sample
 import scipy.io as sio
 from scipy.stats import sem
 import matplotlib.pyplot as plt
 import matplotlib as plc
+import os
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
@@ -30,27 +27,21 @@ from param_to_array import param2array, get_clu
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
-pathLC = rec_list.pathLC
+pathLCWT = rec_list.pathLCWT
 
 
 #%% main function
-
-def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
+def spk_w_sem(fspk, clu, nth_clu):
     
     clu_n_id = [int(x) for x in np.transpose(get_clu(nth_clu, clu))]  # ID of every single spike of clu
-    
-    rnd_samp_size = 1000
-    if spikes_to_load==[]:
-        if len(clu_n_id)<rnd_samp_size:
-            tot_spks = len(clu_n_id)
-        else:
-            clu_n_id = sample(clu_n_id, rnd_samp_size)
-            tot_spks = len(clu_n_id)
-    else:
-        clu_n_id = spikes_to_load
 
     # load spikes (could cut out to be a separate function)
-    tot_spks = len(clu_n_id)
+    rnd_sample_size = 1000
+    if len(clu_n_id)<rnd_sample_size:
+        tot_spks = len(clu_n_id)
+    else:
+        clu_n_id = sample(clu_n_id, rnd_sample_size)
+        tot_spks = len(clu_n_id)
     spks_wfs = np.zeros([tot_spks, n_chan, n_spk_samp])  # wfs for all tagged spikes
 
     for i in range(tot_spks):  # reading .spk in binary ***might be finicky
@@ -97,17 +88,16 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
 
 
 #%% MAIN
-for pathname in pathLC:    
+for pathname in pathLCWT:    
     file_stem = pathname
     loc_A = file_stem.rfind('A')
     file_name = file_stem + '\\' + file_stem[loc_A:loc_A+17]
     
-    # processing only begins if there exist not *already* the session .npy files
-    if os.path.isfile('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy')==False:
-    # if pathname=='Z:\Dinghao\MiceExp\ANMD056r\A056r-20230422\A056r-20230422-02':
+    # only process if there exist not already the .npy
+    if os.path.isfile('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_spk.npy')==False:
         # header
         print('\n\nProcessing {}'.format(pathname))
-        
+    
         # load .mat
         mat_BTDT = sio.loadmat(file_name + 'BTDT.mat')
         behEvents = mat_BTDT['behEventsTdt']
@@ -128,65 +118,6 @@ for pathname in pathLC:
         tot_clus = len(all_clus)
         
         fspk = open(file_name + '.spk.1', 'rb')  # load .spk into a byte bufferedreader
-    
-        # tagged
-        stim_tp = np.zeros([60, 1])  # hard-coded for LC stim protocol
-        if file_stem=='Z:\Dinghao\MiceExp\ANMD060r\A060r-20230530\A060r-20230530-02':
-            stim_tp = np.zeros([120, 1]) 
-        tag_id = 0
-        for i in range(behEvents['stimPulse'][0, 0].shape[0]):
-            i = int(i)
-            if behEvents['stimPulse'][0, 0][i, 3]<10:  # ~5ms tagged pulses
-                temp = (behEvents['stimPulse'][0, 0][i, 0] 
-                        + (behEvents['stimPulse'][0, 0][i, 1])/10000000)  # pulse time with highest precision
-                temp_s = round(temp/20000, 4)  # f[sampling] = 20kHz
-                # print('%s%s%s%s%s%s%s' % ('pulse ', i+1, ': ', temp_s, 's (', temp, ')'))  # print pulse time
-                stim_tp[tag_id] = temp
-                tag_id += 1
-        if tag_id not in [60, 120] : raise Exception('not enough tag pulses (expected 60 or 120)')
-        
-        tag_rate = np.zeros(tot_clus)
-        if_tagged_spks = np.zeros([tot_clus, 60])
-        tagged = np.zeros([tot_clus, 2])
-        
-        for iclu in range(tot_clus):
-            nth_clu = iclu + 2
-            clu_n_id = np.transpose(get_clu(nth_clu, clu))
-            
-            tagged[iclu, 0] = nth_clu
-            
-            for i in range(60):  # hard-coded
-                t_0 = stim_tp[i, 0]  # stim time point
-                t_1 = stim_tp[i, 0] + 200  # stim time point +10ms (stricter than Takeuchi et al.)
-                spks_in_range = filter(lambda x: (int(res[x])>=t_0) and (int(res[x])<=t_1), clu_n_id)
-                try:
-                    if_tagged_spks[iclu, i] = next(spks_in_range)  # 1st spike in range
-                except StopIteration:
-                    pass
-            tag_rate[iclu] = round(len([x for x in if_tagged_spks[iclu, :] if x > 0])/len(if_tagged_spks[iclu, :]), 3)
-            
-            # spike rate upper bound added 26 Jan 2023 to filter out non-principal cells 
-            if tag_rate[iclu] > .33 and spike_rate[iclu] < 20:
-                tagged[iclu, 1] = 1
-                print('%s%s%s%s%s' % ('clu ', nth_clu, ' tag rate = ', tag_rate[iclu], ', tagged'))
-            else:
-                print('%s%s%s%s' % ('clu ', nth_clu, ' tag rate = ', tag_rate[iclu]))
-        
-        tot_tagged = sum(tagged[:, 1])
-        
-        tagged_spk_dict = {}
-        tagged_sem_dict = {}
-        for iclu in range(tot_clus):
-            if tagged[iclu, 1] == 1:
-                tagged_clu = int(tagged[iclu, 0])
-                tagged_spikes = if_tagged_spks[tagged_clu-2, :]
-                tagged_spikes = [int(x) for x in tagged_spikes]
-                tagged_spikes = [spike for spike in tagged_spikes if spike!=0]
-                tagged_spk, tagged_sem = spk_w_sem(fspk, clu, tagged_clu, tagged_spikes)
-                
-                tagged_spk_dict[str(tagged_clu)] = tagged_spk
-                tagged_sem_dict[str(tagged_clu)] = tagged_sem
-        
         
         #---plotting---#
         time_ax = [x*50 for x in range(n_spk_samp)]  # time ticks in *u*s
@@ -218,22 +149,13 @@ for pathname in pathLC:
             ax.set_title('%s%s' % ('clu ', nth_clu), fontsize = 10)
             ax.plot(time_ax, av_spk)
             ax.fill_between(time_ax, av_spk+spk_sem, av_spk-spk_sem, color='lightblue')
-            for tgd in list(tagged_spk_dict.keys()):
-                tgd_clu = int(tgd)
-                if nth_clu == tgd_clu:
-                    ax.plot(time_ax, tagged_spk_dict[tgd], color='k')
-                    ax.fill_between(time_ax, tagged_spk_dict[tgd]+tagged_sem_dict[tgd],
-                                    tagged_spk_dict[tgd]-tagged_sem_dict[tgd], 
-                                    color='grey')
             ax.axis('off')
         
         plt.subplots_adjust(hspace = 0.4)
         plt.show()
         
-        out_directory = r'Z:\Dinghao\code_dinghao\LC_tagged_by_sess'
-        fig.savefig(out_directory + '/' + file_name[42:60] + '_waveforms' + '.png')
+        # out_directory = r'Z:\Dinghao\code_dinghao\LC_tagged_by_sess'
+        # fig.savefig(out_directory + '/' + file_name[42:60] + '_waveforms' + '.png')
         
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy', tagged_spk_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_sem.npy', tagged_sem_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_avg_spk.npy', avg_spk_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_avg_sem.npy', avg_sem_dict)
+        np.save('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_spk.npy', avg_spk_dict)
+        np.save('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_sem.npy', avg_sem_dict)

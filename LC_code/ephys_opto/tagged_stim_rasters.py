@@ -15,6 +15,19 @@ import scipy.io as sio
 import h5py
 import sys
 import os
+import pandas as pd
+
+cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+
+
+#%% specify RO peaking putative Dbh cells
+tagged_peak_keys = []
+for cell in cell_prop.index:
+    pk = cell_prop['peakness'][cell]  # peakness
+    tg = cell_prop['tagged'][cell]
+    
+    if pk & tg:
+        tagged_peak_keys.append(cell)
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -75,18 +88,18 @@ def latency2peak(arr):
     
     return all_lat, mean_lat, std_lat
 
-def baseline_sr(arr):
-    """
-    Parameters
-    ----------
-    arr : smoothed spiking array, trials x time bins 
+# def baseline_sr(arr):
+#     """
+#     Parameters
+#     ----------
+#     arr : smoothed spiking array, trials x time bins 
 
-    Returns
-    -------
-    baseline_sr : averaged baseline firing rate (-1.5~-.5, .5~2.5, 3 s in total)
-    """
-    tot_trial = arr.shape[0]
-    for trial in tot_trial:
+#     Returns
+#     -------
+#     baseline_sr : averaged baseline firing rate (-1.5~-.5, .5~2.5, 3 s in total)
+#     """
+#     tot_trial = arr.shape[0]
+#     for trial in tot_trial:
         
 
 
@@ -152,7 +165,7 @@ for pathname in pathLC:
 
 
 #%% analyse 040 
-print('\nanalysing all 0-4-0 sessions')
+print('\nanalysing all 0-2-0 sessions')
 
 baseline_mean = []
 baseline_std = []
@@ -163,15 +176,11 @@ conts_std = []
 recovery_mean = []
 recovery_std = []
 
-# bursting cells 
-cluster2 = np.load('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_clustered_fromall.npy', 
-                   allow_pickle=True).item()['cluster 2']
-
 for cluname in list(all_rasters.keys())[15:]:
     divider1 = cluname.find(' ', cluname.find(' ')+1)  # find 2nd space
     stimtype = cluname[divider1+1]
     
-    if stimtype=='4' and cluname[:divider1] in cluster2:
+    if stimtype=='2' and cluname[:divider1] in tagged_peak_keys:
         print(cluname[:divider1])
         raster = all_rasters[cluname]
         
@@ -180,7 +189,7 @@ for cluname in list(all_rasters.keys())[15:]:
         stim_divider = stim_string.find(' ')
         stim_start = int(stim_string[:stim_divider])
         stim_end = int(stim_string[stim_divider+1:])
-        stim_ind = np.arange(stim_start, stim_end, 3)
+        stim_ind = np.arange(stim_start-1, stim_end-1, 3)  # need to -1 for anything other than 040
         stims = raster[stim_ind]
 
         cont_ind = np.arange(stim_start, stim_end, 1)
@@ -191,7 +200,7 @@ for cluname in list(all_rasters.keys())[15:]:
         recovery = raster[stim_end:]
 
         # plot only if there is no figures yet
-        output_path = 'Z:\Dinghao\code_dinghao\LC_all_tagged\stim_effects\LC_tagged_stimrasters_040_(alignedRun)_{}.png'.format(cluname[:divider1])
+        output_path = 'Z:\Dinghao\code_dinghao\LC_all_tagged\stim_effects\LC_tagged_stimrasters_020_(alignedRun)_{}.png'.format(cluname[:divider1])
         if not os.path.isfile(output_path):
             fig, axs = plt.subplots(2, 2, figsize=(6,5))
             fig.suptitle(cluname[:divider1])
@@ -251,12 +260,12 @@ for cluname in list(all_rasters.keys())[15:]:
         recovery_std.append(std_recovery)
         
 fig, ax = plt.subplots()
-ax.set(title='mean latencies to peak (all clstr1)')
+ax.set(title='mean latencies to peak')
 ax.set_xticks([1, 2, 3, 4], ['baseline', 'stims', 'conts', 'recovery'])
 box_mean = ax.boxplot([baseline_mean, stims_mean, conts_mean, recovery_mean], notch=True)
 
 fig, ax = plt.subplots()
-ax.set(title='std latencies to peak (all clstr1)')
+ax.set(title='std latencies to peak ')
 ax.set_xticks([1, 2, 3, 4], ['baseline', 'stims', 'conts', 'recovery'])
 box_std = ax.boxplot([baseline_std, stims_std, conts_std, recovery_std], notch=True)
 

@@ -196,3 +196,26 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_spikeavg_(alignedRun).png',
 #%% save 
 np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_avg_sem.npy', 
         LC_all_avg_sem)
+
+
+#%% single-cell heatmap
+fig = plt.figure(1, figsize=[col_plots*4, row_plots*2.85]); fig.tight_layout()
+
+for j in range(len(all_info)):
+    curr_clu = list(all_info.items())[j]
+    curr_clu_name = curr_clu[0]
+    curr_clu_im = normalise(list_avg[j][2500:8750]).reshape((1, 6250))
+    
+    xaxis = np.arange(-1250, 5000)/samp_freq 
+    
+    ax = fig.add_subplot(row_plots, col_plots, plot_pos[j])
+    ax.set_title(curr_clu_name[-22:], fontsize = 10)
+    ax.set(xlabel='time (s)')
+    clu_avg_im = ax.imshow(curr_clu_im, aspect='auto')
+
+plt.subplots_adjust(hspace = 0.5)
+plt.show()
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_spikeavgim_(alignedRun).png',
+            dpi=300,
+            bbox_inches='tight')
