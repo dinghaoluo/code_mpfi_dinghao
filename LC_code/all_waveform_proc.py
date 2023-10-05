@@ -10,7 +10,6 @@ saves the average waveforms of all recordings in rec_list, pathLC
 
 
 #%% imports
-
 import sys
 import numpy as np
 from random import sample
@@ -30,9 +29,10 @@ if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
 import rec_list
 pathLC = rec_list.pathLC
 
+number_eg_spk = 100  # how many example spks to store
+
 
 #%% main function
-
 def spk_w_sem(fspk, clu, nth_clu):
     
     clu_n_id = [int(x) for x in np.transpose(get_clu(nth_clu, clu))]  # ID of every single spike of clu
@@ -65,6 +65,11 @@ def spk_w_sem(fspk, clu, nth_clu):
     av_spks = np.zeros([tot_spks, n_spk_samp])
     max_spks = np.zeros([tot_spks, n_spk_samp])
     
+    # added 29 Aug
+    eg_spks = np.zeros([number_eg_spk, n_spk_samp])
+    ind_eg = np.random.randint(0, tot_spks, number_eg_spk)
+    eg_count = 0
+    
     for i in range(tot_spks):
         spk_single = np.matrix(spks_wfs[i, :, :])
         spk_diff = np.zeros(n_chan)
@@ -73,6 +78,10 @@ def spk_w_sem(fspk, clu, nth_clu):
             spk_max = np.argmax(spk_diff)
         max_spks[i, :] = spk_single[spk_max, :]  # wf w/ highest amplitude
         av_spks[i, :] = spk_single.mean(0)  # wf of averaged amplitude (channels)
+        
+        if i in ind_eg:
+            eg_spks[eg_count, :] = av_spks[i, :]
+            eg_count+=1
     
     norm_spks = np.zeros([tot_spks, n_spk_samp])
     for i in range(tot_spks):
@@ -86,7 +95,7 @@ def spk_w_sem(fspk, clu, nth_clu):
     for i in range(32):
         spk_sem[i] = sem(norm_spks[:, i])
         
-    return av_spk, spk_sem;
+    return av_spk, spk_sem, eg_spks;
 
 
 #%% MAIN
@@ -140,13 +149,15 @@ for pathname in pathLC:
         
         avg_spk_dict = {}
         avg_sem_dict = {}
+        eg_spks_dict = {}
         
         for i in range(tot_clus):
             nth_clu = i + 2
-            av_spk, spk_sem = spk_w_sem(fspk, clu, nth_clu)
+            av_spk, spk_sem, eg_spks = spk_w_sem(fspk, clu, nth_clu)
             
             avg_spk_dict[str(nth_clu)] = av_spk
             avg_sem_dict[str(nth_clu)] = spk_sem
+            eg_spks_dict[str(nth_clu)] = eg_spks
             
             ax = fig.add_subplot(row_plots, col_plots, plot_pos[i])
             ax.set_title('%s%s' % ('clu ', nth_clu), fontsize = 10)
@@ -162,3 +173,4 @@ for pathname in pathLC:
         
         np.save('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_spk.npy', avg_spk_dict)
         np.save('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_sem.npy', avg_sem_dict)
+        np.save('Z:\Dinghao\code_dinghao\LC_by_sess'+file_name[42:60]+'_avg_eg_spks.npy', eg_spks_dict)

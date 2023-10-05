@@ -64,7 +64,7 @@ for cluname in all_tagged.keys():
         temp = (behEvents['stimPulse'][0, 0][i, 0] 
                 + (behEvents['stimPulse'][0, 0][i, 1])/10000000)  # pulse time with highest precision
         temp_s = round(temp/20000, 4)  # f[sampling] = 20kHz
-        stim_tp[i] = temp
+        stim_tp[i] = temp  # time points of each stim 
     
     tagged_spk_index = np.zeros(60)
     tagged_spk_time = np.zeros(60)

@@ -9,7 +9,6 @@ compiling cell properties into a dataframe
 
 
 #%% imports 
-import sys
 import os
 import numpy as np 
 import pandas as pd
@@ -84,7 +83,7 @@ for cluname in rasterkeys:
     else:
         [peak, avg_profile, sig_shuf] = RO_peak_detection(rasters[cluname])
     peakness.append(peak)
-    # plot_RO_peak(cluname, avg_profile, sig_shuf)
+    plot_RO_peak(cluname, avg_profile, sig_shuf)
 
 df = df.assign(peakness=pd.Series(peakness).values)
 
@@ -120,29 +119,48 @@ df.to_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 
 
 #%% min distances to nearest tagged cells after UMAP-embedding
-min_dist = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_min_dist.npy',
-                   allow_pickle=True).item()
-min_dist_list = list(min_dist.values())
-df = df.assign(min_dist=pd.Series(min_dist_list).values)
+# min_dist = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_min_dist.npy',
+#                    allow_pickle=True).item()
+# min_dist_list = list(min_dist.values())
+# df = df.assign(min_dist=pd.Series(min_dist_list).values)
 
-dist2mean = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_dist2mean.npy',
-                    allow_pickle=True).item()
-dist2mean_list = list(dist2mean.values())
-df = df.assign(dist2mean=pd.Series(dist2mean_list).values)
+# dist2mean = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_dist2mean.npy',
+#                     allow_pickle=True).item()
+# dist2mean_list = list(dist2mean.values())
+# df = df.assign(dist2mean=pd.Series(dist2mean_list).values)
 
-min_dist_list = np.array(min_dist_list)
-min_dist_std = np.std(min_dist_list[min_dist_list>0])  # only calculate based on non-tagged 
-# min_dist_mean = np.mean(min_dist_list[min_dist_list>0])  # same as above 
+# min_dist_list = np.array(min_dist_list)
+# min_dist_std = np.std(min_dist_list[min_dist_list>0])  # only calculate based on non-tagged 
+# # min_dist_mean = np.mean(min_dist_list[min_dist_list>0])  # same as above 
 
-dist2mean_list = np.array(dist2mean_list)
-dist2mean_threshold = np.percentile(dist2mean_list[dist2mean_list>0], 32)
+# dist2mean_list = np.array(dist2mean_list)
+# dist2mean_threshold = np.percentile(dist2mean_list[dist2mean_list>0], 30)
 
-putative = [(d<dist2mean_threshold and d!=0) for d in dist2mean_list]
-for ind in df.index:
-    sr = df['spike_rate'][ind]
-for i, put in enumerate(putative):
-    if put and sr>10:  # not a putative if spike rate > 10 Hz
-        putative[i] = False
+# putative = [(d<dist2mean_threshold and d!=0) for d in dist2mean_list]
+# for ind in df.index:
+#     sr = df['spike_rate'][ind]
+# for i, put in enumerate(putative):
+#     if put and sr>10:  # not a putative if spike rate > 10 Hz
+#         putative[i] = False
+
+# df = df.assign(putative=pd.Series(putative).values)
+
+# df.to_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+
+
+#%% use kmeans result to cluster the cells into putative 
+kmeans = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_UMAP_kmeans.npy',
+                        allow_pickle=True)
+putative = []
+sr = list(df['spike_rate'])
+
+for i, e in enumerate(kmeans):
+    if e==1:
+        putative.append(False)
+    elif sr[i]>=10 or tagged[i]==True:
+        putative.append(False)
+    else:
+        putative.append(True)
 
 df = df.assign(putative=pd.Series(putative).values)
 

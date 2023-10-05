@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 from scipy.stats import sem
 import h5py
-import sys
+import sys 
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -69,7 +69,7 @@ for pathname in pathLC:
         speed_time_all[i][speed_time_all[i]<0] = 0
     speed_time_conv = [np.convolve(np.squeeze(single), gaus_speed)[50:-49] 
                        for single in speed_time_all]
-    norm_speed = np.array([normalise(s) for s in speed_time_conv])
+    # norm_speed = np.array([normalise(s) for s in speed_time_conv])
     
     # trial length for equal length deployment (use speed trial length)
     trial_length = [trial.shape[0] for trial in speed_time_conv]
@@ -105,10 +105,11 @@ for pathname in pathLC:
     for clu in tag_sess:
         clu_name = pathname[-17:]+' clu'+clu
         clu_norm_spike = norm_spike[i]
-        clu_norm_speed = norm_speed
+        # clu_norm_speed = norm_speed
         
-        all_tagged_info[clu_name] = np.row_stack((clu_norm_spike,
-                                                  clu_norm_speed))
+        # all_tagged_info[clu_name] = np.row_stack((clu_norm_spike,
+        #                                           clu_norm_speed))
+        all_tagged_info[clu_name] = clu_norm_spike
         i+=1
     
     
@@ -128,7 +129,7 @@ if tot_plots % col_plots != 0:
 plot_pos = np.arange(1, tot_plots+1)
 
 max_trial_length = np.zeros(len(all_tagged_info))
-length_for_disp = 13750  # how many samples (in total) to display for imshow
+length_for_disp = 10000  # how many samples (in total) to display for imshow
 
 for i in range(len(all_tagged_info)):
     # reshape data for plotting (imshow)
@@ -154,13 +155,13 @@ for i in range(len(all_tagged_info)):
     
     j=0
     for trial in ind_good_beh:
-        curr_length = len(n_speed[trial])
-        if curr_length <= length_for_disp:
-            spike_trunc[j, :curr_length] = n_spike[trial][:]
-            spike_trunc_norm[j, :curr_length] = normalise(n_spike[trial][:])
-        else:
-            spike_trunc[j, :] = n_spike[trial][:length_for_disp]
-            spike_trunc_norm[j, :] = normalise(n_spike[trial][:length_for_disp])
+        # curr_length = len(n_speed[trial])
+        # if curr_length <= length_for_disp:
+        #     spike_trunc[j, :curr_length] = n_spike[trial][:]
+        #     spike_trunc_norm[j, :curr_length] = normalise(n_spike[trial][:])
+        # else:
+        spike_trunc[j, :] = n_spike[trial][:length_for_disp]
+        spike_trunc_norm[j, :] = normalise(n_spike[trial][:length_for_disp])
         j+=1
     
     fig = plt.figure(1, figsize=[4*4, row_plots*2.5]); fig.tight_layout()

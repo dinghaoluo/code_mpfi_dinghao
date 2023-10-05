@@ -13,6 +13,7 @@ import sys
 import numpy as np
 from itertools import groupby
 import matplotlib.pyplot as plt
+plt.rcParams['font.family'] = 'Arial' 
 
 if ('Z:\Dinghao\code_dinghao\LC_code' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\LC_code')
@@ -69,7 +70,7 @@ def neu_shuffle_single(spikeArr, alpha, peak_width=1, num_shuf=1000):
     Parameters
     ----------
     spikeArr : numpy array
-        Average spike profile (pre-convolution) of a single cell.
+        Smoothed spike profile of a single cell.
     alpha : float     
         Significance threshold.
     peak_width : int, OPTIONAL
@@ -178,17 +179,17 @@ def RO_peak_detection(spikeArr, first_stim=-1, peak_width=1, min_peak=.2, alpha=
 
 
 def plot_RO_peak(cluname, avg_profile, sig_shuf):
-    # print('plotting {}...'.format(cluname))
+    print('plotting {}...'.format(cluname))
     
     fig, ax = plt.subplots()
-    ax.set(title=cluname,
-           xlim=(-.5, .5),
-           xlabel='time (s)',
-           ylabel='spike rate (Hz)')
     
     maxpt = max(max(avg_profile), max(sig_shuf))
     minpt = min(min(avg_profile), min(sig_shuf))
-    ax.set(ylim=(minpt*.9, maxpt*1.2))
+    ax.set(title=cluname,
+           xlim=(-.5, .5),
+           ylim=(minpt*.9, maxpt*1.2),
+           xlabel='time (s)',
+           ylabel='spike rate (Hz)')
     
     xaxis = np.arange(-625, 625)/1250
     avg, = ax.plot(xaxis, avg_profile)
@@ -201,6 +202,8 @@ def plot_RO_peak(cluname, avg_profile, sig_shuf):
                 dpi=300,
                 bbox_inches='tight',
                 transparent=False)
+    
+    plt.close(fig)
 
 
 #%% main calls for testing 

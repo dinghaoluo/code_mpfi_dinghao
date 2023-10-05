@@ -30,7 +30,7 @@ cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_pr
 RO_peaking_keys = []
 for cell in cell_prop.index:
     pt = cell_prop['putative'][cell]  # putative
-    up = cell_prop['union_peakness'][cell]  # peakness
+    up = cell_prop['peakness'][cell]  # peakness
     
     if pt and up:
         RO_peaking_keys.append(cell)
@@ -70,7 +70,7 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_putDbh_ROpeaking_ordered_heat
 tagged_keys = []
 for cell in cell_prop.index:
     tg = cell_prop['tagged'][cell]  # tagged
-    up = cell_prop['union_peakness'][cell]  # peakness
+    up = cell_prop['peakness'][cell]  # peakness
     
     if tg and up:
         tagged_keys.append(cell)

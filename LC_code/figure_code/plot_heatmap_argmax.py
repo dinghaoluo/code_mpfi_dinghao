@@ -50,19 +50,22 @@ for i, key in enumerate(putative_keys):
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(7, 5))
-ax.set(title='putative Dbh+ cells',
-       xlabel='time (s)',
+fig, ax = plt.subplots(figsize=(4, 3.8))
+ax.set(xlabel='time (s)',
        ylabel='cell #')
+fig.suptitle('putative Dbh+ cells')
 
 im_ordered = ax.imshow(im_matrix, aspect='auto',
                        extent=[-3, 5, len(putative_keys), 0])
 plt.colorbar(im_ordered)
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_putDbh_ordered_heatmap.png',
-            dpi=300,
-            bbox_inches='tight',
-            transparent=True)
+fig.tight_layout()
+plt.show()
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_putDbh_ordered_heatmap.pdf',
+            bbox_inches='tight')
+
+plt.close(fig)
 
 
 #%% specify RO peaking tagged Dbh cells
@@ -89,16 +92,19 @@ for i, key in enumerate(tagged_keys):
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(7, 5))
-ax.set(title='tagged Dbh+ cells',
-       xlabel='time (s)',
+fig, ax = plt.subplots(figsize=(4, 3.8))
+ax.set(xlabel='time (s)',
        ylabel='cell #')
+fig.suptitle('tagged Dbh+ cells')
 
 tagged_im_ordered = ax.imshow(tagged_im_matrix, aspect='auto',
                               extent=[-3, 5, len(tagged_keys), 0])
 plt.colorbar(tagged_im_ordered)
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_ordered_heatmap.png',
-            dpi=300,
-            bbox_inches='tight',
-            transparent=True)
+fig.tight_layout()
+plt.show()
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_ordered_heatmap.pdf',
+            bbox_inches='tight')
+
+plt.close(fig)

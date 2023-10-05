@@ -74,3 +74,5 @@ for pathname in pathHPC:
     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_all_rasters\{}.png'.format(pathname[-17:]),
                 dpi=300,
                 bbox_inches='tight')
+    
+    plt.close(fig)

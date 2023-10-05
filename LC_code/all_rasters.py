@@ -92,10 +92,15 @@ for pathname in pathLC:
 
 
 #%% save all rasters
+print('\nWriting to LC_all_rasters.npy\n')
 np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters.npy', 
         all_rasters)
+print('success!')
+
+print('\nWriting to LC_all_rasters_simp_name.npy\n')
 np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters_simp_name.npy', 
         rasters)
+print('success!')
 
 
 #%%

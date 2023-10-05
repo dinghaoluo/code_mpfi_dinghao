@@ -11,7 +11,7 @@ plot example cells from clusters with rasters
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
-import scipy.io as sio 
+# import scipy.io as sio 
 import h5py
 
 
@@ -28,66 +28,69 @@ sr_file = np.load('Z:/Dinghao/code_dinghao/LC_all_tagged/LC_all_tagged_avg_sem.n
 
 tot_trial = time.shape[0]
 
-example1 = 'A049r-20230120-04 clu9'
-example2 = 'A049r-20230120-04 clu12'
+first = 8; second = 15
+example1 = 'A049r-20230120-04 clu{}'.format(first)
+example2 = 'A049r-20230120-04 clu{}'.format(second)
 
 # read spikes for cell 1 (clu9)
 spk1 = np.empty(tot_trial-1, dtype='object')
 spk1_bef = np.empty(tot_trial-1, dtype='object')
 for trial in range(1, tot_trial):  # trial 0 is an empty trial
-    spk1[trial-1] = spike_time_file[time[trial,7]][0]
-    spk1_bef[trial-1] = spike_time_file[time_bef[trial,7]][0]
+    spk1[trial-1] = spike_time_file[time[trial,first-2]][0]
+    spk1_bef[trial-1] = spike_time_file[time_bef[trial,first-2]][0]
 spk1_all = np.empty(tot_trial-1, dtype='object')
 for trial in range(tot_trial-1):
     curr_trial_trunc = np.concatenate([spk1_bef[trial].reshape(-1),
                                        spk1[trial].reshape(-1)])
-    curr_trial_trunc = [i for i in curr_trial_trunc if i>=-1250 and i<=5000]
+    curr_trial_trunc = [i for i in curr_trial_trunc if i>=-3750 and i<=6250]
     spk1_all[trial] = curr_trial_trunc
 
 # read spikes for cell 2 (clu12)    
 spk2 = np.empty(tot_trial-1, dtype='object')
 spk2_bef = np.empty(tot_trial-1, dtype='object')
 for trial in range(1, tot_trial):  # trial 0 is an empty trial
-    spk2[trial-1] = spike_time_file[time[trial,10]][0]
-    spk2_bef[trial-1] = spike_time_file[time_bef[trial,10]][0]
+    spk2[trial-1] = spike_time_file[time[trial,second-2]][0]
+    spk2_bef[trial-1] = spike_time_file[time_bef[trial,second-2]][0]
 spk2_all = np.empty(tot_trial-1, dtype='object')
 for trial in range(tot_trial-1):
     curr_trial_trunc = np.concatenate([spk2_bef[trial].reshape(-1),
                                        spk2[trial].reshape(-1)])
-    curr_trial_trunc = [i for i in curr_trial_trunc if i>=-1250 and i<=5000]
+    curr_trial_trunc = [i for i in curr_trial_trunc if i>=-3750 and i<=6250]
     spk2_all[trial] = curr_trial_trunc
     
 
 #%% plotting 
 print('plotting rasters...')
 
-fig, [ax1, ax2] = plt.subplots(1, 2, figsize=(9, 4)); fig.tight_layout(pad=4)
+fig, [ax1, ax2] = plt.subplots(1, 2, figsize=(7, 3.5)); fig.tight_layout(pad=5)
 ax1.set(title=example1,
         xlabel='time (s)', ylabel='trial',
-        ylim=(0, 99), xlim=(-1, 4))
+        ylim=(0, 99), xlim=(-3, 5))
 ax2.set(title=example2,
         xlabel='time (s)', ylabel='trial',
-        ylim=(0, 99), xlim=(-1, 4))
+        ylim=(0, 99), xlim=(-3, 5))
 ax1.set_yticks([1]+list(np.arange(20, 101, 20)))
 ax2.set_yticks([1]+list(np.arange(20, 101, 20)))
-ax1.patch.set_facecolor('lightsteelblue')
-ax2.patch.set_facecolor('peachpuff')
-ax1.patch.set_alpha(.3)
-ax2.patch.set_alpha(.3)
+ax1.set_xticks([-2,0,2,4])
+ax2.set_xticks([-2,0,2,4])
+# ax1.patch.set_facecolor('lightsteelblue')
+# ax2.patch.set_facecolor('peachpuff')
+# ax1.patch.set_alpha(.3)
+# ax2.patch.set_alpha(.3)
 
 for trial in range(tot_trial-1):
     ax1.scatter([t/1250 for t in spk1_all[trial]], [trial]*len(spk1_all[trial]),
-                s=3, color='grey', alpha=.2)
+                s=3, c='grey', ec='none', alpha=.2)
     ax2.scatter([t/1250 for t in spk2_all[trial]], [trial]*len(spk2_all[trial]),
-                s=3, color='grey', alpha=.2)
+                s=3, c='grey', ec='none', alpha=.2)
 
     
 print('plotting avg spk profiles...')
 
-spk1_avg = sr_file['all tagged avg'][example1][2500:8750]
-spk1_sem = sr_file['all tagged sem'][example1][2500:8750]
-spk2_avg = sr_file['all tagged avg'][example2][2500:8750]
-spk2_sem = sr_file['all tagged sem'][example2][2500:8750]
+spk1_avg = sr_file['all tagged avg'][example1][:10000]
+spk1_sem = sr_file['all tagged sem'][example1][:10000]
+spk2_avg = sr_file['all tagged avg'][example2][:10000]
+spk2_sem = sr_file['all tagged sem'][example2][:10000]
 
 ax1t = ax1.twinx(); ax2t = ax2.twinx()
 ax1t.set(ylabel='spike rate (Hz)',
@@ -95,15 +98,14 @@ ax1t.set(ylabel='spike rate (Hz)',
 ax2t.set(ylabel='spike rate (Hz)',
          ylim=(min(spk1_avg)*.5, max(spk2_avg)*1.2))
 
-xaxis = np.arange(-1250, 5000)/1250
+xaxis = np.arange(-3750, 6250)/1250
 
-ax1t.plot(xaxis, spk1_avg, color='grey')
+ax1t.plot(xaxis, spk1_avg, c='grey')
 ax1t.fill_between(xaxis, spk1_avg+spk1_sem, spk1_avg-spk1_sem, 
                   color='grey', alpha=.25)
-ax2t.plot(xaxis, spk2_avg, color='grey')
+ax2t.plot(xaxis, spk2_avg, c='grey')
 ax2t.fill_between(xaxis, spk2_avg+spk2_sem, spk2_avg-spk2_sem, 
                   color='grey', alpha=.25)
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell.png',
-            dpi=300,
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell.pdf',
             bbox_inches='tight')

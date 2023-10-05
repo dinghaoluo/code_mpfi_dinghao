@@ -22,9 +22,9 @@ pathHPC = rec_list.pathHPCLCopt
 
 
 #%% create stim rasters 
-curr_rasters = {}; curr_rasters_simp = {}
-
 for pathname in pathHPC:
+    curr_rasters = {}; curr_rasters_simp = {}  # reset dictionaries
+    
     print(pathname[-17:])
     
     filename = pathname + pathname[-18:] + '_DataStructure_mazeSection1_TrialType1'
@@ -43,7 +43,7 @@ for pathname in pathHPC:
         stimtype = 'NA'
         stimwind = ['NA', 'NA']
         
-    spike_time_file = h5py.File(filename + '_alignedSpikesPerNPerT_msess1_Run0.mat')['trialsRunSpikes']
+    spike_time_file = h5py.File(filename + '_alignedSpikesPerNPerT_msess1_Run1.mat')['trialsRunSpikes']
     
     time_bef = spike_time_file['TimeBef']; time = spike_time_file['Time']
     tot_clu = time.shape[1]

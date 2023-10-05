@@ -12,15 +12,15 @@ saves the average and tagged waveforms of all recordings in rec_list, pathLC
 
 
 #%% imports
-
 import sys
 import os
 import numpy as np
 from random import sample
 import scipy.io as sio
-from scipy.stats import sem
 import matplotlib.pyplot as plt
-import matplotlib as plc
+import matplotlib as plr
+from scipy.stats import sem
+
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
@@ -32,9 +32,10 @@ if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
 import rec_list
 pathLC = rec_list.pathLC
 
+number_eg_spk = 100  # how many example spks to store
+
 
 #%% main function
-
 def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
     
     clu_n_id = [int(x) for x in np.transpose(get_clu(nth_clu, clu))]  # ID of every single spike of clu
@@ -72,6 +73,11 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
     av_spks = np.zeros([tot_spks, n_spk_samp])
     max_spks = np.zeros([tot_spks, n_spk_samp])
     
+    # added 29 Aug
+    eg_spks = np.zeros([number_eg_spk, n_spk_samp])
+    ind_eg = np.random.randint(0, tot_spks, number_eg_spk)
+    eg_count = 0
+    
     for i in range(tot_spks):
         spk_single = np.matrix(spks_wfs[i, :, :])
         spk_diff = np.zeros(n_chan)
@@ -80,6 +86,10 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
             spk_max = np.argmax(spk_diff)
         max_spks[i, :] = spk_single[spk_max, :]  # wf w/ highest amplitude
         av_spks[i, :] = spk_single.mean(0)  # wf of averaged amplitude (channels)
+        
+        if i in ind_eg and spikes_to_load!=[]:
+            eg_spks[eg_count, :] = av_spks[i, :]
+            eg_count+=1
     
     norm_spks = np.zeros([tot_spks, n_spk_samp])
     for i in range(tot_spks):
@@ -93,7 +103,7 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
     for i in range(32):
         spk_sem[i] = sem(norm_spks[:, i])
         
-    return av_spk, spk_sem;
+    return av_spk, spk_sem, eg_spks;
 
 
 #%% MAIN
@@ -103,8 +113,8 @@ for pathname in pathLC:
     file_name = file_stem + '\\' + file_stem[loc_A:loc_A+17]
     
     # processing only begins if there exist not *already* the session .npy files
-    if os.path.isfile('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy')==False:
-    # if pathname=='Z:\Dinghao\MiceExp\ANMD056r\A056r-20230422\A056r-20230422-02':
+    # if os.path.isfile('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy')==False:
+    if 1==1:
         # header
         print('\n\nProcessing {}'.format(pathname))
         
@@ -137,9 +147,10 @@ for pathname in pathLC:
         for i in range(behEvents['stimPulse'][0, 0].shape[0]):
             i = int(i)
             if behEvents['stimPulse'][0, 0][i, 3]<10:  # ~5ms tagged pulses
-                temp = (behEvents['stimPulse'][0, 0][i, 0] 
-                        + (behEvents['stimPulse'][0, 0][i, 1])/10000000)  # pulse time with highest precision
-                temp_s = round(temp/20000, 4)  # f[sampling] = 20kHz
+                # temp = (behEvents['stimPulse'][0, 0][i, 0] 
+                #         + (behEvents['stimPulse'][0, 0][i, 1])/10000000)  # pulse time with highest precision
+                temp = behEvents['stimPulse'][0, 0][i, 0]
+                # temp_s = round(temp/20000, 4)  # f[sampling] = 20kHz
                 # print('%s%s%s%s%s%s%s' % ('pulse ', i+1, ': ', temp_s, 's (', temp, ')'))  # print pulse time
                 stim_tp[tag_id] = temp
                 tag_id += 1
@@ -176,13 +187,14 @@ for pathname in pathLC:
         
         tagged_spk_dict = {}
         tagged_sem_dict = {}
+        tagged_eg_spk_dict = {}
         for iclu in range(tot_clus):
             if tagged[iclu, 1] == 1:
                 tagged_clu = int(tagged[iclu, 0])
                 tagged_spikes = if_tagged_spks[tagged_clu-2, :]
                 tagged_spikes = [int(x) for x in tagged_spikes]
                 tagged_spikes = [spike for spike in tagged_spikes if spike!=0]
-                tagged_spk, tagged_sem = spk_w_sem(fspk, clu, tagged_clu, tagged_spikes)
+                tagged_spk, tagged_sem, tagged_eg_spks = spk_w_sem(fspk, clu, tagged_clu, tagged_spikes)
                 
                 tagged_spk_dict[str(tagged_clu)] = tagged_spk
                 tagged_sem_dict[str(tagged_clu)] = tagged_sem
@@ -198,7 +210,7 @@ for pathname in pathLC:
         if tot_plots % col_plots != 0:
             row_plots += 1
             
-        plc.rcParams['figure.figsize'] = (4*2, row_plots*2.5)
+        plr.rcParams['figure.figsize'] = (4*2, row_plots*2.5)
         
         plot_pos = np.arange(1, tot_plots+1)
         
@@ -206,13 +218,15 @@ for pathname in pathLC:
         
         avg_spk_dict = {}
         avg_sem_dict = {}
+        avg_eg_spk_dict = {}
         
         for i in range(tot_clus):
             nth_clu = i + 2
-            av_spk, spk_sem = spk_w_sem(fspk, clu, nth_clu)
+            av_spk, spk_sem, eg_spks = spk_w_sem(fspk, clu, nth_clu)
             
             avg_spk_dict[str(nth_clu)] = av_spk
             avg_sem_dict[str(nth_clu)] = spk_sem
+            avg_eg_spk_dict[str(nth_clu)] = eg_spks
             
             ax = fig.add_subplot(row_plots, col_plots, plot_pos[i])
             ax.set_title('%s%s' % ('clu ', nth_clu), fontsize = 10)

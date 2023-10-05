@@ -13,6 +13,12 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio 
 import h5py
+from scipy.stats import sem
+
+
+#%% load data 
+all_info = np.load('Z:/Dinghao/code_dinghao/LC_all_tagged/LC_all_tagged_info.npy',
+                   allow_pickle=True).item()
 
 
 #%% MAIN
@@ -23,8 +29,6 @@ filename = pathname + pathname[-18:] + '_DataStructure_mazeSection1_TrialType1'
 spike_time_file = h5py.File(filename + '_alignedSpikesPerNPerT_msess1_Run0.mat')['trialsRunSpikes']
 time_bef = spike_time_file['TimeBef']; time = spike_time_file['Time']
 
-sr_file = np.load('Z:/Dinghao/code_dinghao/LC_all_tagged/LC_all_tagged_avg_sem.npy',
-                  allow_pickle=True).item()
 beh_par_file = sio.loadmat(pathname+pathname[-18:]+
                            '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
                                    # -1 to account for MATLAB Python difference
@@ -35,7 +39,8 @@ ind_good_beh = np.delete(ind_good_beh, ind_bad_beh)
 
 tot_trial = time.shape[0]
 
-example = 'A049r-20230120-04 clu10'
+example = 'A049r-20230120-04 clu8'
+example_trains = all_info[example]
 
 # read spikes for cell 1 (clu9)
 spk = np.empty(tot_trial-1, dtype='object')
@@ -47,15 +52,15 @@ spk_all = np.empty(tot_trial-1, dtype='object')
 for trial in range(tot_trial-1):
     curr_trial_trunc = np.concatenate([spk_bef[trial].reshape(-1),
                                        spk[trial].reshape(-1)])
-    curr_trial_trunc = [i for i in curr_trial_trunc if i>=-1250 and i<=5000]
+    curr_trial_trunc = [i for i in curr_trial_trunc if i>=-725 and i<=1250]
     spk_all[trial] = curr_trial_trunc
 
 
 #%% plotting 
 print('plotting rasters...')
 
-fig, ax = plt.subplots(figsize=(5, 4))
-ax.set(ylim=(-1, len(spk_all)), xlim=(-1.02, 4.02),
+fig, ax = plt.subplots(figsize=(4, 3))
+ax.set(ylim=(-1, len(spk_all)), xlim=(-.5, 1),
        title=example)
 for p in ['left', 'top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
@@ -66,31 +71,51 @@ count=0
 for trial in ind_bad_beh:
     count+=1
     ax.scatter([t/1250 for t in spk_all[trial]], [count]*len(spk_all[trial]),
-                s=3, color='grey')
+                s=3, color='darkgrey')
 for trial in ind_good_beh[-15:]:
     count+=1
     ax.scatter([t/1250 for t in spk_all[trial]], [count]*len(spk_all[trial]),
-               s=3, color='forestgreen')
+               s=3, color='cornflowerblue')
 
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad.png',
-            dpi=300,
+            dpi=500,
             bbox_inches='tight')
 
+good_trains = [t[2500:7500]*1250 for i,t in enumerate(example_trains) if i in ind_good_beh]
+bad_trains = [t[2500:7500]*1250 for i,t in enumerate(example_trains) if i in ind_bad_beh]
 
-spk_avg = sr_file['all tagged avg'][example][2500:8750]
-spk_sem = sr_file['all tagged sem'][example][2500:8750]
+good_avg = np.mean(good_trains, axis=0)
+good_sem = sem(good_trains, axis=0)
+bad_avg = np.mean(bad_trains, axis=0)
+bad_sem = sem(bad_trains, axis=0)
 
-fig, ax = plt.subplots(figsize=(5, 4))
+fig, ax = plt.subplots(figsize=(4,3))
 
-ax.set(ylabel='spike rate (Hz)',
-       ylim=(0, max(spk_avg)*1.2))
+ax.set(xlabel='time (s)',
+       ylabel='spike rate (Hz)',
+       xlim=(-.5, 1),
+       ylim=(0, max(good_avg)*1.2),
+       xticks=[-.5, 0, .5, 1],
+       yticks=[0,2,4,6])
 
-xaxis = np.arange(-1250, 5000)/1250
+xaxis = np.arange(-1250, 3750)/1250
 
-ax.plot(xaxis, spk_avg, color='grey')
-ax.fill_between(xaxis, spk_avg+spk_sem, spk_avg-spk_sem,
-                color='grey', alpha=.25)
+gd, = ax.plot(xaxis, good_avg, color='cornflowerblue')
+ax.fill_between(xaxis, good_avg+good_sem, good_avg-good_sem,
+                color='cornflowerblue', alpha=.25)
 
+bd, = ax.plot(xaxis, bad_avg, color='darkgrey')
+ax.fill_between(xaxis, bad_avg+bad_sem, bad_avg-bad_sem,
+                color='darkgrey', alpha=.25)
+
+ax.legend([gd, bd], ['good trial', 'bad trial'], frameon=False)
+
+for p in ['top', 'right']:
+    ax.spines[p].set_visible(False)
+
+plt.show()
 # fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell.png',
-#             dpi=300,
+#             dpi=500,
 #             bbox_inches='tight')
+
+plt.close(fig)

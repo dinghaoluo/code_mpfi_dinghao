@@ -14,6 +14,7 @@ import umap.plot
 # from bokeh.plotting import figure, show, output_notebook
 # from bokeh.models import HoverTool, ColumnDataSource, CategoricalColorMapper
 # from bokeh.palettes import Spectral10
+import pandas as pd 
 
 
 #%% imports 
@@ -21,9 +22,10 @@ import umap
 import sys
 import numpy as np 
 import matplotlib.pyplot as plt 
+plt.rcParams['font.family'] = 'Arial' 
 import matplotlib as mpl
 from sklearn.preprocessing import StandardScaler 
-import pandas as pd 
+from sklearn.cluster import KMeans
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
@@ -60,16 +62,19 @@ non_tagged_ind = np.where(tagged==0)[0]
 
 
 #%% main - acg UMAP
-x = np.arange(-9, 9, 1)
-sigma = 1.5
-
+x = np.arange(-10, 10, 1)
+sigma = 2
 gaussian = [1 / (sigma*np.sqrt(2*np.pi)) * 
               np.exp(-t**2/(2*sigma**2)) for t in x]
+
+# smooth the acgs
 acg_arr = np.array([normalise(np.convolve(acg, gaussian, mode='same')[9800:10000]) for acg in list(acgs.values())])
 # acg_arr = np.array([np.convolve(acg, gaussian, mode='same')[9800:10000] for acg in list(acgs.values())])
 
-reducer = umap.UMAP(metric='correlation')
-# reducer = umap.UMAP(metric='correlation')
+reducer = umap.UMAP(metric='cosine',
+                    min_dist=0.0,
+                    n_neighbors=30,
+                    random_state=100)
 
 scaled_acg_arr = StandardScaler().fit_transform(acg_arr)
 
@@ -94,23 +99,56 @@ min_dist_cmap = mpl.colormaps['ocean'](min_dist_norm)[:len(acgs)]
 dist2mean_norm = normalise(np.concatenate((dist2mean, np.array([max(dist2mean)*1.1]))))
 dist2mean_cmap = mpl.colormaps['ocean'](dist2mean_norm)[:len(acgs)]
 
-fig, ax = plt.subplots(figsize=(4.5, 4))
-umap_scatter = ax.scatter(acg_embedding[:, 0], acg_embedding[:, 1], s=2,
-                          c=dist2mean_cmap)
+fig, ax = plt.subplots(figsize=(3.5,3))
+umap_scatter = ax.scatter(acg_embedding[:, 0], acg_embedding[:, 1], s=5,
+                          c=dist2mean_cmap, alpha=.75, ec='none')
 umap_scatter_tagged = ax.scatter(acg_embedding[tagged_ind, 0], acg_embedding[tagged_ind, 1], 
-                                 s=2, color='orange')
+                                 s=5, color='orange', ec='none')
 umap_scatter_tgcom = ax.scatter(tagged_med[0], tagged_med[1],
                                 s=20, color='darkred')
-ax.legend([umap_scatter_tagged, umap_scatter_tgcom], ['tgd. Dbh+', 'tgd. Dbh+ CoM'])
-ax.set(title='UMAP embedding of ACG\'s of LC/peri-LC cells',
-       xlabel='1st dimension', ylabel='2nd dimension')
+ax.legend([umap_scatter_tagged, umap_scatter_tgcom], ['tgd. $\it{Dbh}$+', 'tgd. $\it{Dbh}$+ CoM'], 
+          frameon=False, loc='upper left', fontsize=8)
+
+xlower = min(acg_embedding[:,0])-.5
+xupper = max(acg_embedding[:,0])+.5
+ylower = min(acg_embedding[:,1])-.5
+yupper = max(acg_embedding[:,1])+.5
+ax.set(title='UMAP embedding of ACGs',
+       xlabel='1st dim.', ylabel='2nd dim.',
+       xticks=[], yticks=[],
+       xlim=(xlower, xupper), ylim=(ylower, yupper))
 
 fig.tight_layout()
 plt.show()
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\\LC_all_UMAP_acg.png',
-            dpi=300,
+# fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg.png',
+#             dpi=300,
+#             bbox_inches='tight',
+#             transparent=False)
+
+plt.close(fig)
+
+
+#%% same figure but with greyscale colours
+fig, ax = plt.subplots(figsize=(3.5,3))
+umap_scatter_grey = ax.scatter(acg_embedding[:,0], acg_embedding[:,1], s=10,
+                               c='grey', alpha=.5, ec='none')
+umap_scatter_tg_grey = ax.scatter(acg_embedding[tagged_ind, 0], acg_embedding[tagged_ind,1],
+                                  s=10, c='royalblue', ec='none')
+ax.legend([umap_scatter_tg_grey, umap_scatter_grey], ['tagged', 'non-tagged'],
+          frameon=False, loc='upper left', fontsize=7)
+ax.set(title='UMAP embedding of ACGs',
+       xlabel='1st dim.', ylabel='2nd dim.',
+       xticks=[], yticks=[],
+       xlim=(xlower, xupper), ylim=(ylower, yupper))
+
+fig.tight_layout()
+plt.show()
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_grey.png',
+            dpi=500,
             bbox_inches='tight',
             transparent=False)
+
+plt.close(fig)
 
 
 #%% colorbar
@@ -130,81 +168,96 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\\LC_all_UMAP_acg.png',
 
 
 #%% save
-min_dist_dict = {}; dist2mean_dict = {}
-for i, key in enumerate(list(acgs.keys())):
-    min_dist_dict[key] = min_dist[i]
-    dist2mean_dict[key] = dist2mean[i]
+# min_dist_dict = {}; dist2mean_dict = {}
+# for i, key in enumerate(list(acgs.keys())):
+#     min_dist_dict[key] = min_dist[i]
+#     dist2mean_dict[key] = dist2mean[i]
 
-np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_min_dist.npy',
-        min_dist_dict)
-np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_dist2mean.npy',
-        dist2mean_dict)
+# np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_min_dist.npy',
+#         min_dist_dict)
+# np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_dist2mean.npy',
+#         dist2mean_dict)
 
 
-#%% interactive plot 
-# images = []
-# for key in all_keys[:3]:
-#     imgname = r'Z:\Dinghao\code_dinghao\LC_all\UMAP_interactive_images\{}.png'.format(key)
-#     images.append(cv2.imread(imgname, flags=cv2.IMREAD_COLOR))
+#%% try k-means 
+reducer_10 = umap.UMAP(metric='cosine',
+                       min_dist=0.0,
+                       n_neighbors=30,
+                       n_components=2,
+                       random_state=100)
+acg_embedding_10 = reducer_10.fit_transform(scaled_acg_arr)
 
-# def embeddable_image(data):
-#     img_data = 255 - 15 * data.astype(np.uint8)
-#     image = Image.fromarray(img_data, mode='L').resize((64, 64), Image.Resampling.BICUBIC)
-#     buffer = BytesIO()
-#     image.save(buffer, format='png')
-#     for_encoding = buffer.getvalue()
-#     return 'data:image/png;base64,' + base64.b64encode(for_encoding).decode()
+kmeans = KMeans(n_clusters=2)
+kmeans.fit(acg_embedding_10)
 
-# tagged_dict = {}
-# for key in all_keys:
-#     if key in tag_list:
-#         tagged_dict[key] = 'tagged'
-#     else:
-#         tagged_dict[key] = 'not tagged'
-# tagged_list = list(tagged_dict.values())
+labels = kmeans.labels_
 
-# df = pd.DataFrame(acg_embedding, columns=('x', 'y'))
-# df['cluname'] = all_keys
-# df['image'] = list(map(embeddable_image, images))
-# df['tagged'] = tagged_list
+np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_kmeans.npy',
+        labels)
 
-# datasource = ColumnDataSource(df)
-# # color_mapping = CategoricalColorMapper(factors=[str(9 - x) for x in digits.target_names],
-# #                                        palette=Spectral10)
+fig, ax = plt.subplots(figsize=(3.5,3))
 
-# plot_figure = figure(
-#     title='UMAP projection of the Digits dataset',
-#     plot_width=600,
-#     plot_height=600,
-#     tools=('pan, wheel_zoom, reset')
-# )
+colours = []
+for i in labels:
+    if i==0:
+        colours.append('k')
+    else:
+        colours.append('grey')
 
-# plot_figure.add_tools(HoverTool(tooltips="""
-# <div>
-#     <div>
-#         <img src='@image' style='float: left; margin: 5px 5px 5px 5px'/>
-#     </div>
-#     <div>
-#         <span style='font-size: 16px; color: #224499'>Digit:</span>
-#         <span style='font-size: 18px'>@digit</span>
-#     </div>
-# </div>
-# """))
+ax.scatter(acg_embedding[:,0], acg_embedding[:,1], c=colours, s=10, ec='none')
 
-# plot_figure.circle(
-#     'x',
-#     'y',
-#     source=datasource,
-#     color=dict(field='tagged'),
-#     line_alpha=0.6,
-#     fill_alpha=0.6,
-#     size=4
-# )
-# show(plot_figure)
+c1 = ax.scatter([], [], c='k', s=10, ec='none')
+c2 = ax.scatter([], [], c='grey', s=10, ec='none')
+ax.legend([c1, c2], ['cluster 1', 'cluster 2'], frameon=False, fontsize=7)
+
+ax.set(title='UMAP embedding of ACGs',
+       xlabel='1st dim.', ylabel='2nd dim.',
+       xticks=[], yticks=[],
+       xlim=(xlower, xupper), ylim=(ylower, yupper))
+
+fig.tight_layout()
+plt.show()
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_kmeans.png',
+            dpi=500,
+            bbox_inches='tight',
+            transparent=False)
+
+
+#%% replot with categorised data 
+fig, ax = plt.subplots(figsize=(3.5,3))
+
+colours = []
+for i in labels:
+    if i==0:
+        colours.append('orange')
+    else:
+        colours.append('grey')
+
+ax.scatter(acg_embedding[:,0], acg_embedding[:,1], c=colours, s=10, ec='none')
+ax.scatter(acg_embedding[tagged_ind, 0], acg_embedding[tagged_ind,1],
+                    s=10, c='royalblue', ec='none')
+
+ntggrey = ax.scatter([], [], s=10, c='grey', ec='none')
+tgblue = ax.scatter([], [], s=10, c='royalblue', ec='none')
+ptorange = ax.scatter([], [], s=10, c='orange', ec='none')
+
+ax.legend([ntggrey, tgblue, ptorange], ['putative Dbh-', 'tagged Dbh+', 'putative Dbh+'], frameon=False, fontsize=7)
+
+ax.set(title='UMAP embedding of ACGs',
+       xlabel='1st dim.', ylabel='2nd dim.',
+       xticks=[], yticks=[],
+       xlim=(xlower, xupper), ylim=(ylower, yupper))
+
+fig.tight_layout()
+plt.show()
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_kmeans_categorised.png',
+            dpi=500,
+            bbox_inches='tight',
+            transparent=False)
 
 
 #%% mapper for plotting 
-mapper = umap.UMAP().fit(scaled_acg_arr)
+mapper = reducer.fit(scaled_acg_arr)
 
 
 #%% diagnostics 

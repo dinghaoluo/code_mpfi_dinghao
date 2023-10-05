@@ -18,6 +18,9 @@ if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
 import rec_list
 pathLC = rec_list.pathLC
 
+tag_list = list(np.load('Z:/Dinghao/code_dinghao/LC_all_tagged/LC_all_waveforms.npy',
+                allow_pickle=True).item().keys())
+
 
 #%% load
 all_acg_baseline = {}
@@ -40,7 +43,7 @@ for pathname in pathLC:
         cluname = pathname[-17:]+' clu'+str(cluind+2)
         all_acg_baseline[cluname] = CCGval[:, cluind, cluind]
         
-        
+
 #%% save 
 print('successfully processed {} cells'.format(len(all_acg_baseline)))
 np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_acg_baseline.npy', 

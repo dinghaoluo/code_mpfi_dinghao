@@ -95,15 +95,16 @@ for i in range(len(tag_sess)):
         
         
 #%% plotting 
-trial_used = 61
+trial_used = 59
 print('example trial: {}'.format(trial_used))
 
-fig, ax = plt.subplots(figsize=(6, 1.5))
-fig.tight_layout()
-
-ax.set(xlabel='time (s)', ylabel='speed\n(cm/s)')
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
+fig, ax = plt.subplots(figsize=(6, 1.8))
+ax.set(xlabel='time (s)', ylabel='velocity\n(cm/s)',
+       ylim=(-1,100))
+for p in ['right','top']:
+    ax.spines[p].set_visible(False)
+for p in ['left','bottom']:
+    ax.spines[p].set_linewidth(1)
 
 xaxis = np.arange(-1250, 5000)/1250
 
@@ -111,11 +112,104 @@ ax.plot(xaxis,
         speed_time_conv[trial_used][2500:8750],
         color='grey')
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egsess_bad_speed.png',
-            dpi=300,
+fig.tight_layout()
+plt.show()
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egsess_good_speed.png',
+            dpi=500,
+            bbox_inches='tight')
+plt.close(fig)
+
+
+#%%
+fig, ax = plt.subplots(figsize=(6, 1.5))
+
+ax.set(xlabel='time (s)',
+       xlim=(-1, 4), ylim=(0, 2))
+ax.tick_params(left=False, labelleft=False)
+for p in ['right','top','left']:
+    ax.spines[p].set_visible(False)
+for p in ['bottom']:
+    ax.spines[p].set_linewidth(1)
+
+# read lick times for this trial (+1 since the first trial is empty)
+licks_last = speed_time_file['trialsRun'][0]['lickLfpInd'][0][0][trial_used].reshape(-1)
+licks = speed_time_file['trialsRun'][0]['lickLfpInd'][0][0][trial_used+1].reshape(-1)
+# start time for this trial
+startLfp = speed_time_file['trialsRun'][0]['startLfpInd'][0][0][trial_used+1]
+licks_last = [(l-startLfp)/1250 for l in licks_last]
+licks = [(l-startLfp)/1250 for l in licks]
+
+ax.vlines(licks_last, 
+          0.9, 1.1,
+          color='orchid')
+ax.vlines(licks, 
+          0.9, 1.1,
+          color='orchid')
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egsess_good_licks.png',
+            dpi=500,
             bbox_inches='tight')
 
 
+#%%
+trial_used = 60
+print('example trial: {}'.format(trial_used))
+
+fig, ax = plt.subplots(figsize=(6, 1.8))
+
+ax.set(xlabel='time (s)', ylabel='velocity\n(cm/s)',
+       ylim=(-1, 100))
+for p in ['right','top']:
+    ax.spines[p].set_visible(False)
+for p in ['left','bottom']:
+    ax.spines[p].set_linewidth(1)
+
+xaxis = np.arange(-1250, 5000)/1250
+
+ax.plot(xaxis, 
+        speed_time_conv[trial_used][2500:8750],
+        color='grey')
+
+fig.tight_layout()
+plt.show()
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egsess_bad_speed.png',
+            dpi=500,
+            bbox_inches='tight')
+plt.close(fig)
+
+
+#%%
+fig, ax = plt.subplots(figsize=(6, 1.5))
+
+ax.set(xlabel='time (s)',
+       xlim=(-1, 4), ylim=(0, 2))
+ax.tick_params(left=False, labelleft=False)
+for p in ['right','top','left']:
+    ax.spines[p].set_visible(False)
+for p in ['bottom']:
+    ax.spines[p].set_linewidth(1)
+
+# read lick times for this trial (+1 since the first trial is empty)
+licks_last = speed_time_file['trialsRun'][0]['lickLfpInd'][0][0][trial_used].reshape(-1)
+licks = speed_time_file['trialsRun'][0]['lickLfpInd'][0][0][trial_used+1].reshape(-1)
+# start time for this trial
+startLfp = speed_time_file['trialsRun'][0]['startLfpInd'][0][0][trial_used+1]
+licks_last = [(l-startLfp)/1250 for l in licks_last]
+licks = [(l-startLfp)/1250 for l in licks]
+
+ax.vlines(licks_last, 
+          0.9, 1.1,
+          color='orchid')
+ax.vlines(licks, 
+          0.9, 1.1,
+          color='orchid')
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egsess_bad_licks.png',
+            dpi=500,
+            bbox_inches='tight')
+
+
+#%%
 fig, ax = plt.subplots(figsize=(6, 2))
 
 ax.set(xlabel='time (s)', ylabel='cell number',
@@ -126,7 +220,7 @@ ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 
 # manually ordered to grant better visibility of 2 distinct groups of cells 
-plot_order = [2, 3, 4, 6, 7, 0, 1, 5, 8, 9, 10]
+plot_order = [2, 3, 4, 6, 7, 0, 1, 5, 8]
 
 baseline = 0
 for i in plot_order:
@@ -141,38 +235,5 @@ for i in plot_order:
     baseline += 0.1
     
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egsess_bad_spikes.png',
-            dpi=300,
-            bbox_inches='tight')
-
-
-fig, ax = plt.subplots()
-
-ax.set(xlabel='time (s)',
-       xlim=(-1, 4), ylim=(0, 2))
-ax.spines['left'].set_visible(False)
-ax.tick_params(left=False, labelleft=False)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-
-# read lick times for this trial (+1 since the first trial is empty)
-licks_last = speed_time_file['trialsRun'][0]['lickLfpInd'][0][0][trial_used].reshape(-1)
-licks = speed_time_file['trialsRun'][0]['lickLfpInd'][0][0][trial_used+1].reshape(-1)
-# start time for this trial
-startLfp = speed_time_file['trialsRun'][0]['startLfpInd'][0][0][trial_used+1]
-licks_last = [(l-startLfp)/1250 for l in licks_last]
-licks = [(l-startLfp)/1250 for l in licks]
-# lick_ind = np.zeros(8750)
-# for i in range(len(lick_ind)):
-#     if i in licks:
-#         lick_ind[i] = 1
-
-ax.vlines(licks_last, 
-           0.9, 1.1,
-           color='orchid')
-ax.vlines(licks, 
-           0.9, 1.1,
-           color='orchid')
-
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egsess_bad_licks.png',
             dpi=300,
             bbox_inches='tight')

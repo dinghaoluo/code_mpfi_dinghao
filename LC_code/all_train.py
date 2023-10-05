@@ -63,8 +63,8 @@ for pathname in pathLC:
         speed_time_all[i] = np.concatenate([bef, aft])
         speed_time_all[i][speed_time_all[i]<0] = 0
     speed_time_conv = [np.convolve(np.squeeze(single), gaus_speed)[50:-49] 
-                       for single in speed_time_all]
-    norm_speed = np.array([normalise(s) for s in speed_time_conv])
+                        for single in speed_time_all]
+    # norm_speed = np.array([normalise(s) for s in speed_time_conv])
     
     # trial length for equal length deployment (use speed trial length)
     trial_length = [trial.shape[0] for trial in speed_time_conv]
