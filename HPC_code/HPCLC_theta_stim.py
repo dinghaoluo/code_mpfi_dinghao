@@ -147,42 +147,53 @@ for sessname in pathHPC:
     all_recov_cir_dev.append(peri_recov_cir_dev)
 
 
-#%% plot theta amplitude (all)
+#%% plot theta amplitude (stim v baseline)
 fig, ax = plt.subplots(figsize=(3.5,3))
 
 for p in ['top','right']:
     ax.spines[p].set_visible(False)
 for p in ['left','bottom']:
     ax.spines[p].set_linewidth(1)
-ax.set(ylabel='theta amplitude (dB)', xlabel='time (s)')
-fig.suptitle('Theta amplitude, stim v non-stim')
+ax.set(ylabel='norm. theta amplitude', xlabel='time (s)',
+       yticks=[0,.5,1])
+fig.suptitle('theta amplitude, stim v baseline')
 
 mean_amp_stim = np.mean(all_stim_theta_amplitude, axis=0)
-mean_amp_stim_db = [20 * log10(x) for x in mean_amp_stim]
-mean_amp_cont = np.mean(all_cont_theta_amplitude, axis=0)
-mean_amp_cont_db = [20 * log10(x) for x in mean_amp_cont]
+mean_amp_start = np.mean(all_start_theta_amplitude, axis=0)
+mean_amp_max = max(max(mean_amp_stim), max(mean_amp_start))
+mean_amp_min = min(min(mean_amp_stim), min(mean_amp_start))
 
-ax.plot(taxis, mean_amp_stim_db, 'royalblue')
-ax.plot(taxis, mean_amp_cont_db, 'grey', alpha=.5)
+# min max normalisation
+mean_amp_stim = [(s-mean_amp_min)/(mean_amp_max-mean_amp_min) for s in mean_amp_stim]
+mean_amp_start = [(s-mean_amp_min)/(mean_amp_max-mean_amp_min) for s in mean_amp_start]
+
+ax.plot(taxis, mean_amp_stim, 'royalblue')
+ax.plot(taxis, mean_amp_start, 'grey', alpha=.5)
 
 fig.tight_layout()
 plt.show()
 
-# fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_nonstim_theta_amp.png',
-#             bbox_inches='tight',
-#             dpi=500)
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_baseline_theta_amp.png',
+            bbox_inches='tight',
+            dpi=500)
 
 plt.close(fig)
 
 
-#%% calculate and plot comparison theta amplitude (all)
+#%% calculate and plot comparison theta amplitude (stim v baseline)
 amp_stims = []; amp_starts = []
 
 for sess in all_stim_theta_amplitude:
     amp_stims.append(np.mean(sess[2500:3750]))  # 1~2 s
 for sess in all_start_theta_amplitude:
     amp_starts.append(np.mean(sess[2500:3750]))
-    
+amp_max = max(max(amp_stims), max(amp_starts))
+amp_min = min(min(amp_stims), min(amp_starts))
+
+# min max normalisation
+amp_stims = [(s-amp_min)/(amp_max-amp_min) for s in amp_stims]
+amp_starts = [(s-amp_min)/(amp_max-amp_min) for s in amp_starts]
+
 pval = wilcoxon(amp_stims, amp_starts)[1]
 
 
@@ -192,10 +203,11 @@ for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 ax.spines['left'].set_linewidth(1)
 ax.set_xticklabels(['non-stim', 'stim'], minor=False)
-ax.set_xticks([1, 2])
+ax.set_xticks([1,2])
+ax.set_yticks([0,.5,1])
 
-ax.set(ylabel='theta amplitude')
-fig.suptitle('theta amplitude, stim v non_stim, p={}'.format(round(pval, 3)))
+ax.set(ylabel='norm. theta amplitude')
+fig.suptitle('theta amplitude, stim v baseline, p={}'.format(round(pval, 3)))
 
 bp = ax.bar([1, 2], [np.mean(amp_starts), np.mean(amp_stims)],
             color=['grey', 'royalblue'], edgecolor=['k','k'], width=.35)
@@ -205,14 +217,94 @@ ax.scatter([[1]*len(amp_starts), [2]*len(amp_stims)], [amp_starts, amp_stims], z
 ax.plot([[1]*len(amp_starts), [2]*len(amp_stims)], [amp_starts, amp_stims], zorder=2,
         color='grey', alpha=.5)
 
-ax.set(xlim=(0.5, 2.5))
+ax.set(xlim=(0.5, 2.5), ylim=(-.01, 1.01))
 
 fig.tight_layout()
 plt.show()
 
-# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
-#             bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_nonstim_theta_amp_bar.png',
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_baseline_theta_amp_bar.png',
+            bbox_inches='tight',
+            dpi=500)
+
+plt.close(fig)
+
+
+#%% plot theta amplitude (stim v stim cont)
+fig, ax = plt.subplots(figsize=(3.5,3))
+
+for p in ['top','right']:
+    ax.spines[p].set_visible(False)
+for p in ['left','bottom']:
+    ax.spines[p].set_linewidth(1)
+ax.set(ylabel='norm. theta amplitude', xlabel='time (s)',
+       yticks=[0,.5,1])
+fig.suptitle('theta amplitude, stim v stim-cont')
+
+mean_amp_stim = np.mean(all_stim_theta_amplitude, axis=0)
+mean_amp_cont = np.mean(all_cont_theta_amplitude, axis=0)
+mean_amp_max = max(max(mean_amp_stim), max(mean_amp_cont))
+mean_amp_min = min(min(mean_amp_stim), min(mean_amp_cont))
+
+# min max normalisation
+mean_amp_stim = [(s-mean_amp_min)/(mean_amp_max-mean_amp_min) for s in mean_amp_stim]
+mean_amp_cont = [(s-mean_amp_min)/(mean_amp_max-mean_amp_min) for s in mean_amp_cont]
+
+ax.plot(taxis, mean_amp_stim, 'royalblue')
+ax.plot(taxis, mean_amp_cont, 'grey', alpha=.5)
+
+fig.tight_layout()
+plt.show()
+
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_theta_amp.png',
+            bbox_inches='tight',
+            dpi=500)
+
+plt.close(fig)
+
+
+#%% calculate and plot comparison theta amplitude (stim v stim cont)
+amp_stims = []; amp_conts = []
+
+for sess in all_stim_theta_amplitude:
+    amp_stims.append(np.mean(sess[2500:3750]))  # 1~2 s
+for sess in all_cont_theta_amplitude:
+    amp_conts.append(np.mean(sess[2500:3750]))
+amp_max = max(max(amp_stims), max(amp_conts))
+amp_min = min(min(amp_stims), min(amp_conts))
+
+# min max normalisation
+amp_stims = [(s-amp_min)/(amp_max-amp_min) for s in amp_stims]
+amp_conts = [(s-amp_min)/(amp_max-amp_min) for s in amp_conts]
+
+pval = wilcoxon(amp_stims, amp_conts)[1]
+
+
+fig, ax = plt.subplots(figsize=(3,4))
+
+for p in ['top', 'right', 'bottom']:
+    ax.spines[p].set_visible(False)
+ax.spines['left'].set_linewidth(1)
+ax.set_xticklabels(['non-stim', 'stim'], minor=False)
+ax.set_xticks([1,2])
+ax.set_yticks([0,.5,1])
+
+ax.set(ylabel='norm. theta amplitude')
+fig.suptitle('theta amplitude, stim v stim-cont, p={}'.format(round(pval, 3)))
+
+bp = ax.bar([1, 2], [np.mean(amp_starts), np.mean(amp_stims)],
+            color=['grey', 'royalblue'], edgecolor=['k','k'], width=.35)
+    
+ax.scatter([[1]*len(amp_starts), [2]*len(amp_stims)], [amp_starts, amp_stims], zorder=2,
+           s=15, color='grey', edgecolor='k', alpha=.5)
+ax.plot([[1]*len(amp_starts), [2]*len(amp_stims)], [amp_starts, amp_stims], zorder=2,
+        color='grey', alpha=.5)
+
+ax.set(xlim=(0.5, 2.5), ylim=(-.01, 1.01))
+
+fig.tight_layout()
+plt.show()
+
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_theta_amp_bar.png',
             bbox_inches='tight',
             dpi=500)
 

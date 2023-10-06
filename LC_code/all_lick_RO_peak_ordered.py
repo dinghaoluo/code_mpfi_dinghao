@@ -61,7 +61,7 @@ noStim = input('Get rid of stim trials? (Y/N) (for plotting purposes... etc. etc
 lick_sensitive = []
 lick_sensitive_type = []
 
-for cluname in clu_list:
+for cluname in clu_list[334:336]:
     print(cluname)
     raster = rasters[cluname]
     train = all_train[cluname]
@@ -248,6 +248,34 @@ for cluname in clu_list:
     
     plt.close(fig)
     
+
+#%% figure code, to plot density of stim trials 
+density = []
+for trial in temp_ordered:
+    if stimOn[trial]==1:
+        density.append(1)
+    else:
+        density.append(0)
+density_ind = np.where(np.array(density)==1)
+density_ind = [0-s for s in density_ind]
+
+fig, ax = plt.subplots(figsize=(10,2))
+
+for p in ['top','right','left']:
+    ax.spines[p].set_visible(False)
+for p in ['bottom']:
+    ax.spines[p].set_linewidth(1)
+ax.set(yticks=[]); ax.set(xticks=[])
+
+ax.hist(density_ind, bins=30, edgecolor='k', color='darkred')
+
+fig.tight_layout()
+plt.show()
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\eg_session_stimdensity.png',
+            dpi=500,
+            bbox_inches='tight')
+
 
 #%% save to dataframe
 cell_prop = cell_prop.assign(lick_sensitive=pd.Series(lick_sensitive).values)

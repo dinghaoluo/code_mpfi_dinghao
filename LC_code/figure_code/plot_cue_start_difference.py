@@ -48,6 +48,10 @@ for pathname in pathLC:
     ax.set(title='aligned to cues',
            xlabel='time (s)', ylabel='trial #',
            xlim=(-1, 5))
+    for p in ['top','right']:
+        ax.spines[p].set_visible(False)
+    for p in ['left','bottom']:
+        ax.spines[p].set_linewidth(1)
     
     row_count = 1
     for trial in ind_good_beh:
@@ -59,7 +63,7 @@ for pathname in pathLC:
                              linewidth=2, color='red')
         row_count+=1
     
-    ax.legend([cueline, startline], ['cue', 'run-onset'])
+    ax.legend([cueline, startline], ['cue', 'run-onset'], frameon=False)
     
     fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\cues_v_starts\{}.png'.format(sessname),
                 dpi=300,
