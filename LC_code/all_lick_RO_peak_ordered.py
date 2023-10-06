@@ -261,13 +261,11 @@ density_ind = [0-s for s in density_ind]
 
 fig, ax = plt.subplots(figsize=(10,2))
 
-for p in ['top','right','left']:
+for p in ['top','right','left','bottom']:
     ax.spines[p].set_visible(False)
-for p in ['bottom']:
-    ax.spines[p].set_linewidth(1)
 ax.set(yticks=[]); ax.set(xticks=[])
 
-ax.hist(density_ind, bins=30, edgecolor='k', color='darkred')
+ax.hist(density_ind, bins=30, edgecolor='k', color='darkred', linewidth=3)
 
 fig.tight_layout()
 plt.show()

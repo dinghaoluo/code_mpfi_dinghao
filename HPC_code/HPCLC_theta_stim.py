@@ -45,6 +45,8 @@ all_start_cir_dev = []; all_cont_cir_dev = []; all_recov_cir_dev = []
 
 for sessname in pathHPC:
     recname = sessname[43:60]  # recording name, e.g. A069r-20230905-01
+    print(recname)
+    
     theta = mat73.loadmat('{}/{}_eeg_1250Hz.mat'.format(sessname, recname))
 
     try: 
@@ -68,14 +70,16 @@ for sessname in pathHPC:
             stims.append(t)
         
     alignRun = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(sessname, recname))
-    # alignCue = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat'.format(sessname, recname))
+    # # alignCue = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat'.format(sessname, recname))
     behInfo = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(sessname, recname))['beh']
     stim_trial = np.squeeze(np.where(behInfo['pulseMethod'][0][0][0]!=0))
     stim_cont = stim_trial+2
     tot_trial = len(behInfo['pulseMethod'][0][0][0])
         
     # cues = alignCue['trialsCue']['startLfpInd'][0][0][0][1:]
-    starts = alignRun['trialsRun']['startLfpInd'][0][0][0][1:]
+    starts = alignRun['trialsRun']['startLfpInd'][0][0][0][1:]  
+    # trial 0 is empty, so [1:] will include only the correct trials; note that 
+    # this means that the stim_trial indices are matched up without -1
 
 
     # data wrangling
@@ -145,6 +149,50 @@ for sessname in pathHPC:
     peri_recov_cir_dev = circvar(peri_recov_theta_phase, high=3.14159, low =-3.14159,
                                  axis=0)
     all_recov_cir_dev.append(peri_recov_cir_dev)
+
+
+#%% temp plotting cell (eeg trace)
+# eeg = theta['eeg'][:,0]
+
+# fig, ax = plt.subplots(figsize=(6,1))
+
+# for p in ['bottom','top','left','right']:
+#     ax.spines[p].set_visible(False)
+# ax.set(yticks=[], xticks=[])
+
+# ax.plot(eeg[50000:55000], c='k', linewidth=1)  # 4s
+
+# fig.tight_layout()
+# plt.show()
+
+# fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\eg_eeg.png',
+#             bbox_inches='tight',
+#             dpi=500)
+
+# plt.close(fig)
+
+
+#%% temp plotting cell (eg theta)
+# fig, ax = plt.subplots(figsize=(6,1))
+# for p in ['bottom','top','left','right']:
+#     ax.spines[p].set_visible(False)
+# ax.set(yticks=[], xticks=[])
+
+# xaxis = np.arange(5000)/100
+
+# y = np.sin(xaxis)
+
+# ax.plot(xaxis, y, c='r', linewidth=1)
+
+# fig.tight_layout
+# plt.show()
+
+# fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\eg_theta.png',
+#             bbox_inches='tight',
+#             dpi=500)
+
+# plt.close(fig)
+
 
 
 #%% plot theta amplitude (stim v baseline)
@@ -312,34 +360,54 @@ plt.close(fig)
 
 
 
-#%% plot circular deviation stim v non-stim
-fig, axs = plt.subplots(3,1,figsize=(4,8))
-fig.suptitle('avg. circ. dev., stim v non-stim')
+#%% plot circular deviation stim v baseline
+fig, ax = plt.subplots(figsize=(6,2))
+fig.suptitle('avg. circ. dev., stim v baseline')
 
-for i in range(2):
-    axs[i].set(xlabel='time (s)', ylabel='avg. circ. dev. (π)')
+ax.set(xlabel='time (s)', ylabel='avg. circ. dev. (π)')
 
 mean_stim_cir_dev = np.mean(all_stim_cir_dev, axis=0)
 mean_start_cir_dev = np.mean(all_start_cir_dev, axis=0)
 sem_stim_cir_dev = sem(all_stim_cir_dev, axis=0)
 sem_start_cir_dev = sem(all_start_cir_dev, axis=0)
 
-axs[0].plot(taxis, mean_stim_cir_dev, 'royalblue')
-axs[1].plot(taxis, mean_start_cir_dev, 'grey')
-
-axs[2].plot(taxis, mean_stim_cir_dev, 'royalblue')
-axs[2].plot(taxis, mean_start_cir_dev, 'grey', alpha=.5)
-axs[2].fill_between(taxis, mean_stim_cir_dev+sem_stim_cir_dev,
-                           mean_stim_cir_dev-sem_stim_cir_dev,
-                           color='royalblue', alpha=.3)
-axs[2].fill_between(taxis, mean_start_cir_dev+sem_start_cir_dev,
-                           mean_start_cir_dev-sem_start_cir_dev,
-                           color='grey', alpha=.15)
+ax.plot(taxis, mean_stim_cir_dev, 'royalblue')
+ax.plot(taxis, mean_start_cir_dev, 'grey', alpha=.5)
 
 fig.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_nonstim_theta_cir_dev.png',
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_baseline_theta_cir_dev.png',
+            bbox_inches='tight',
+            dpi=500)
+
+plt.close(fig)
+
+
+#%% plot circular deviation stim v stim cont
+fig, ax = plt.subplots(figsize=(6,2))
+fig.suptitle('avg. circ. dev., stim v stim-cont')
+
+ax.set(xlabel='time (s)', ylabel='avg. circ. dev. (π)')
+
+mean_stim_cir_dev = np.mean(all_stim_cir_dev, axis=0)
+mean_cont_cir_dev = np.mean(all_cont_cir_dev, axis=0)
+# sem_stim_cir_dev = sem(all_stim_cir_dev, axis=0)
+# sem_cont_cir_dev = sem(all_cont_cir_dev, axis=0)
+
+ax.plot(taxis, mean_stim_cir_dev, 'royalblue')
+ax.plot(taxis, mean_cont_cir_dev, 'grey', alpha=.5)
+# ax.fill_between(taxis, mean_stim_cir_dev+sem_stim_cir_dev,
+#                             mean_stim_cir_dev-sem_stim_cir_dev,
+#                             color='royalblue', alpha=.3)
+# ax.fill_between(taxis, mean_cont_cir_dev+sem_cont_cir_dev,
+#                             mean_cont_cir_dev-sem_cont_cir_dev,
+#                             color='grey', alpha=.15)
+
+fig.tight_layout()
+plt.show()
+
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_theta_cir_dev.png',
             bbox_inches='tight',
             dpi=500)
 

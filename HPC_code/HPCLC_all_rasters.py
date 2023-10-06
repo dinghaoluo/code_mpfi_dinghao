@@ -66,7 +66,7 @@ for pathname in pathHPC:
             clu_id = int(all_id[i])-2
             spikes = np.concatenate([spike_time_bef[clu_id][trial].reshape(-1),
                                      spike_time[clu_id][trial].reshape(-1)])
-            spikes = [int(s+3750) for s in spikes]
+            spikes = [int(s+3750) for s in spikes if s<-1 or s>1]
             spikes = [s for s in spikes if s<max_length]
             spike_train_trial = np.zeros(max_length)
             spike_train_trial[spikes] = 1

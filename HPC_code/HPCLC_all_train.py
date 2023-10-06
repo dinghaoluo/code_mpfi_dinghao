@@ -15,6 +15,7 @@ import numpy as np
 import sys
 import h5py
 import mat73
+import os
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -23,7 +24,7 @@ pathHPC = rec_list.pathHPCLCopt
 
 
 #%% MAIN 
-for pathname in pathHPC:
+for pathname in pathHPC[20:]:
     all_info = {}
     
     recname = pathname[-17:]
@@ -78,6 +79,9 @@ for pathname in pathHPC:
         all_info[clu_name] = clu_conv_spike
         i+=1
     
+    outdirroot = 'Z:\Dinghao\code_dinghao\HPC_all\{}'.format(recname)
+    if not os.path.exists(outdirroot):
+        os.makedirs(outdirroot)
     np.save('Z:\Dinghao\code_dinghao\HPC_all\{}\HPC_all_info_{}.npy'.format(recname, recname), 
             all_info)
     print('processed and saved to Z:\Dinghao\code_dinghao\HPC_all\{}\HPC_all_info_{}.npy\n'.format(recname, recname))
