@@ -15,6 +15,7 @@ dependencies:
 import numpy as np 
 import matplotlib.pyplot as plt 
 import sys
+import scipy.io as sio
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -24,7 +25,8 @@ pathHPC = rec_list.pathHPCLCopt
 
 #%% MAIN 
 for pathname in pathHPC:
-    print(pathname[-17:])
+    recname = pathname[-17:]
+    print(recname)
     
     curr_rasters = np.load('Z:\Dinghao\code_dinghao\HPC_all\HPC_all_rasters_npy_simp\{}.npy'.format(pathname[-17:]),
                            allow_pickle=True).item()
@@ -38,28 +40,33 @@ for pathname in pathHPC:
     fig = plt.figure(1, figsize=[col_plots*4, row_plots*4])
     fig.suptitle(pathname[-17:])  # set sup title 
     
+    # load stim trials
+    behInfo = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(pathname, recname))['beh']
+    stim_trial = np.squeeze(np.where(behInfo['pulseMethod'][0][0][0]!=0))-1  # -1 to match up with matlab indexing
+    
+    # # import bad beh trial id
+    # root = 'Z:\Dinghao\MiceExp'
+    # fullpath = root+'\ANMD'+curr_clu_name[1:5]+'\\'+curr_clu_name[:14]+'\\'+curr_clu_name[:17]
+    # beh_par_file = sio.loadmat(fullpath+'\\'+curr_clu_name[:17]+
+    #                            '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
+    #                                # -1 to account for MATLAB Python difference
+    # ind_bad_beh = np.where(beh_par_file['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
+    #                                  # -1 to account for 0 being an empty trial
+    # ind_good_beh = np.arange(beh_par_file['behPar'][0]['indTrBadBeh'][0].shape[1]-1)
+    # ind_good_beh = np.delete(ind_good_beh, ind_bad_beh)
+    
     for i in range(tot_plots):
         curr_clu = list(curr_rasters.items())[i]
         curr_clu_name = curr_clu[0]
         print('plotting {}'.format(curr_clu_name))
         curr_raster = curr_clu[1]
         
-        # # import bad beh trial id
-        # root = 'Z:\Dinghao\MiceExp'
-        # fullpath = root+'\ANMD'+curr_clu_name[1:5]+'\\'+curr_clu_name[:14]+'\\'+curr_clu_name[:17]
-        # beh_par_file = sio.loadmat(fullpath+'\\'+curr_clu_name[:17]+
-        #                            '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
-        #                                # -1 to account for MATLAB Python difference
-        # ind_bad_beh = np.where(beh_par_file['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
-        #                                  # -1 to account for 0 being an empty trial
-        # ind_good_beh = np.arange(beh_par_file['behPar'][0]['indTrBadBeh'][0].shape[1]-1)
-        # ind_good_beh = np.delete(ind_good_beh, ind_bad_beh)
-        
         ax = fig.add_subplot(row_plots, col_plots, plot_pos[i])
         ax.set(xlim=(-3.0, 5.0), xlabel='time (s)',
                                  ylabel='trial #',
                                  title=curr_clu_name)
-        ax.spines[['right', 'top']].set_visible(False)
+        ax.spines[['right','top']].set_visible(False)
+        ax.spines[['left','bottom']].set_linewidth(1)
             
         tot_trial = curr_raster.shape[0]  # how many trials
         for trial in range(tot_trial):
@@ -67,6 +74,9 @@ for pathname in pathHPC:
             curr_trial = [(s-3750)/1250 for s in curr_trial]
             ax.scatter(curr_trial, [trial+1]*len(curr_trial),
                         color='grey', s=.35)
+        ax.fill_between([-3, 5], [stim_trial[0], stim_trial[0]],
+                                 [stim_trial[-1], stim_trial[-1]],
+                                 color='royalblue', alpha=.15)
             
     plt.tight_layout()
     plt.show()

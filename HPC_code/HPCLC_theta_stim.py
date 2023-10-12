@@ -9,13 +9,13 @@ theta analysis aligned to LC stim
 
 
 #%% imports 
-import numpy as np 
+import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio 
 import mat73
 import sys 
 from scipy.stats import circvar, wilcoxon, sem
-from math import log10
+import math
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -26,21 +26,161 @@ pathHPC = rec_list.pathHPCLCopt
 #%% functions
 def conv_db(x):
     if isinstance(x, np.ndarray):
-        return [20*log10(i) for i in x]
+        return [20*math.log10(i) for i in x]
     else:
-        return 20*log10(x)
+        return 20*math.log10(x)
+    
+    
+def sum_vector(heights):
+    thetas = np.linspace(-3.14, 3.14, 13)
+    
+    x_sum = 0
+    y_sum = 0
+    
+    for i, height in enumerate(heights):
+        x = height*math.cos(thetas[i])
+        y = height*math.sin(thetas[i])
+        x_sum+=x
+        y_sum+=y
+    
+    r_sum = math.sqrt(x_sum**2 + y_sum**2)
+    theta_sum = math.atan2(y_sum, x_sum)
+    
+    return [r_sum, theta_sum]
+    
+
+def plot_polar_phase(recname, peri_stims_theta_phase, peri_start_theta_phase, peri_cont_theta_phase):
+    all_stims_theta_phase = [s[1250+125] for s in peri_stims_theta_phase]
+    all_cont_theta_phase = [s[1250+125] for s in peri_cont_theta_phase]
+    all_start_theta_phase = [s[1250+125] for s in peri_start_theta_phase]
+
+    nbins = 12; width = (2*np.pi) / nbins
+    histogram_stims = np.histogram(all_stims_theta_phase, bins=nbins, range=(-3.14, 3.14))
+    histogram_cont = np.histogram(all_cont_theta_phase, bins=nbins, range=(-3.14, 3.14))
+    histogram_start = np.histogram(all_start_theta_phase, bins=nbins, range=(-3.14, 3.14))
+
+    fig, axs = plt.subplots(1,2,figsize=(6,3), subplot_kw={'projection': 'polar'})
+
+    theta_cont = histogram_cont[1][:-1]
+    radii_cont = histogram_cont[0]
+    bars_cont = axs[0].bar(theta_cont, radii_cont, width=width, edgecolor='k')
+    rv_cont = sum_vector(radii_cont)
+    axs[0].arrow(rv_cont[1], 0, 0, rv_cont[0], 
+                 length_includes_head=True, head_width=0.25, head_length=0.5,
+                 facecolor='r', edgecolor='r')
+
+    theta_stims = histogram_stims[1][:-1]
+    radii_stims = histogram_stims[0]
+    bars_stims = axs[1].bar(theta_stims, radii_stims, width=width, edgecolor='k')
+    rv_stims = sum_vector(radii_stims)
+    axs[1].arrow(rv_stims[1], 0, 0, rv_stims[0],
+                 length_includes_head=True, head_width=0.25, head_length=0.5,
+                 facecolor='r', edgecolor='r')
+
+    # Use custom colors and opacity
+    for r, bar in zip(radii_cont, bars_cont):
+        bar.set_facecolor(plt.cm.jet(r / 30.))
+        bar.set_alpha(0.8)
+    for r, bar in zip(radii_stims, bars_stims):
+        bar.set_facecolor(plt.cm.jet(r / 30.))
+        bar.set_alpha(0.8)
+        
+    for i in range(2):
+        axs[i].set_rticks([0,5,10,20,30])
+        axs[i].set_yticklabels(['','',10,20,30])
+        axs[i].set_rlabel_position(12)
+
+    axs[0].set(title='stim control')
+    axs[1].set(title='stimulation')
+
+    fig.tight_layout()
+    plt.show()
+    
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\{}\phase_stim_stimcont_{}.png'.format(recname, recname),
+                bbox_inches='tight',
+                dpi=500)
+    
+    plt.close(fig)
+    
+    
+    # stim v stim cont
+    fig, axs = plt.subplots(1,2,figsize=(6,3), subplot_kw={'projection': 'polar'})
+
+    theta_start = histogram_start[1][:-1]
+    radii_start = histogram_start[0]
+    
+    bars_start = axs[0].bar(theta_start, radii_start, width=width, edgecolor='k')
+    bars_stims = axs[1].bar(theta_stims, radii_stims, width=width, edgecolor='k')
+    
+    rv_start = sum_vector(radii_start)
+    axs[0].arrow(rv_start[1], 0, 0, rv_start[0],
+                 length_includes_head=True, head_width=0.25, head_length=0.5,
+                 facecolor='r', edgecolor='r')
+
+    rv_stims = sum_vector(radii_stims)
+    axs[1].arrow(rv_stims[1], 0, 0, rv_stims[0],
+                 length_includes_head=True, head_width=0.25, head_length=0.5,
+                 facecolor='r', edgecolor='r')
+
+    # Use custom colors and opacity
+    for r, bar in zip(radii_start, bars_start):
+        bar.set_facecolor(plt.cm.jet(r / 30.))
+        bar.set_alpha(0.8)
+    for r, bar in zip(radii_stims, bars_stims):
+        bar.set_facecolor(plt.cm.jet(r / 30.))
+        bar.set_alpha(0.8)
+        
+    for i in range(2):
+        axs[i].set_rticks([0,5,10])
+        axs[i].set_yticklabels(['','',10])
+        axs[i].set_rlabel_position(12)
+
+    axs[0].set(title='baseline')
+    axs[1].set(title='stimulation')
+
+    fig.tight_layout()
+    plt.show()
+    
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\{}\phase_stim_baseline_{}.png'.format(recname, recname),
+                bbox_inches='tight',
+                dpi=500)
+    
+    plt.close(fig)
+    
+    
+    # # simple histogram as demo 
+    # fig, ax = plt.subplots(figsize=(5,2))
+    
+    # ax.bar(histogram_stims[1][:-1], histogram_stims[0], width=width, edgecolor='k')
+    
+    # ax.set(xlabel='cir. dev. (π)', ylabel='frequency')
+    
+    # fig.tight_layout()
+    # plt.show()
+    
+    # fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\{}\phase_stim_{}_hist.png'.format(recname, recname),
+    #             bbox_inches='tight',
+    #             dpi=500)
+
+    # plt.close(fig)
 
 
 #%% plotting parameters 
+import matplotlib
 taxis = np.arange(-1250, 6250)/1250
-plt.rcParams['font.family'] = 'Arial' 
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 
 
 #%% main 
-all_stim_theta_amplitude = []
+all_stim_theta_amplitude = []; all_stims_theta_amplitude = []
 all_start_theta_amplitude = []; all_cont_theta_amplitude = []; all_recov_theta_amplitude = []
 
-all_stim_cir_dev = []
+all_stims_theta_phase = []
+all_start_theta_phase = []; all_cont_theta_phase = []; all_recov_theta_phase = []
+
+all_stim_cir_dev = []; all_stims_cir_dev = []
 all_start_cir_dev = []; all_cont_cir_dev = []; all_recov_cir_dev = []
 
 for sessname in pathHPC:
@@ -72,19 +212,18 @@ for sessname in pathHPC:
     alignRun = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(sessname, recname))
     # # alignCue = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat'.format(sessname, recname))
     behInfo = sio.loadmat('{}/{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(sessname, recname))['beh']
-    stim_trial = np.squeeze(np.where(behInfo['pulseMethod'][0][0][0]!=0))
+    stim_trial = np.squeeze(np.where(behInfo['pulseMethod'][0][0][0]!=0))-1  # -1 to match up with matlab indexing
     stim_cont = stim_trial+2
     tot_trial = len(behInfo['pulseMethod'][0][0][0])
-        
-    # cues = alignCue['trialsCue']['startLfpInd'][0][0][0][1:]
-    starts = alignRun['trialsRun']['startLfpInd'][0][0][0][1:]  
-    # trial 0 is empty, so [1:] will include only the correct trials; note that 
-    # this means that the stim_trial indices are matched up without -1
-
+    
+    # cues = alignCue['trialsCue']['startLfpInd'][0][0][0]
+    starts = alignRun['trialsRun']['startLfpInd'][0][0][0][1:]
 
     # data wrangling
     peri_stim_theta_amp = []
     peri_stim_theta_phase = []
+    peri_stims_theta_amp = []
+    peri_stims_theta_phase = []
     for t in stim_trial:
         s = starts[t]
         amp_seq = theta_amp[s-1250:s+6250]  # -1~5 s 
@@ -92,12 +231,26 @@ for sessname in pathHPC:
         
         phase_seq = theta_h[s-1250:s+6250]
         peri_stim_theta_phase.append(phase_seq)
+        
+    for t in stims:
+        amp_seq = theta_amp[t-1250:t+6250]  # -1~5 s 
+        peri_stims_theta_amp.append(amp_seq)
+        
+        phase_seq = theta_h[t-1250:t+6250]
+        peri_stims_theta_phase.append(phase_seq)
     avg_peri_stim_theta_amplitude = np.mean(peri_stim_theta_amp, axis=0)
+    avg_peri_stims_theta_amplitude = np.mean(peri_stims_theta_amp, axis=0)
     all_stim_theta_amplitude.append(avg_peri_stim_theta_amplitude)
+    all_stims_theta_amplitude.append(avg_peri_stims_theta_amplitude)
     
     peri_stim_cir_dev = circvar(peri_stim_theta_phase, high=3.14159, low =-3.14159,
                                 axis=0)
     all_stim_cir_dev.append(peri_stim_cir_dev)
+    
+    all_stims_theta_phase.append(peri_stims_theta_phase)
+    peri_stims_cir_dev = circvar(peri_stims_theta_phase, high=3.14159, low =-3.14159,
+                                axis=0)
+    all_stims_cir_dev.append(peri_stims_cir_dev)
     
     
     peri_start_theta_amp = []
@@ -112,6 +265,7 @@ for sessname in pathHPC:
     avg_peri_start_theta_amplitude = np.mean(peri_start_theta_amp, axis=0)
     all_start_theta_amplitude.append(avg_peri_start_theta_amplitude)
         
+    all_start_theta_phase.append(peri_start_theta_phase)
     peri_start_cir_dev = circvar(peri_start_theta_phase, high=3.14159, low =-3.14159,
                                  axis=0)
     all_start_cir_dev.append(peri_start_cir_dev)
@@ -129,6 +283,7 @@ for sessname in pathHPC:
     avg_peri_cont_theta_amplitude = np.mean(peri_cont_theta_amp, axis=0)
     all_cont_theta_amplitude.append(avg_peri_cont_theta_amplitude)
         
+    all_cont_theta_phase.append(peri_cont_theta_phase)
     peri_cont_cir_dev = circvar(peri_cont_theta_phase, high=3.14159, low =-3.14159,
                                 axis=0)
     all_cont_cir_dev.append(peri_cont_cir_dev)
@@ -146,9 +301,14 @@ for sessname in pathHPC:
     avg_peri_recov_theta_amplitude = np.mean(peri_recov_theta_amp, axis=0)
     all_recov_theta_amplitude.append(avg_peri_recov_theta_amplitude)
         
+    all_recov_theta_phase.append(peri_recov_theta_phase)
     peri_recov_cir_dev = circvar(peri_recov_theta_phase, high=3.14159, low =-3.14159,
                                  axis=0)
     all_recov_cir_dev.append(peri_recov_cir_dev)
+    
+    
+    # session by session plotting 
+    plot_polar_phase(recname, peri_stims_theta_phase, peri_start_theta_phase, peri_cont_theta_phase)
 
 
 #%% temp plotting cell (eeg trace)
@@ -365,14 +525,26 @@ fig, ax = plt.subplots(figsize=(6,2))
 fig.suptitle('avg. circ. dev., stim v baseline')
 
 ax.set(xlabel='time (s)', ylabel='avg. circ. dev. (π)')
+for p in ['top','right']:
+    ax.spines[p].set_visible(False)
+for p in ['left','bottom']:
+    ax.spines[p].set_linewidth(1)
 
-mean_stim_cir_dev = np.mean(all_stim_cir_dev, axis=0)
+mean_stims_cir_dev = np.mean(all_stims_cir_dev, axis=0)
 mean_start_cir_dev = np.mean(all_start_cir_dev, axis=0)
-sem_stim_cir_dev = sem(all_stim_cir_dev, axis=0)
+sem_stims_cir_dev = sem(all_stims_cir_dev, axis=0)
 sem_start_cir_dev = sem(all_start_cir_dev, axis=0)
 
-ax.plot(taxis, mean_stim_cir_dev, 'royalblue')
-ax.plot(taxis, mean_start_cir_dev, 'grey', alpha=.5)
+stimln, = ax.plot(taxis, mean_stims_cir_dev, 'royalblue')
+baseln, = ax.plot(taxis, mean_start_cir_dev, 'grey', alpha=.5)
+ax.fill_between(taxis, mean_stims_cir_dev+sem_stims_cir_dev,
+                       mean_stims_cir_dev-sem_stims_cir_dev,
+                       color='royalblue', alpha=.25)
+ax.fill_between(taxis, mean_start_cir_dev+sem_start_cir_dev,
+                       mean_start_cir_dev-sem_start_cir_dev,
+                       color='grey', alpha=.25)
+
+ax.legend([stimln, baseln], ['stim', 'baseline'], frameon=False)
 
 fig.tight_layout()
 plt.show()
@@ -385,24 +557,36 @@ plt.close(fig)
 
 
 #%% plot circular deviation stim v stim cont
-fig, ax = plt.subplots(figsize=(6,2))
+fig, ax = plt.subplots(figsize=(6,2.5))
 fig.suptitle('avg. circ. dev., stim v stim-cont')
 
-ax.set(xlabel='time (s)', ylabel='avg. circ. dev. (π)')
+for p in ['top','right']:
+    ax.spines[p].set_visible(False)
+for p in ['left','bottom']:
+    ax.spines[p].set_linewidth(1)
 
-mean_stim_cir_dev = np.mean(all_stim_cir_dev, axis=0)
+mean_stims_cir_dev = np.mean(all_stims_cir_dev, axis=0)
 mean_cont_cir_dev = np.mean(all_cont_cir_dev, axis=0)
-# sem_stim_cir_dev = sem(all_stim_cir_dev, axis=0)
-# sem_cont_cir_dev = sem(all_cont_cir_dev, axis=0)
+sem_stims_cir_dev = sem(all_stims_cir_dev, axis=0)
+sem_cont_cir_dev = sem(all_cont_cir_dev, axis=0)
 
-ax.plot(taxis, mean_stim_cir_dev, 'royalblue')
-ax.plot(taxis, mean_cont_cir_dev, 'grey', alpha=.5)
-# ax.fill_between(taxis, mean_stim_cir_dev+sem_stim_cir_dev,
-#                             mean_stim_cir_dev-sem_stim_cir_dev,
-#                             color='royalblue', alpha=.3)
-# ax.fill_between(taxis, mean_cont_cir_dev+sem_cont_cir_dev,
-#                             mean_cont_cir_dev-sem_cont_cir_dev,
-#                             color='grey', alpha=.15)
+stimln, = ax.plot(taxis, mean_stims_cir_dev, 'royalblue')
+contln, = ax.plot(taxis, mean_cont_cir_dev, 'grey', alpha=.5)
+ax.fill_between(taxis, mean_stims_cir_dev+sem_stims_cir_dev,
+                       mean_stims_cir_dev-sem_stims_cir_dev,
+                       color='royalblue', alpha=.25, edgecolor='none')
+ax.fill_between(taxis, mean_cont_cir_dev+sem_cont_cir_dev,
+                       mean_cont_cir_dev-sem_cont_cir_dev,
+                       color='grey', alpha=.25, edgecolor='none')
+
+# for i in range(6):
+#     ax.fill_between([i*.083, i*.083+.083*0.3], [0,0], [1,1], color='royalblue', alpha=.25, edgecolor='none')
+# ax.fill_between([0,.5], [0,0], [1,1], color='royalblue', alpha=.15, edgecolor='none')
+
+ax.legend([stimln, baseln], ['stim', 'stim-cont'], frameon=False)
+
+ax.set(xlabel='time (s)', ylabel='avg. circ. dev. (π)',
+       ylim=(.66,.92))
 
 fig.tight_layout()
 plt.show()
@@ -414,34 +598,45 @@ fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_theta_cir_dev
 plt.close(fig)
 
 
-#%%
-fig, axs = plt.subplots(3,1,figsize=(4,8))
-# fig.suptitle('avg. circ. dev.')
-axs[0].set(xlabel='time (s)', ylabel='avg. circ. dev. (π)',
-       title='stim v stim-cont')
+#%% box plot circular dev stim v stim_cont
+phase_stims = []; phase_conts = []
+for sess in all_stims_cir_dev:
+    phase_stims.append(sess[1250+125])  # 0.1 s after
+for sess in all_cont_cir_dev:
+    phase_conts.append(sess[1250+125])
 
-axs[0].plot(taxis, np.mean(all_stim_cir_dev, axis=0), 'royalblue')
-axs[1].plot(taxis, np.mean(all_cont_cir_dev, axis=0), 'grey')
+minimum = min(min(phase_stims), min(phase_conts))
+maximum = max(max(phase_stims), max(phase_conts))
 
-axs[2].plot(taxis, np.mean(all_stim_cir_dev, axis=0), 'royalblue')
-axs[2].plot(taxis, np.mean(all_cont_cir_dev, axis=0), 'grey', alpha=.5)
+pval = wilcoxon(phase_stims, phase_conts)[1]
+
+fig, ax = plt.subplots(figsize=(3,4))
+
+for p in ['top', 'right', 'bottom']:
+    ax.spines[p].set_visible(False)
+ax.spines['left'].set_linewidth(1)
+ax.set_xticklabels(['stim cont', 'stim'], minor=False)
+ax.set_xticks([1,2])
+ax.set_yticks([0,.5,1])
+
+ax.set(ylabel='cir. dev. (π)')
+fig.suptitle('theta phase cir dev, stim v stim-cont, p={}'.format(round(pval, 5)))
+
+bp = ax.bar([1, 2], [np.mean(phase_conts), np.mean(phase_stims)],
+            color=['grey', 'royalblue'], edgecolor=['k','k'], width=.35)
+    
+ax.scatter([[1]*len(phase_conts), [2]*len(phase_stims)], [phase_conts, phase_stims], zorder=2,
+           s=15, color='grey', edgecolor='k', alpha=.5)
+ax.plot([[1]*len(phase_conts), [2]*len(phase_stims)], [phase_conts, phase_stims], zorder=2,
+        color='grey', alpha=.5)
+
+ax.set(xlim=(0.5, 2.5), ylim=(minimum-0.05, maximum+0.05))
 
 fig.tight_layout()
 plt.show()
-plt.close(fig)
 
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_theta_cir_dev_bar.png',
+            bbox_inches='tight',
+            dpi=500)
 
-fig, axs = plt.subplots(3,1,figsize=(4,8))
-# fig.suptitle('avg. circ. dev.')
-axs[0].set(xlabel='time (s)', ylabel='avg. circ. dev. (π)',
-       title='stim v recov')
-
-axs[0].plot(taxis, np.mean(all_stim_cir_dev, axis=0), 'royalblue')
-axs[1].plot(taxis, np.mean(all_recov_cir_dev, axis=0), 'grey')
-
-axs[2].plot(taxis, np.mean(all_stim_cir_dev, axis=0), 'royalblue')
-axs[2].plot(taxis, np.mean(all_recov_cir_dev, axis=0), 'grey', alpha=.5)
-
-fig.tight_layout()
-plt.show()
 plt.close(fig)

@@ -11,7 +11,6 @@ Plot cue-start difference for emphasising this point
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
-plt.rcParams['font.family'] = 'Arial' 
 import scipy.io as sio 
 import sys
 
@@ -45,12 +44,14 @@ for pathname in pathLC:
     tot_trial = ind_good_beh
     
     # plot
-    fig, ax = plt.subplots(figsize=(4,3))
-    for spine in ['top', 'right']:
-        ax.spines[spine].set_visible(False)
-    ax.set(title='aligned to start-cue',
+    fig, ax = plt.subplots(figsize=(5,3))
+    ax.set(title='aligned to cues',
            xlabel='time (s)', ylabel='trial #',
            xlim=(-1, 5))
+    for p in ['top','right']:
+        ax.spines[p].set_visible(False)
+    for p in ['left','bottom']:
+        ax.spines[p].set_linewidth(1)
     
     row_count = 1
     for trial in ind_good_beh:

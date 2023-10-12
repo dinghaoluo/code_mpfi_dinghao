@@ -32,7 +32,8 @@ pathHPC = rec_list.pathHPCLCopt
 
 #%% main 
 for pathname in pathHPC:
-    recname = pathname[17:]
+    recname = pathname[-17:]
+    print(recname)
     
     # load trains for this recording 
     all_info = np.load('Z:\Dinghao\code_dinghao\HPC_all\{}\HPC_all_info_{}.npy'.format(recname, recname),
@@ -52,9 +53,10 @@ for pathname in pathHPC:
     
     # behaviour parameters 
     beh_info = info['beh'][0][0]
-    stim_ind = np.where(beh_info['pulseMethod']!=0)[1]
-    stim_start = stim_ind[0]; stim_end = stim_ind[-1]
-    stim_trials = np.arange(stim_start, stim_end)
+    behPar = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(pathname, recname))
+    stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
+    stim_trials = np.where(stimOn!=0)[0]+1
+    cont_trials = stim_trials+2
     
     tot_clu = len(pyr_id)
     tot_pyr = sum(pyr_id)  # how many pyramidal cells are in this recording
@@ -67,27 +69,20 @@ for pathname in pathHPC:
         if pyr_id[i]==True:
             cluname = clu_list[i]
             temp = np.zeros((tot_trial, tot_time))  # temporary to contain all trials of one clu
-            temp_cont = np.zeros((stim_start, tot_time))
+            temp_cont = np.zeros((len(cont_trials), tot_time))
             temp_stim = np.zeros((len(stim_trials), tot_time))
-            for trial in range(tot_trial):
+            for ind, trial in enumerate(cont_trials):
                 trial_length = len(trains[i][trial])-2500
-                if trial_length<tot_time:
-                    temp[trial, :trial_length] = trains[i][trial][2500:8750]
-                else:
-                    temp[trial, :] = trains[i][trial][2500:8750]
-            for trial in range(stim_start):
-                trial_length = len(trains[i][trial])-2500
-                if trial_length<tot_time:
-                    temp_cont[trial, :trial_length] = trains[i][trial][2500:8750]
-                else:
-                    temp_cont[trial, :] = trains[i][trial][2500:8750]
+                if trial_length<tot_time and trial_length>0:
+                    temp_cont[ind, :trial_length] = trains[i][trial][2500:8750]
+                elif trial_length>0:
+                    temp_cont[ind, :] = trains[i][trial][2500:8750]
             for ind, trial in enumerate(stim_trials):
                 trial_length = len(trains[i][trial])-2500
-                if trial_length<tot_time:
+                if trial_length<tot_time and trial_length>0:
                     temp_stim[ind, :trial_length] = trains[i][trial][2500:8750]
-                else:
+                elif trial_length>0:
                     temp_stim[ind, :] = trains[i][trial][2500:8750]
-            pyr[cluname] = np.mean(temp, axis=0)*1250
             pyr_cont[cluname] = np.mean(temp_cont, axis=0)*1250
             pyr_stim[cluname] = np.mean(temp_stim, axis=0)*1250
             
@@ -125,7 +120,7 @@ for pathname in pathHPC:
             outdirroot = 'Z:\Dinghao\code_dinghao\HPC_all\{}'.format(recname)
             if not os.path.exists(outdirroot):
                 os.makedirs(outdirroot)
-            outdir = '{}\cont_v_stim_pyr'.format(outdirroot)
+            outdir = '{}\stim_v_stimcont_pyr_only'.format(outdirroot)
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
             

@@ -24,7 +24,7 @@ pathHPC = rec_list.pathHPCLCopt
 
 
 #%% MAIN 
-for pathname in pathHPC[20:]:
+for pathname in pathHPC:
     all_info = {}
     
     recname = pathname[-17:]
@@ -62,14 +62,17 @@ for pathname in pathHPC[20:]:
         for trial in range(tot_trial-1):
             spikes = np.concatenate([spike_time_bef[i][trial].reshape(-1),
                                      spike_time[i][trial].reshape(-1)])
-            spikes = [int(s+3750) for s in spikes]
-            spike_train_trial = np.zeros(spikes[-1]+1)
-            spike_train_trial[spikes] = 1
-            spike_train_all[i][trial] = spike_train_trial
-            spike_train_conv[i][trial] = np.convolve(spike_train_trial, 
-                                                     gaus_spike, mode='same')
-            # norm_spike[i][trial] = normalise(spike_train_conv[i][trial])
-            conv_spike[i][trial] = spike_train_conv[i][trial]
+            spikes = [int(s+3750) for s in spikes if s<-1 or s>1]
+            if len(spikes)>0:
+                spike_train_trial = np.zeros(spikes[-1]+1)
+                spike_train_trial[spikes] = 1
+                spike_train_all[i][trial] = spike_train_trial
+                spike_train_conv[i][trial] = np.convolve(spike_train_trial, 
+                                                         gaus_spike, mode='same')
+                # norm_spike[i][trial] = normalise(spike_train_conv[i][trial])
+                conv_spike[i][trial] = spike_train_conv[i][trial]
+            else:
+                conv_spike[i][trial] = np.zeros(12500)  # default to 10 s of emptiness if no spikes in this trial
     
     i = 0
     for clu in range(tot_clu):
