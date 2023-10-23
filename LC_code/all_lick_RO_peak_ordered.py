@@ -61,7 +61,7 @@ noStim = input('Get rid of stim trials? (Y/N) (for plotting purposes... etc. etc
 lick_sensitive = []
 lick_sensitive_type = []
 
-for cluname in clu_list[334:336]:
+for cluname in clu_list:
     print(cluname)
     raster = rasters[cluname]
     train = all_train[cluname]
@@ -82,7 +82,7 @@ for cluname in clu_list[334:336]:
     behParf = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
     behPar = sio.loadmat(behParf)
     stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-    stimOn_ind = np.where(stimOn!=0)[0]-1
+    stimOn_ind = np.where(stimOn!=0)[0]+1
     
     first_licks = []
     for trial in range(tot_trial):
@@ -130,30 +130,32 @@ for cluname in clu_list[334:336]:
         curr_trial = [(s-3750)/1250 for s in curr_trial if s>2500]  # starts from -1 s 
         
         c = 'grey'
-        calpha = .35
+        calpha = 0.5
+        dotsize = 0.35
         if (noStim=='N' or noStim=='n') and stimOn[temp_ordered[trial]]==1:
-            c = 'red'
+            c = 'royalblue'
             calpha = 1.0
+            dotsize = 0.55
         
         axs['A'].scatter(curr_trial, [trial+1]*len(curr_trial),
-                         color=c, s=.35)
+                         color=c, s=dotsize)
         axs['A'].plot([licks_ordered[trial]/1250, licks_ordered[trial]/1250],
                       [trial, trial+1],
-                      linewidth=2, color='darkred', alpha=calpha)
-        axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
-                      [trial, trial+1],
-                      linewidth=2, color='darkgreen', alpha=.5)
+                      linewidth=2, color='royalblue', alpha=calpha)
+        # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
+        #               [trial, trial+1],
+        #               linewidth=2, color='darkgreen', alpha=.5)
      
-    fl, = axs['A'].plot([],[],color='darkred',label='1st licks')
-    pp, = axs['A'].plot([],[],color='darkgreen',alpha=.35,label='rew.')
-    axs['A'].legend(handles=[fl, pp], frameon=False, fontsize=6)
+    fl, = axs['A'].plot([],[],color='royalblue',label='1st licks')
+    # pp, = axs['A'].plot([],[],color='darkgreen',alpha=.35,label='rew.')
+    axs['A'].legend(handles=[fl], frameon=False, fontsize=10)
     
     # t-test and pre-post comp.
     t_res = ttest_rel(a=pre_rate, b=post_rate)
     t_ratio_res = ranksums(ratio, ratio_shuf)
     pval = t_res[1]
     pval_ratio = t_ratio_res[1]
-    if pval<0.05 and pval_ratio<0.05:
+    if pval<0.05:
         lick_sensitive.append(True)
         if np.median(pre_rate)>np.median(post_rate):
             lick_sensitive_type.append('inhibition')
@@ -265,7 +267,7 @@ for p in ['top','right','left','bottom']:
     ax.spines[p].set_visible(False)
 ax.set(yticks=[]); ax.set(xticks=[])
 
-ax.hist(density_ind, bins=30, edgecolor='k', color='darkred', linewidth=3)
+ax.hist(density_ind, bins=30, edgecolor='k', color='royalblue', linewidth=3)
 
 fig.tight_layout()
 plt.show()

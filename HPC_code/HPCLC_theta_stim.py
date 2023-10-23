@@ -66,7 +66,7 @@ def plot_polar_phase(recname, peri_stims_theta_phase, peri_start_theta_phase, pe
     bars_cont = axs[0].bar(theta_cont, radii_cont, width=width, edgecolor='k')
     rv_cont = sum_vector(radii_cont)
     axs[0].arrow(rv_cont[1], 0, 0, rv_cont[0], 
-                 length_includes_head=True, head_width=0.25, head_length=0.5,
+                 length_includes_head=True, head_width=0.5, head_length=3,
                  facecolor='r', edgecolor='r')
 
     theta_stims = histogram_stims[1][:-1]
@@ -74,7 +74,7 @@ def plot_polar_phase(recname, peri_stims_theta_phase, peri_start_theta_phase, pe
     bars_stims = axs[1].bar(theta_stims, radii_stims, width=width, edgecolor='k')
     rv_stims = sum_vector(radii_stims)
     axs[1].arrow(rv_stims[1], 0, 0, rv_stims[0],
-                 length_includes_head=True, head_width=0.25, head_length=0.5,
+                 length_includes_head=True, head_width=0.1, head_length=2,
                  facecolor='r', edgecolor='r')
 
     # Use custom colors and opacity
@@ -88,7 +88,7 @@ def plot_polar_phase(recname, peri_stims_theta_phase, peri_start_theta_phase, pe
     for i in range(2):
         axs[i].set_rticks([0,5,10,20,30])
         axs[i].set_yticklabels(['','',10,20,30])
-        axs[i].set_rlabel_position(12)
+        axs[i].set_rlabel_position(60)
 
     axs[0].set(title='stim control')
     axs[1].set(title='stimulation')
@@ -131,9 +131,9 @@ def plot_polar_phase(recname, peri_stims_theta_phase, peri_start_theta_phase, pe
         bar.set_alpha(0.8)
         
     for i in range(2):
-        axs[i].set_rticks([0,5,10])
-        axs[i].set_yticklabels(['','',10])
-        axs[i].set_rlabel_position(12)
+        axs[i].set_rticks([0,5,10,20,30])
+        axs[i].set_yticklabels(['','',10,20,30])
+        axs[i].set_rlabel_position(60)
 
     axs[0].set(title='baseline')
     axs[1].set(title='stimulation')
@@ -183,7 +183,7 @@ all_start_theta_phase = []; all_cont_theta_phase = []; all_recov_theta_phase = [
 all_stim_cir_dev = []; all_stims_cir_dev = []
 all_start_cir_dev = []; all_cont_cir_dev = []; all_recov_cir_dev = []
 
-for sessname in pathHPC:
+for sessname in pathHPC[-2:]:
     recname = sessname[43:60]  # recording name, e.g. A069r-20230905-01
     print(recname)
     

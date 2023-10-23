@@ -431,8 +431,7 @@ ax.set(ylabel='Δ pop. spike rate (Hz)',
 #             color=['gainsboro', 'dimgrey'], edgecolor=['k','k'], width=.35)
 bp = ax.boxplot([[0]*len(early_all_pooled), diff_pooled],
            positions=[1, 2],
-           patch_artist=True,
-           notch='True')
+           patch_artist=True)
 colors = ['gainsboro', 'dimgrey']
 for patch, color in zip(bp['boxes'], colors):
     patch.set_facecolor(color)
@@ -458,10 +457,10 @@ ax.set(xlim=(0.5, 2.5))
 fig.tight_layout()
 plt.show()
 
-# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
-#             bbox_inches='tight')
-# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.png',
-#             bbox_inches='tight',
-#             dpi=500)
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate_delta.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate_delta.png',
+            bbox_inches='tight',
+            dpi=500)
 
 plt.close(fig)
