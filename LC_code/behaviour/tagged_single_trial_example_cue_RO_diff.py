@@ -60,11 +60,12 @@ speed_time_conv = [np.convolve(np.squeeze(single), gaus_speed)[50:-49]/10
 trial_used = 52
 print('example trial: {}'.format(trial_used))
 
-fig, ax = plt.subplots(figsize=(5, 2.2))
-ax.set(xlabel='time (s)', ylabel='velocity\n(cm/s)',
+fig, ax = plt.subplots(figsize=(5, 1.2))
+ax.set(xlabel='time (s)',
        ylim=(-3,100), xlim=(-1, 3),
-       xticks=[-1, 0, 1, 2, 3])
-for p in ['right','top']:
+       xticks=[-1, 0, 1, 2, 3],
+       yticks=[])
+for p in ['right','top','left']:
     ax.spines[p].set_visible(False)
 for p in ['left','bottom']:
     ax.spines[p].set_linewidth(1)

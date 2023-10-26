@@ -44,7 +44,7 @@ for pathname in pathLC:
     tot_trial = ind_good_beh
     
     # plot
-    fig, ax = plt.subplots(figsize=(5,3))
+    fig, ax = plt.subplots(figsize=(5,2))
     ax.set(title='aligned to cues',
            xlabel='time (s)', ylabel='trial #',
            xlim=(-1, 5))
