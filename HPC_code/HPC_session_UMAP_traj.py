@@ -10,6 +10,7 @@ perform PCA on averaged spike trains and calculate distances between points
 
 
 #%% imports 
+import umap
 import numpy as np 
 import matplotlib.pyplot as plt 
 import sys 
@@ -177,8 +178,21 @@ for pathname in pathHPC:
             pyr_counter+=1
             
     # Run PCA
-    pca = PCA(n_components=3)
-    pca.fit(np.transpose(X_all))
+    reducer = umap.UMAP(metric='cosine',
+                        output_metric='euclidean',
+                        negative_sample_rate=5,
+                        target_metric='categorical',
+                        dens_lambda=2.0,
+                        dens_frac=0.3,
+                        dens_var_shift=0.1,
+                        min_dist=0.1,
+                        spread=1.0,
+                        repulsion_strength=1.0,
+                        learning_rate=1.0,
+                        init='spectral',
+                        n_neighbors=20,
+                        n_components=3)    
+    reducer.fit(np.transpose(X_all))
     
     # fitting every single trial to these axes
     X_cont_avg = np.zeros((tot_pyr, tot_samp))
@@ -196,9 +210,9 @@ for pathname in pathHPC:
     X_cont_avg = np.transpose(X_cont_avg)
     X_stim_avg = np.transpose(X_stim_avg)
     X_all_avg = np.transpose(X_all_avg)
-    X_cont_avg_pca = pca.transform(X_cont_avg)
-    X_stim_avg_pca = pca.transform(X_stim_avg)
-    X_all_avg_pca = pca.transform(X_all_avg)
+    X_cont_avg_umap = reducer.transform(X_cont_avg)
+    X_stim_avg_umap = reducer.transform(X_stim_avg)
+    X_all_avg_umap = reducer.transform(X_all_avg)
     
     show = 1250*3
     t = np.arange(show)
@@ -206,8 +220,8 @@ for pathname in pathHPC:
     fig = plt.figure(figsize=(5,7))
     ax = plt.axes(projection ='3d')
     
-    sc = ax.scatter(xs=X_cont_avg_pca[:show, 0], ys=X_cont_avg_pca[:show, 1], zs=X_cont_avg_pca[:show, 2], s=3, c=t, cmap='summer')
-    ss = ax.scatter(xs=X_stim_avg_pca[:show, 0], ys=X_stim_avg_pca[:show, 1], zs=X_stim_avg_pca[:show, 2], s=3, c=t, cmap='autumn')
+    sc = ax.scatter(xs=X_cont_avg_umap[:show, 0], ys=X_cont_avg_umap[:show, 1], zs=X_cont_avg_umap[:show, 2], s=3, c=t, cmap='summer')
+    ss = ax.scatter(xs=X_stim_avg_umap[:show, 0], ys=X_stim_avg_umap[:show, 1], zs=X_stim_avg_umap[:show, 2], s=3, c=t, cmap='autumn')
     # sa = ax.scatter(xs=X_all_avg_pca[:show, 0], ys=X_all_avg_pca[:show, 1], zs=X_all_avg_pca[:show, 2], s=3, c=t, cmap='gist_gray')
     
     plt.colorbar(sc, shrink=.2, ticks=[0, 1250, 2500, 3750], pad=0)
@@ -216,7 +230,7 @@ for pathname in pathHPC:
     
     fig.tight_layout()
     ax.set(title=recname)
-    fig.savefig(r'{}\stim_stimcont_pca.png'.format(outdirroot),
+    fig.savefig(r'{}\stim_stimcont_umap.png'.format(outdirroot),
                 dpi=500,
                 bbox_inches='tight')
     
@@ -225,9 +239,9 @@ for pathname in pathHPC:
     dist_ca = np.zeros(1250*4)
     dist_sa = np.zeros(1250*4)
     for i in range(1250*4):
-        dist_cs[i] = dist(X_stim_avg_pca[i,:], X_cont_avg_pca[i,:])
-        dist_sa[i] = dist(X_stim_avg_pca[i,:], X_all_avg_pca[i,:])
-        dist_ca[i] = dist(X_cont_avg_pca[i,:], X_all_avg_pca[i,:])
+        dist_cs[i] = dist(X_stim_avg_umap[i,:], X_cont_avg_umap[i,:])
+        dist_sa[i] = dist(X_stim_avg_umap[i,:], X_all_avg_umap[i,:])
+        dist_ca[i] = dist(X_cont_avg_umap[i,:], X_all_avg_umap[i,:])
     
     dist_cs_all.append(normalise(dist_cs))
     dist_sa_all.append(normalise(dist_sa))
@@ -249,7 +263,7 @@ for pathname in pathHPC:
     
     fig.tight_layout()
     
-    fig.savefig(r'{}\stim_stimcont_pca_dist.png'.format(outdirroot),
+    fig.savefig(r'{}\stim_stimcont_umap_dist.png'.format(outdirroot),
                 dpi=500,
                 bbox_inches='tight')
     

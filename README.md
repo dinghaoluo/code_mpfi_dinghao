@@ -18,4 +18,8 @@ essential scripts:
 - HPCLC_clu_list.py and HPCLCterm_clu_list.py generate a list of clu name for every recording session to accelerate later processing
 - HPCLC_place_cell_profiles.py and HPCLCterm_place_cell_profiles.py summarise the place cell indices and number of place cells for each recording session
 - HPC_session_PCA_traj.py performs PCA on averaged all trials, averaged stim or control trials, and calculate and plot the distances between points on the trajectories
+### sequence 
+- HPC_LC_plot_sequence.py and HPC_LCterm_plot_sequence.py plot temporal cell sequences for single sessions
+- HPC_LC_plot_sequence_dist.py and HPC_LCterm_plot_sequence_dist.py plot distance cell sequences for single sessions
 ### stim_stimcont
+### 
