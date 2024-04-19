@@ -17,4 +17,5 @@ essential scripts:
 - HPCLC_all_train.py and HPCLCterm_all_train.py read spiketime data similarly to ...rasters.py, but then convolve the spike train with a 100-ms-sigma Gaussian kernel and produce exactly one spike train array for every recording session
 - HPCLC_clu_list.py and HPCLCterm_clu_list.py generate a list of clu name for every recording session to accelerate later processing
 - HPCLC_place_cell_profiles.py and HPCLCterm_place_cell_profiles.py summarise the place cell indices and number of place cells for each recording session
+- HPC_session_PCA_traj.py performs PCA on averaged all trials, averaged stim or control trials, and calculate and plot the distances between points on the trajectories
 ### stim_stimcont
