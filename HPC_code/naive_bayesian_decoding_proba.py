@@ -41,6 +41,8 @@ pathHPC = rec_list.pathHPCLCopt
 #%% parameters 
 n_shuf = 100  # how many times to bootstrap activity
 
+tot_bin = 25
+
 
 #%% containers
 all_error_stim = []
@@ -154,8 +156,6 @@ for pathname in pathHPC[:-1]:
     single trial, repeated tot_test_trial times, forming a 25xtot_test_trial-long 
     vector.
     """
-    tot_bin = 25
-    
     y = list(range(tot_bin))*tot_test_trial
     y_all = list(range(tot_bin))*tot_trial
     
