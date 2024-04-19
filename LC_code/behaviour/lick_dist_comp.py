@@ -143,46 +143,34 @@ res, pval = wilcoxon(all_licks_non_stim, all_licks_stim)
 # licks summary
 fig, ax = plt.subplots(figsize=(3,4.5))
 
-bp = ax.boxplot([all_licks_non_stim, all_licks_stim],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
+vp = ax.violinplot([all_licks_non_stim, all_licks_stim],
+                   positions=[1, 2],
+                   showextrema=False, showmedians=True)
 
-ax.scatter([.8]*len(all_licks_non_stim), 
+vp['bodies'][0].set_color('grey')
+vp['bodies'][1].set_color('royalblue')
+for i in [0,1]:
+    vp['bodies'][i].set_edgecolor('none')
+vp['cmedians'].set(color='darkred', lw=2)
+
+ax.scatter([1]*len(all_licks_non_stim), 
            all_licks_non_stim, 
            s=10, c='grey', ec='none', lw=.5)
 
-ax.scatter([1.7]*len(all_licks_stim), 
+ax.scatter([2]*len(all_licks_stim), 
            all_licks_stim, 
            s=10, c='royalblue', ec='none', lw=.5)
 
-colors = ['grey', 'royalblue']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-
-for median in bp['medians']:
-    median.set(color='darkred',
-                linewidth=1)
-
-ax.plot([[.8]*len(all_licks_stim), [1.7]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
+ax.plot([[1]*len(all_licks_stim), [2]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
         color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
-        color='k', linewidth=2)
+ax.plot([1, 2], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
+        color='darkred', linewidth=2)
 ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.5
 ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.5
-ax.set(xlim=(0,2.5), ylim=(ymin,ymax),
+ax.set(xlim=(.5,2.5), ylim=(ymin,ymax),
        ylabel='dist. 1st licks (cm)',
        title='dist. 1st licks non-stim v stim, p={}'.format(np.round(pval, 4)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
+ax.set_xticks([1, 2]); ax.set_xticklabels(['non-stim', 'stim'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 fig.suptitle('distance 1st licks')

@@ -337,46 +337,33 @@ plt.close(fig)
 #%% mean speeds summary
 fig, ax = plt.subplots(figsize=(3,4.5))
 
-bp = ax.boxplot([all_mspeeds_non_stim, all_mspeeds_stim],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
+vp = ax.violinplot([all_mspeeds_non_stim, all_mspeeds_stim],
+                   positions=[1, 2],
+                   showextrema=False, showmedians=True)
 
-ax.scatter([.8]*len(all_mspeeds_non_stim), 
+vp['bodies'][0].set_color('grey')
+vp['bodies'][1].set_color('royalblue')
+for i in [0,1]:
+    vp['bodies'][i].set_edgecolor('none')
+vp['cmedians'].set(color='darkred', linewidth=2)
+
+ax.scatter([1]*len(all_mspeeds_non_stim), 
            all_mspeeds_non_stim, 
            s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([1.7]*len(all_mspeeds_stim), 
+ax.scatter([2]*len(all_mspeeds_stim), 
            all_mspeeds_stim, 
            s=10, c='royalblue', ec='none', lw=.5)
 
-colors = ['grey', 'royalblue']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-
-for median in bp['medians']:
-    median.set(color='darkred',
-                linewidth=1)
-
-ax.plot([[.8]*len(all_mspeeds_stim), [1.7]*len(all_mspeeds_stim)], [all_mspeeds_non_stim, all_mspeeds_stim], 
+ax.plot([[1]*len(all_mspeeds_stim), [2]*len(all_mspeeds_stim)], [all_mspeeds_non_stim, all_mspeeds_stim], 
         color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(all_mspeeds_non_stim), np.median(all_mspeeds_stim)],
-        color='royalblue', linewidth=2)
+ax.plot([1, 2], [np.median(all_mspeeds_non_stim), np.median(all_mspeeds_stim)],
+        color='darkred', linewidth=2)
 ymin_speed = min(min(all_mspeeds_stim), min(all_mspeeds_non_stim))-5
 ymax_speed = max(max(all_mspeeds_stim), max(all_mspeeds_non_stim))+5
-ax.set(xlim=(0,2.5), ylim=(ymin_speed,ymax_speed),
+ax.set(xlim=(0.5,2.5), ylim=(ymin_speed,ymax_speed),
        ylabel='mean velocity (cm/s)',
-       title='mean velocity non-stim v stim, p={}'.format(np.round(pval_mspeeds, 4)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
+       title='mean velocity ctrl v stim, p={}'.format(np.round(pval_mspeeds, 4)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl', 'stim'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 fig.suptitle('mean velocity')
@@ -462,16 +449,20 @@ plt.close(fig)
 #%% init accels summary
 fig, ax = plt.subplots(figsize=(3,4.5))
 
-bp = ax.boxplot([all_initacc_non_stim, all_initacc_stim],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
+vp = ax.violinplot([all_initacc_non_stim, all_initacc_stim],
+                   positions=[1, 2],
+                   showextrema=False, showmedians=True)
 
-ax.scatter([.8]*len(all_initacc_non_stim), 
+vp['bodies'][0].set_color('grey')
+vp['bodies'][1].set_color('royalblue')
+for i in [0,1]:
+    vp['bodies'][i].set_edgecolor('none')
+vp['cmedians'].set(color='darkred', linewidth=2)
+
+ax.scatter([1]*len(all_initacc_non_stim), 
            all_initacc_non_stim, 
            s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([1.7]*len(all_initacc_stim), 
+ax.scatter([2]*len(all_initacc_stim), 
            all_initacc_stim, 
            s=10, c='royalblue', ec='none', lw=.5)
 
@@ -492,16 +483,16 @@ for median in bp['medians']:
     median.set(color='darkred',
                 linewidth=1)
 
-ax.plot([[.8]*len(all_initacc_stim), [1.7]*len(all_initacc_stim)], [all_initacc_non_stim, all_initacc_stim], 
+ax.plot([[1]*len(all_initacc_stim), [2]*len(all_initacc_stim)], [all_initacc_non_stim, all_initacc_stim], 
         color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(all_initacc_non_stim), np.median(all_initacc_stim)],
-        color='royalblue', linewidth=2)
+ax.plot([1, 2], [np.median(all_initacc_non_stim), np.median(all_initacc_stim)],
+        color='darkred', linewidth=2)
 ymin_acc = min(min(all_initacc_stim), min(all_initacc_non_stim))-.25
 ymax_acc = max(max(all_initacc_stim), max(all_initacc_non_stim))+.25
-ax.set(xlim=(0,2.5), ylim=(ymin_acc,ymax_acc),
+ax.set(xlim=(.5,2.5), ylim=(ymin_acc,ymax_acc),
        ylabel='init. accel. (cm/s\u00b2)',
-       title='initial acceleration non-stim v stim, p={}'.format(np.round(pval_initacc, 4)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
+       title='initial accel. ctrl v stim, p={}'.format(np.round(pval_initacc, 4)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl', 'stim'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 fig.suptitle('initial acceleration')
