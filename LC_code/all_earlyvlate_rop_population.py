@@ -367,34 +367,38 @@ fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_putative_ROpeak_population_early
 plt.close(fig)
 
 
+#%% statistics
+pval = wilcoxon(early_all_pooled_mean, late_all_pooled_mean)[1]
+
+
 #%% plot all (logged)
 # log everything 
-log_early_mean = [np.log(s) for s in early_all_pooled_mean]
-log_late_mean = [np.log(s) for s in late_all_pooled_mean]
-
 fig, ax = plt.subplots(figsize=(3,4))
+
+vp = ax.violinplot([early_all_pooled_mean, late_all_pooled_mean],
+                   showmeans=True, showextrema=False,
+                   quantiles=[[0.25, 0.75], [0.25, 0.75]])
+vp['bodies'][0].set_color('darkred')
+vp['bodies'][1].set_color('darkred')
+for i in [0,1]:
+    vp['bodies'][i].set_edgecolor(None)
+    vp['bodies'][i].set_alpha(i*0.2+0.4)
+vp['cmeans'].set(color='darkred')
+    
+ax.scatter([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [early_all_pooled_mean, late_all_pooled_mean], zorder=2,
+           s=3, color='grey', edgecolor='dimgrey', alpha=.4)
+ax.plot([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [early_all_pooled_mean, late_all_pooled_mean], zorder=2,
+        color='grey', alpha=.3)
 
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 ax.spines['left'].set_linewidth(1)
-ax.set_xticks([1, 2])
-ax.set_yticks([1, 2, 3])
-ax.set_xticklabels(['early', 'late'], minor=False)
 
-# statistics
-pval = wilcoxon(early_all_pooled_mean, late_all_pooled_mean)[1]
-ax.set(ylabel='log pop. spike rate',
+ax.set(xlim=(0.5, 2.5),
+       xticks=[1,2], xticklabels=['early', 'late'],
+       yticks=[5,10,15,20],
+       ylabel='log pop. spike rate',
        title='early v late lick trials p={}'.format(round(pval, 3)))
-
-bp = ax.bar([1, 2], [np.mean(log_early_mean), np.mean(log_late_mean)],
-            color=['gainsboro', 'dimgrey'], edgecolor=['k','k'], width=.35)
-    
-ax.scatter([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [log_early_mean, log_late_mean], zorder=2,
-           s=15, color='grey', edgecolor='k', alpha=.5)
-ax.plot([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [log_early_mean, log_late_mean], zorder=2,
-        color='grey', alpha=.5)
-
-ax.set(xlim=(0.5, 2.5), ylim=(1, 3.2))
 
 fig.tight_layout()
 plt.show()

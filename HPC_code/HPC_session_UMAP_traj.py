@@ -18,7 +18,6 @@ import os
 import scipy.io as sio 
 from scipy.stats import sem
 # from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 from timeit import default_timer
 
 # plotting parameters 
@@ -32,6 +31,7 @@ if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
 from common import normalise
 
+
 #%% load paths to recordings 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -40,8 +40,8 @@ pathHPC = rec_list.pathHPCLCopt
 
 
 #%% parameters 
-tot_samp = 1250*4
-xaxis = np.arange(5000)/1250
+tot_bin = 40
+xaxis = np.arange(tot_bin)/10
 n_shuf = 100
 
 
@@ -49,6 +49,18 @@ n_shuf = 100
 def dist(p1, p2):
     # takes in 2 points and calculate Euc. dist.
     return np.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2 + (p1[2]-p2[2])**2)
+
+def skipping_average(v, skip_step=125):
+    """
+    v : a numerical vector
+    skip_step : length of intervals; default to 100 ms (125 samples, 1250 Hz)
+    """
+    n_int = np.floor_divide(len(v), skip_step)
+    v_ret = np.zeros(n_int)
+    for i in range(n_int):
+        v_ret[i] = np.nanmean(v[i*skip_step:(i+1)*skip_step])
+        
+    return v_ret
 
 # def shuffle_mean(train, n_shuf=100):
 #     """
@@ -135,9 +147,9 @@ for pathname in pathHPC:
     if len(stim_trials)==0 or len(cont_trials)==0:
         continue
     
-    X_stim = np.zeros((tot_pyr, tot_samp*len(stim_trials)))
-    X_cont = np.zeros((tot_pyr, tot_samp*len(cont_trials)))
-    X_all = np.zeros((tot_pyr, tot_samp*tot_trial))
+    X_stim = np.zeros((tot_pyr, tot_bin*len(stim_trials)))
+    X_cont = np.zeros((tot_pyr, tot_bin*len(cont_trials)))
+    X_all = np.zeros((tot_pyr, tot_bin*tot_trial))
     
     pyr_counter = 0
     for ind, pyr in enumerate(pyr_id):
@@ -150,8 +162,10 @@ for pathname in pathHPC:
                     curr_train_pad[:trial_length] = curr_train
                 else:
                     curr_train_pad = curr_train[:1250*4]
+                # downsample curr_train to get our end result
+                curr_train_down = skipping_average(curr_train_pad)
                 # put this into X
-                X_all[pyr_counter, i*tot_samp:(i+1)*tot_samp] = curr_train_pad
+                X_all[pyr_counter, i*tot_bin:(i+1)*tot_bin] = curr_train_down
                             
             for i, trial in enumerate(stim_trials):
                 curr_train_pad = np.zeros(1250*4)
@@ -161,8 +175,10 @@ for pathname in pathHPC:
                     curr_train_pad[:trial_length] = curr_train
                 else:
                     curr_train_pad = curr_train[:1250*4]
+                # downsample curr_train to get our end result
+                curr_train_down = skipping_average(curr_train_pad)
                 # put this into X
-                X_stim[pyr_counter, i*tot_samp:(i+1)*tot_samp] = curr_train_pad
+                X_stim[pyr_counter, i*tot_bin:(i+1)*tot_bin] = curr_train_down
             
             for i, trial in enumerate(cont_trials):
                 curr_train_pad = np.zeros(1250*4)
@@ -172,38 +188,30 @@ for pathname in pathHPC:
                     curr_train_pad[:trial_length] = curr_train
                 else:
                     curr_train_pad = curr_train[:1250*4]
+                # downsample curr_train to get our end result
+                curr_train_down = skipping_average(curr_train_pad)
                 # put this into X
-                X_cont[pyr_counter, i*tot_samp:(i+1)*tot_samp] = curr_train_pad
+                X_cont[pyr_counter, i*tot_bin:(i+1)*tot_bin] = curr_train_down
                 
             pyr_counter+=1
             
     # Run PCA
     reducer = umap.UMAP(metric='cosine',
-                        output_metric='euclidean',
-                        negative_sample_rate=5,
-                        target_metric='categorical',
-                        dens_lambda=2.0,
-                        dens_frac=0.3,
-                        dens_var_shift=0.1,
-                        min_dist=0.1,
-                        spread=1.0,
-                        repulsion_strength=1.0,
-                        learning_rate=1.0,
-                        init='spectral',
-                        n_neighbors=20,
+                        min_dist=0,
+                        n_neighbors=200,
                         n_components=3)    
     reducer.fit(np.transpose(X_all))
     
     # fitting every single trial to these axes
-    X_cont_avg = np.zeros((tot_pyr, tot_samp))
-    X_stim_avg = np.zeros((tot_pyr, tot_samp))
-    X_all_avg = np.zeros((tot_pyr, tot_samp))
+    X_cont_avg = np.zeros((tot_pyr, tot_bin))
+    X_stim_avg = np.zeros((tot_pyr, tot_bin))
+    X_all_avg = np.zeros((tot_pyr, tot_bin))
     for t in range(len(cont_trials)):
-        X_cont_avg+=X_cont[:, t*tot_samp:(t+1)*tot_samp]
+        X_cont_avg+=X_cont[:, t*tot_bin:(t+1)*tot_bin]
     for t in range(len(stim_trials)):
-        X_stim_avg+=X_stim[:, t*tot_samp:(t+1)*tot_samp]
+        X_stim_avg+=X_stim[:, t*tot_bin:(t+1)*tot_bin]
     for t in range(tot_trial):
-        X_all_avg+=X_all[:, t*tot_samp:(t+1)*tot_samp]
+        X_all_avg+=X_all[:, t*tot_bin:(t+1)*tot_bin]
     X_cont_avg/=len(cont_trials)
     X_stim_avg/=len(stim_trials)
     X_all_avg/=tot_trial
@@ -214,7 +222,7 @@ for pathname in pathHPC:
     X_stim_avg_umap = reducer.transform(X_stim_avg)
     X_all_avg_umap = reducer.transform(X_all_avg)
     
-    show = 1250*3
+    show = tot_bin
     t = np.arange(show)
     
     fig = plt.figure(figsize=(5,7))
@@ -235,10 +243,10 @@ for pathname in pathHPC:
                 bbox_inches='tight')
     
     # distance profiles 
-    dist_cs = np.zeros(1250*4)
-    dist_ca = np.zeros(1250*4)
-    dist_sa = np.zeros(1250*4)
-    for i in range(1250*4):
+    dist_cs = np.zeros(tot_bin)
+    dist_ca = np.zeros(tot_bin)
+    dist_sa = np.zeros(tot_bin)
+    for i in range(tot_bin):
         dist_cs[i] = dist(X_stim_avg_umap[i,:], X_cont_avg_umap[i,:])
         dist_sa[i] = dist(X_stim_avg_umap[i,:], X_all_avg_umap[i,:])
         dist_ca[i] = dist(X_cont_avg_umap[i,:], X_all_avg_umap[i,:])
@@ -302,14 +310,14 @@ for p in range(3):
     for s in ['top', 'right']:
         axs[p].spines[s].set_visible(False)
 axs[0].set(ylabel='norm. dist. stim.-ctrl.', yticks=[.3,.5,.7],
-           title='PCA norm. dist. stim.-ctrl.')
+           title='UMAP norm. dist. stim.-ctrl.')
 axs[1].set(ylabel='norm. dist. ctrl.-all', yticks=[.3,.5,.7],
-           title='PCA norm. dist. ctrl.-all')
+           title='UMAP norm. dist. ctrl.-all')
 axs[2].set(ylabel='norm. dist. stim.-all', yticks=[.3,.5,.7],
-           title='PCA norm. dist. stim.-all')
+           title='UMAP norm. dist. stim.-all')
 
 fig.tight_layout()
 
-fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\dimensionality_reduction\pca_dist_stim_stimcont.png',
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\dimensionality_reduction\umap_dist_stim_stimcont.png',
             dpi=500,
             bbox_inches='tight')
