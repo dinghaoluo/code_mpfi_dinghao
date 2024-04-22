@@ -26,3 +26,5 @@ essential scripts:
 
 ## LC_code 
 - **all_earlyvlate_rop_population.py** compares the population spike rates between early 1st-lick trials and late 1st-lick trials; includes tagged, putative and all LC Dbh+ cells
+### behaviour 
+- **1st_lick_profile.py** plots a stair histogram of the first-lick distance of all the trials in LC-optotagging sessions

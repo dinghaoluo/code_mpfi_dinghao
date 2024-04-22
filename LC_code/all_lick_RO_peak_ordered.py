@@ -61,7 +61,7 @@ noStim = input('Get rid of stim trials? (Y/N) (for plotting purposes... etc. etc
 lick_sensitive = []
 lick_sensitive_type = []
 
-for cluname in clu_list[334:335]:
+for cluname in clu_list[382:383]:
     print(cluname)
     raster = rasters[cluname]
     train = all_train[cluname]
@@ -143,12 +143,12 @@ for cluname in clu_list[334:335]:
         axs['A'].plot([licks_ordered[trial]/1250, licks_ordered[trial]/1250],
                       [trial, trial+1],
                       linewidth=2, color='orchid')
-        # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
-        #               [trial, trial+1],
-        #               linewidth=2, color='darkgreen', alpha=.5)
+        axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
+                      [trial, trial+1],
+                      linewidth=2, color='darkgreen')
      
     fl, = axs['A'].plot([],[],color='orchid',label='1st licks')
-    # pp, = axs['A'].plot([],[],color='darkgreen',alpha=.35,label='rew.')
+    pp, = axs['A'].plot([],[],color='darkgreen',alpha=.35,label='rew.')
     axs['A'].legend(handles=[fl], frameon=False, fontsize=10)
     axs['A'].set(yticks=[1, 50, 100, 150], xticks=[0, 2, 4, 6])
     
