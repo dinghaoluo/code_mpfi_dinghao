@@ -12,7 +12,6 @@ includes preliminary analysis scripts for GRABNE data; currently closely mirrors
 
 ## HPC_code
 includes analysis scripts for behaviour and neural data collected from hippocampus recordings
-essential scripts:
 - **HPCLC_all_rasters.py** and **HPCLCterm_all_rasters.py** read spiketime data from behaviour-aligned spiketime files and produce exactly one 1-0 raster array for every recording session
 - **HPCLC_all_train.py** and **HPCLCterm_all_train.py** read spiketime data similarly to ...rasters.py, but then convolve the spike train with a 100-ms-sigma Gaussian kernel and produce exactly one spike train array for every recording session
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing
@@ -25,6 +24,7 @@ essential scripts:
 ### 
 
 ## LC_code 
+includes analysis scripts for behaviour and neural data collected from locus coeruleus recordings
 - **all_earlyvlate_rop_population.py** compares the population spike rates between early 1st-lick trials and late 1st-lick trials; includes tagged, putative and all LC Dbh+ cells
 ### behaviour 
-- **1st_lick_profile.py** plots a stair histogram of the first-lick distance of all the trials in LC-optotagging sessions
+- **1st_lick_profile.py** plots a stair histogram of the first-lick distance and time of all the trials in LC-optotagging sessions
