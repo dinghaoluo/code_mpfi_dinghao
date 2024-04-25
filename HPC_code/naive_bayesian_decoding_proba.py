@@ -40,7 +40,6 @@ pathHPC = rec_list.pathHPCLCopt
 
 #%% parameters 
 n_shuf = 100  # how many times to bootstrap activity
-
 tot_bin = 25
 
 
@@ -363,13 +362,13 @@ all_error_shuf_sem = sem(all_error_shuf, axis=0)
 
 
 #%% plot errors 
-fig, ax = plt.subplots(figsize=(4,4))
+fig, ax = plt.subplots(figsize=(4,3))
 
 xaxis = np.linspace(0.4, 5, 23)
 
 cl, = ax.plot(xaxis, all_error_cont_mean[2:], c='grey')
 sl, = ax.plot(xaxis, all_error_stim_mean[2:], c='royalblue')
-shl, = ax.plot(xaxis, all_error_shuf_mean[2:], c='red')
+# shl, = ax.plot(xaxis, all_error_shuf_mean[2:], c='red')
 
 ax.fill_between(xaxis, all_error_cont_mean[2:]+all_error_cont_sem[2:],
                        all_error_cont_mean[2:]-all_error_cont_sem[2:],
@@ -377,13 +376,14 @@ ax.fill_between(xaxis, all_error_cont_mean[2:]+all_error_cont_sem[2:],
 ax.fill_between(xaxis, all_error_stim_mean[2:]+all_error_stim_sem[2:],
                        all_error_stim_mean[2:]-all_error_stim_sem[2:],
                        color='royalblue', edgecolor='none', alpha=.2)
-ax.fill_between(xaxis, all_error_shuf_mean[2:]+all_error_shuf_sem[2:],
-                       all_error_shuf_mean[2:]-all_error_shuf_sem[2:],
-                       color='red', edgecolor='none', alpha=.2)
+# ax.fill_between(xaxis, all_error_shuf_mean[2:]+all_error_shuf_sem[2:],
+#                        all_error_shuf_mean[2:]-all_error_shuf_sem[2:],
+#                        color='red', edgecolor='none', alpha=.2)
 
-ax.legend([cl, sl, shl], ['ctrl.', 'stim.', 'shuf.'], frameon=False)
+# ax.legend([cl, sl, shl], ['ctrl.', 'stim.', 'shuf.'], frameon=False)
+ax.legend([cl, sl], ['ctrl.', 'stim.'], frameon=False)
 
-ax.set(xlabel='true time (s)', ylabel='error (s)')
+ax.set(xlabel='true time (s)', ylabel='error (s)', ylim=(-1.5, 1.5))
 
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)

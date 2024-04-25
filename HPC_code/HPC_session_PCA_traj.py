@@ -29,7 +29,7 @@ matplotlib.rcParams['ps.fonttype'] = 42
 # import pre-processing functions 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
-from common import normalise
+from common import normalise, normalise_to_all
 
 #%% load paths to recordings 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
@@ -117,7 +117,7 @@ for pathname in pathHPC:
     beh_info = info['beh'][0][0]
     behPar = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(pathname, recname))
     stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-    stim_trials = np.where(stimOn!=0)[0]+1
+    stim_trials = np.where(stimOn!=0)[0]
     cont_trials = stim_trials+2
     
     # select trials with trial lengths between 3.5 and 4.5 seconds 
@@ -130,13 +130,14 @@ for pathname in pathHPC:
     
     stim_trials = [t for t in stim_trials if t in use_trials]
     cont_trials = [t for t in cont_trials if t in use_trials]
+    use_trials = [t for t in use_trials if t not in cont_trials and t not in stim_trials]
     
     if len(stim_trials)==0 or len(cont_trials)==0:
         continue
     
     X_stim = np.zeros((tot_pyr, tot_samp*len(stim_trials)))
     X_cont = np.zeros((tot_pyr, tot_samp*len(cont_trials)))
-    X_all = np.zeros((tot_pyr, tot_samp*tot_trial))
+    X_all = np.zeros((tot_pyr, tot_samp*(tot_trial-len(stim_trials)-len(cont_trials))))
     
     pyr_counter = 0
     for ind, pyr in enumerate(pyr_id):
@@ -188,11 +189,11 @@ for pathname in pathHPC:
         X_cont_avg+=X_cont[:, t*tot_samp:(t+1)*tot_samp]
     for t in range(len(stim_trials)):
         X_stim_avg+=X_stim[:, t*tot_samp:(t+1)*tot_samp]
-    for t in range(tot_trial):
+    for t in range(tot_trial-len(cont_trials)-len(stim_trials)):
         X_all_avg+=X_all[:, t*tot_samp:(t+1)*tot_samp]
     X_cont_avg/=len(cont_trials)
     X_stim_avg/=len(stim_trials)
-    X_all_avg/=tot_trial
+    X_all_avg/=(tot_trial-len(cont_trials)-len(stim_trials))
     X_cont_avg = np.transpose(X_cont_avg)
     X_stim_avg = np.transpose(X_stim_avg)
     X_all_avg = np.transpose(X_all_avg)
@@ -229,8 +230,8 @@ for pathname in pathHPC:
         dist_sa[i] = dist(X_stim_avg_pca[i,:], X_all_avg_pca[i,:])
         dist_ca[i] = dist(X_cont_avg_pca[i,:], X_all_avg_pca[i,:])
     
-    dist_cs_all.append(normalise(dist_cs))
-    dist_sa_all.append(normalise(dist_sa))
+    dist_cs_all.append(normalise_to_all(dist_cs, dist_ca))
+    dist_sa_all.append(normalise_to_all(dist_sa, dist_ca))
     dist_ca_all.append(normalise(dist_ca))
     
     fig, axs = plt.subplots(1,3, figsize=(10,3))
@@ -270,28 +271,40 @@ sem_dist_sa = sem(dist_sa_all, axis=0)
 
 fig, axs = plt.subplots(1,3, figsize=(10,3))
 
-axs[0].plot(xaxis, avg_dist_cs, c='darkgreen')
+st, = axs[0].plot(xaxis, avg_dist_cs, c='darkgreen')
 axs[0].fill_between(xaxis, avg_dist_cs+sem_dist_cs,
                            avg_dist_cs-sem_dist_cs,
                            alpha=.3, color='darkgreen', edgecolor='none')
-axs[1].plot(xaxis, avg_dist_ca, c='darkorange')
-axs[1].fill_between(xaxis, avg_dist_ca+sem_dist_ca,
+ct, = axs[0].plot(xaxis, avg_dist_ca, c='grey')
+axs[0].fill_between(xaxis, avg_dist_ca+sem_dist_ca,
                            avg_dist_ca-sem_dist_ca,
-                           alpha=.3, color='darkorange', edgecolor='none')
-axs[2].plot(xaxis, avg_dist_sa, c='forestgreen')
-axs[2].fill_between(xaxis, avg_dist_sa+sem_dist_sa,
+                           alpha=.3, color='grey', edgecolor='none')
+axs[0].legend([st, ct], ['stim.-ctrl.', 'ctrl.-ctrl.'], frameon=False)
+
+st, = axs[1].plot(xaxis, avg_dist_sa, c='forestgreen')
+axs[1].fill_between(xaxis, avg_dist_sa+sem_dist_sa,
                            avg_dist_sa-sem_dist_sa,
                            alpha=.3, color='forestgreen', edgecolor='none')
+ct, = axs[1].plot(xaxis, avg_dist_ca, c='grey')
+axs[1].fill_between(xaxis, avg_dist_ca+sem_dist_ca,
+                           avg_dist_ca-sem_dist_ca,
+                           alpha=.3, color='grey', edgecolor='none')
+axs[1].legend([st, ct], ['stim.-ctrl.', 'ctrl.-ctrl'], frameon=False)
+
+axs[2].plot(xaxis, avg_dist_ca, c='k')
+axs[2].fill_between(xaxis, avg_dist_ca+sem_dist_ca,
+                           avg_dist_ca-sem_dist_ca,
+                           alpha=.3, color='k', edgecolor='none')
 
 for p in range(3):
     axs[p].set(xlabel='time (s)', xticks=[0,2,4])
     for s in ['top', 'right']:
         axs[p].spines[s].set_visible(False)
-axs[0].set(ylabel='norm. dist. stim.-ctrl.', yticks=[.3,.5,.7],
+axs[0].set(ylabel='norm. dist. stim.-ctrl.', xlim=(0,4), yticks=[.3,.6,.9,1.2],
            title='PCA norm. dist. stim.-ctrl.')
-axs[1].set(ylabel='norm. dist. ctrl.-all', yticks=[.3,.5,.7],
+axs[1].set(ylabel='norm. dist. ctrl.-all', xlim=(0,4), yticks=[.3,.6,.9,1.2],
            title='PCA norm. dist. ctrl.-all')
-axs[2].set(ylabel='norm. dist. stim.-all', yticks=[.3,.5,.7],
+axs[2].set(ylabel='norm. dist. stim.-all', xlim=(0,4), yticks=[.3,.6,.9,1.2],
            title='PCA norm. dist. stim.-all')
 
 fig.tight_layout()

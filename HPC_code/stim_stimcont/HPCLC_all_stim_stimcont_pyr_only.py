@@ -85,7 +85,7 @@ for pathname in pathHPC:
     beh_info = info['beh'][0][0]
     behPar = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(pathname, recname))
     stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-    stim_trials = np.where(stimOn!=0)[0]+1
+    stim_trials = np.where(stimOn!=0)[0]
     cont_trials = stim_trials+2
     
     tot_clu = len(pyr_id)
