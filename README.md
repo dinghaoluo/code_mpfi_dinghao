@@ -4,11 +4,9 @@ my scripts at mpfi
 ## caiman_code
 includes a working CaImAn analysis pipeline modified to work on Wang Lab data, mostly by [Nico Spiller](https://github.com/nspiller).
 
-## dLight_code
-includes preliminary analysis scripts for dLight data
-
-## GRABNE_code 
-includes preliminary analysis scripts for GRABNE data; currently closely mirrors dLight_code 
+## imaging_code
+includes preliminary analysis scripts for dLight and GRABNE data
+- deepvid_grid_roi.py is a working pipeling to extract fluorescence traces and align them to behavioural variables using a grid ROI mask and denoised movies processed by [Colin Porter](https://github.com/porter-colin93).
 
 ## HPC_code
 includes analysis scripts for behaviour and neural data collected from hippocampus recordings
