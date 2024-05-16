@@ -141,7 +141,7 @@ for pathname in pathHPC:
             
             # sensitivity 
             # 27 Mar 24, tests for each time bin
-            test_window = 2 * 1250  # 3 s
+            test_window = 2 * 1250  # 2 s
             cont_rate = temp_cont[:,1250:1250+test_window]
             stim_rate = temp_stim[:,1250:1250+test_window]
             bar_y = max(max(mean_prof_cont), max(mean_prof_stim)) * 1.1
@@ -155,6 +155,10 @@ for pathname in pathHPC:
             
             cont_rate_mean = np.mean(temp_cont[:, 1250:3750], axis=1)*1250
             stim_rate_mean = np.mean(temp_stim[:, 1250:3750], axis=1)*1250
+            
+            # modulation index
+            mod = stim_rate_mean/cont_rate_mean
+            
             t_res = ttest_rel(a=cont_rate_mean, b=stim_rate_mean)
             pval = t_res[1]
                 
@@ -201,7 +205,7 @@ for pathname in pathHPC:
             plt.close(fig)
             
             # 27 Mar 24, put into dataframe
-            df.loc[cluname] = np.asarray([recname, sig_bins, np.mean(cont_rate_mean)<np.mean(stim_rate_mean)], dtype='object')
+            df.loc[cluname] = np.asarray([recname, sig_bins, np.mean(cont_rate_mean)<np.mean(stim_rate_mean), mod], dtype='object')
 
     
 #%% save dataframe 
