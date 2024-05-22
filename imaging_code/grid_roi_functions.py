@@ -61,6 +61,7 @@ def run_grid(frame, grids, tot_grid, stride=8):
     return gridded
 
 def plot_reference(mov, grids, stride):
+    # plot the mean image (Z-projection)
     ref_im = np.mean(mov, axis=0)
     fig, ax = plt.subplots(figsize=(4,4))
     ax.imshow(ref_im, aspect='auto', cmap='gist_gray', interpolation='none',
@@ -70,6 +71,12 @@ def plot_reference(mov, grids, stride):
         ax.plot([g/stride,g/stride], [0,32], color='white', linewidth=.2, alpha=.2)
     ax.set(xlim=(0,32), ylim=(0,32))
     plt.show()
+    
+def find_nearest(value, arr):
+    # return value and index of nearest value in arr to input value
+    nearest_value = min(arr, key=lambda x: abs(x-value))
+    nearest_value_index = arr.index(nearest_value)
+    return nearest_value_index
     
     
 #%% text file processing

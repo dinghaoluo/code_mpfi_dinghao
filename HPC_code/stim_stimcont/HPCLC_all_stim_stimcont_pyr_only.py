@@ -47,7 +47,8 @@ pathHPC = rec_list.pathHPCLCopt
 #%% dataframe to contain all results 
 profiles = {'recname': [],
             'sig_bins': [],
-            'excited': []}
+            'excited': [],
+            'MI': []}
 
 df = pd.DataFrame(profiles)
 
@@ -157,7 +158,11 @@ for pathname in pathHPC:
             stim_rate_mean = np.mean(temp_stim[:, 1250:3750], axis=1)*1250
             
             # modulation index
-            mod = stim_rate_mean/cont_rate_mean
+            stim_mom = np.mean(stim_rate_mean)
+            cont_mom = np.mean(cont_rate_mean)
+            if stim_mom==0: stim_mom = 0.001  # to avoid divided by 0
+            if cont_mom==0: cont_mom = 0.001  # same 
+            mod = stim_mom/cont_mom
             
             t_res = ttest_rel(a=cont_rate_mean, b=stim_rate_mean)
             pval = t_res[1]
