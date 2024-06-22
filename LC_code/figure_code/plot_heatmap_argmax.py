@@ -161,5 +161,9 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ordered_heatmap.png',
             dpi=500, bbox_inches='tight')
 fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_orderedLC.png',
             dpi=500, bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ordered_heatmap.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_orderedLC.pdf',
+            bbox_inches='tight')
 
 plt.close(fig)

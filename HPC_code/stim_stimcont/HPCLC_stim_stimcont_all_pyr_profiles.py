@@ -23,7 +23,7 @@ matplotlib.rcParams['ps.fonttype'] = 42
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
-from common import normalise
+from common import normalise, normalise_to_all
 
 
 #%% parameters
@@ -220,7 +220,7 @@ else:
     stim = np.asarray(stim)
     
     
-    #%% ordering based on peak (argmax)
+    #%% ordering based on pre-post
     buffer_count_stim_cont = 0
     buffer_count_stim = 0
     
@@ -256,8 +256,8 @@ else:
         if np.isnan(stim_pp_ratio[i]):
             stim_pp_ratio[i] = 100
             buffer_count_stim+=1
-    def helper(x):
-        return stim_pp_ratio[x]
+    # def helper(x):  # comment out this function to sort by stim 
+    #     return stim_pp_ratio[x]
     stim_pp_ord_ind = sorted(np.arange(tot_clu), key=helper)
     
     line_count_stim_cont = 0
@@ -266,48 +266,54 @@ else:
     im_mat_stim_pp = np.zeros((tot_clu-buffer_count_stim, 6*1250))
     for i, ind in enumerate(stim_cont_pp_ord_ind): 
         if stim_cont_pp_ratio[i] != 100:
-            im_mat_stim_cont_pp[line_count_stim_cont,:] = normalise(stim_cont[ind,:])
+            # im_mat_stim_cont_pp[line_count_stim_cont,:] = normalise(stim_cont[ind,:])
+            im_mat_stim_cont_pp[line_count_stim_cont,:] = normalise_to_all(stim_cont[ind,:], 
+                                                                           np.concatenate((stim_cont[ind,:], stim[ind,:])))
             line_count_stim_cont+=1
     for i, ind in enumerate(stim_pp_ord_ind): 
         if stim_pp_ratio[i] != 100:
-            im_mat_stim_pp[line_count_stim,:] = normalise(stim[ind,:])
+            # im_mat_stim_pp[line_count_stim,:] = normalise(stim[ind,:])
+            im_mat_stim_pp[line_count_stim,:] = normalise_to_all(stim[ind,:], 
+                                                                 np.concatenate((stim_cont[ind,:], stim[ind,:])))
             line_count_stim+=1
     
     
-    #%% plotting (argmax)
-    fig, ax = plt.subplots(figsize=(5,4))
-    ax.set(title='stim_cont_all_pyr_pre_post_ratio', xlabel='time (s)', ylabel='pyr #')
+    #%% plotting (pre-post)
+    fig, ax = plt.subplots(figsize=(3,2.5))
+    ax.set(title='ctrl pyr pre-post R', xlabel='time (s)', ylabel='pyr #',
+           xticks=[-2,0,2,4])
     image_stim_cont = ax.imshow(im_mat_stim_cont_pp, interpolation='none', cmap='Greys', aspect='auto', 
                                 extent=[-2, 4, 1, tot_clu-buffer_count_stim_cont])
     plt.colorbar(image_stim_cont, shrink=.5)
     if HPC_LC:
-        fig.suptitle('HPC_LC')
+        # fig.suptitle('HPC_LC')
+        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_all_pyr_pre_post_ratio.png',
+                    dpi=500, bbox_inches='tight')
+        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_all_pyr_pre_post_ratio.pdf',
+                    bbox_inches='tight')
+    elif not HPC_LC:
+        # fig.suptitle('HPC_LCterm')
+        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_ctrl_all_pyr_pre_post_ratio.png',
+                    dpi=500, bbox_inches='tight')
+        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_ctrl_all_pyr_pre_post_ratio.pdf',
+                    bbox_inches='tight')
+        
+    
+    fig, ax = plt.subplots(figsize=(3,2.5))
+    ax.set(title='stim pyr pre-post R', xlabel='time (s)', ylabel='pyr #',
+           xticks=[-2,0,2,4])
+    image_stim = ax.imshow(im_mat_stim_pp, interpolation='none', cmap='Greys', aspect='auto', 
+                           extent=[-2, 4, 1, tot_clu-buffer_count_stim])
+    plt.colorbar(image_stim, shrink=.5)
+    if HPC_LC:
+        # fig.suptitle('HPC_LC')
         fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_pyr_pre_post_ratio.png',
                     dpi=500, bbox_inches='tight')
         fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_pyr_pre_post_ratio.pdf',
                     bbox_inches='tight')
     elif not HPC_LC:
-        fig.suptitle('HPC_LCterm')
+        # fig.suptitle('HPC_LCterm')
         fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_all_pyr_pre_post_ratio.png',
                     dpi=500, bbox_inches='tight')
         fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_all_pyr_pre_post_ratio.pdf',
-                    bbox_inches='tight')
-        
-    
-    fig, ax = plt.subplots(figsize=(5,4))
-    ax.set(title='stim_all_pyr_pre_post_ratio', xlabel='time (s)', ylabel='pyr #')
-    image_stim = ax.imshow(im_mat_stim_pp, interpolation='none', cmap='Greys', aspect='auto', 
-                           extent=[-2, 4, 1, tot_clu-buffer_count_stim])
-    plt.colorbar(image_stim, shrink=.5)
-    if HPC_LC:
-        fig.suptitle('HPC_LC')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_cont_all_pyr_pre_post_ratio.png',
-                    dpi=500, bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_cont_all_pyr_pre_post_ratio.pdf',
-                    bbox_inches='tight')
-    elif not HPC_LC:
-        fig.suptitle('HPC_LCterm')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_cont_all_pyr_pre_post_ratio.png',
-                    dpi=500, bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_cont_all_pyr_pre_post_ratio.pdf',
                     bbox_inches='tight')

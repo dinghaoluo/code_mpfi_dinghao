@@ -13,11 +13,16 @@ import numpy as np
 import matplotlib.pyplot as plt 
 
 
+#%% constants 
+# overflow constant 
+of_constant = (2**32-1)/1000
+
+
 #%% main 
 def sum_mat(matrix):
     return sum(map(sum, matrix))
 
-def make_grid(stride=8, dim=512):
+def make_grid(stride=8, dim=512, border=0):
     """
     Parameters
     ----------
@@ -30,7 +35,7 @@ def make_grid(stride=8, dim=512):
     -------
     a list of grid points.
     """
-    return list(np.arange(0, dim, stride))
+    return list(np.arange(0+border, dim-border, stride))
 
 def run_grid(frame, grids, tot_grid, stride=8):
     """
@@ -60,17 +65,42 @@ def run_grid(frame, grids, tot_grid, stride=8):
             
     return gridded
 
-def plot_reference(mov, grids, stride):
+def plot_reference(mov, grids, stride, dim, channel, outpath):
+    boundary_low = grids[0]; boundary_high = grids[-1]+stride
     # plot the mean image (Z-projection)
     ref_im = np.mean(mov, axis=0)
+    ref_im = post_processing_suite2p_gui(ref_im)
     fig, ax = plt.subplots(figsize=(4,4))
     ax.imshow(ref_im, aspect='auto', cmap='gist_gray', interpolation='none',
-              extent=[0, 32, 32, 0])
-    for g in grids:
-        ax.plot([0,32], [g/stride,g/stride], color='white', linewidth=.2, alpha=.2)
-        ax.plot([g/stride,g/stride], [0,32], color='white', linewidth=.2, alpha=.2)
-    ax.set(xlim=(0,32), ylim=(0,32))
-    plt.show()
+              extent=[0, dim, dim, 0])
+    for i in range(len(grids)):  # vertical lines 
+        ax.plot([grids[i], grids[i]], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)
+        ax.plot([boundary_low, boundary_high], [grids[i], grids[i]], color='grey', linewidth=1, alpha=.5)
+    ax.plot([grids[-1]+stride, grids[-1]+stride], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)  # last vertical line 
+    ax.plot([boundary_low, boundary_high], [grids[-1]+stride, grids[-1]+stride], color='grey', linewidth=1, alpha=.5)  # last horizontal line
+    ax.set(xlim=(0,dim), ylim=(0,dim))
+    
+    fig.suptitle('ref ch{}'.format(channel))
+    fig.tight_layout()
+    fig.savefig(r'{}\ref_ch{}_{}.png'.format(outpath, channel, stride),
+                dpi=300,
+                bbox_inches='tight')
+    
+def post_processing_suite2p_gui(img_orig):
+    '''
+    no idea what this does but ok
+    apparently it does something to the image ORZ ORZ ORZ
+    '''
+    # normalize to 1st and 99th percentile
+    perc_low, perc_high = np.percentile(img_orig, [1, 99])
+    img_proc = (img_orig - perc_low) / (perc_high - perc_low)
+    img_proc = np.maximum(0, np.minimum(1, img_proc))
+
+    # convert to uint8
+    img_proc *= 255
+    img_proc = img_proc.astype(np.uint8)
+
+    return img_proc
     
 def find_nearest(value, arr):
     # return value and index of nearest value in arr to input value
@@ -154,46 +184,83 @@ def process_txt(txtfile):
     
     return curr_logfile
     
+
 def get_next_line(file):
     line = file.readline().rstrip('\n').split(',')
     if len(line) == 1: # read an empty line
         line = file.readline().rstrip('\n').split(',')
     return line
 
-def correct_overflow(speed_times, lick_times = [], movie_times = [], pump_times = [], trial_times = []):
-    times = np.array([s[0] for s in speed_times])
-    index_before_overflow = np.where(np.diff(times) < 0)[0]
+
+def correct_overflow(data, label):
+    """
+    Parameters
+    ----------
+    data : list
+        speed_times, pump_times, frame_times, movie_times etc.
+    label : str
+        the label of the data array (eg. 'speed').
+
+    Returns
+    -------
+    new_data : list
+        data corrected for overflow.
+    """
+    tot_trial = len(data)
+    new_data = []
     
-    new_speeds = []
-    new_trial_times = []
-    if len(index_before_overflow) == 0: # no overflow during this trial
-        return [speed_times, lick_times, movie_times,pump_times, trial_times]
-    else:
-        time_before_overflow = times[index_before_overflow[0]]
-        # print('overflow detected')
+    if label=='speed':
+        curr_time = data[0][0][0]
+        for t in range(tot_trial):
+            if data[t][-1][0]-curr_time>=0:  # if the last speed cell is within overflow, then simply append
+                new_data.append(data[t])
+                curr_time = data[t][-1][0]
+            else:  # once overflow is detected, do not update curr_time
+                new_trial = []
+                curr_trial = data[t]
+                curr_length = len(curr_trial)
+                for s in range(curr_length):
+                    if curr_trial[s][0]-curr_time>0:
+                        new_trial.append(curr_trial[s])
+                    else:
+                        new_trial.append([curr_trial[s][0]+of_constant, curr_trial[s][1], curr_trial[s][2]])
+                new_data.append(new_trial)
+    if label=='pump':
+        curr_time = data[0][0]
+        for t in range(tot_trial):
+            if len(data[t])!=0:
+                if data[t][0]-curr_time>=0:
+                    new_data.append(data[t][0])
+                    curr_time = data[t][0]
+                else:  # once overflow is detected, do not update curr_time
+                    new_data.append(data[t][0]+of_constant)
+    if label=='movie':
+        curr_time = data[0][0][0]
+        for t in range(tot_trial):
+            if data[t][-1][0]-curr_time>=0:
+                new_data.append(data[t])
+                curr_time = data[t][-1][0]
+            else:  # once overflow is detected, do not update curr_time
+                new_trial = []
+                curr_trial = data[t]
+                curr_length = len(curr_trial)
+                for s in range(curr_length):
+                    if curr_trial[s][0]<of_constant:
+                        new_trial.append(curr_trial[s])
+                    else:
+                        new_trial.append([curr_trial[s][0]+of_constant, curr_trial[s][1]])
+                new_data.append(new_trial)
+    if label=='frame':
+        curr_time = data[0]
+        for f in data:
+            if f-curr_time>=0:
+                new_data.append(f)
+                curr_time = f
+            else:  # once overflow is detected, do not update curr_time
+                new_data.append(f+of_constant)
     
-    for i in range(len(speed_times)):
-        entry = speed_times[i]      
-        if entry[0] < times[0]:
-            entry[0] = entry[0] + time_before_overflow
-        new_speeds.append(entry)
-            
-    for j in range(len(lick_times)):
-        if lick_times[j] < times[0]:
-            lick_times[j] = lick_times[j] + time_before_overflow
-    for k in range(len(movie_times)):
-        if movie_times[k][0] < times[0]:
-            movie_times[k][0] = movie_times[k][0] + time_before_overflow
-    for l in range(len(pump_times)):
-        if pump_times[l] < times[0]:
-            pump_times[l] = pump_times[l] + time_before_overflow
-    for m in range(len(trial_times)):
-        time = trial_times[m]
-        if time < trial_times[0]:
-            time += time_before_overflow
-        new_trial_times.append(time)
-    
-    return new_speeds
+    return new_data
+
 
 def get_onset(uni_speeds, uni_times, threshold=0.3):  # 0.3 seconds
     count = 0
