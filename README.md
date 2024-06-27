@@ -5,8 +5,23 @@ my scripts at MPFI
 includes a working CaImAn analysis pipeline modified to work on Wang Lab data, mostly by [Nico Spiller](https://github.com/nspiller).
 
 ## imaging_code
-includes preliminary analysis scripts for dLight and GRABNE data
-- **deepvid_grid_roi.py** is a working pipeling to extract fluorescence traces and align them to behavioural variables using a grid ROI mask and denoised movies processed by [Colin Porter](https://github.com/porter-colin93).
+includes analysis scripts for dLight and GRABNE data
+- **run_imaging_pipeline.py** runs grid ROI or Suite2p ROI trace extraction and alignment to behaviour
+### defunct_code
+- **deepvid_grid_roi.py** is a pipeling to extract fluorescence traces and align them to behavioural variables using a grid ROI mask and denoised movies processed by [Colin Porter](https://github.com/porter-colin93).
+- **dLight_all_heatmap.py**
+- **dLight_plot.py**
+- **GRABNE_grid_roi.py**
+- **after_suite2p.py**
+- **grid_extract.py**
+### suite2p_code
+- **registration_roi_extraction.py** registers and extract ROI traces from each recording in lists of sessions listed in rec_list.py using [the Wang lab version of Suite2p](https://github.com/the-wang-lab/suite2p-wang-lab), fine-tuned by [Nico Spiller](https://github.com/nspiller) and [Jingyu Cao](https://github.com/yuxi62).
+### tonic_activity 
+- **tonic_fft.py** uses FFT to process entire recording traces after calculating dFF (to get rid of the slow decaying of signal strength due to bleaching and evaporation) in order to look for slow periodicity in the signal
+### utils
+- **imaging_pipeline_functions.py** includes functions used to process imaging recordings
+- **imaging_pipeline_main_functions.py** includes grid ROI and Suite2p ROI extraction and alignment functions; these are what run_imaging_pipeline.py calls directly
+
 
 ## HPC_code
 includes analysis scripts for behaviour and neural data collected from hippocampus recordings
