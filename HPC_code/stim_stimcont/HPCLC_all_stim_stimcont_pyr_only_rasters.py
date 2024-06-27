@@ -83,9 +83,10 @@ for pathname in pathHPC:
                     temp_stim[ind, :] = rasters[i][trial][2500:8750]
             
             # plotting 
-            fig, axs = plt.subplots(2, 1, figsize=(3.3,2.8))
-            axs[0].set(title='stim-cont')
+            fig, axs = plt.subplots(2, 1, figsize=(3.1,2.8))
+            axs[0].set(title='ctrl')
             axs[1].set(title='stim')
+            fig.suptitle(cluname, fontsize=10)
             
             for i in range(len(cont_trials)):
                 axs[0].scatter(np.where(temp_cont[i]==1)[0]/1250-1, 
@@ -101,8 +102,8 @@ for pathname in pathHPC:
                 for p in ['top', 'right']:
                     axs[i].spines[p].set_visible(False)
                 axs[i].set(xlabel='time (s)', ylabel='trial #',
-                           xticks=[0, 1, 2, 3], xlim=(-.5, 3.5),
-                           yticks=[1, 20])
+                           xticks=[0,2,4], xlim=(-1, 4),
+                           yticks=[1,20])
 
             fig.tight_layout()
             plt.show()
@@ -115,8 +116,10 @@ for pathname in pathHPC:
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
             
-            fig.savefig('{}\{}'.format(outdir, cluname),
+            fig.savefig('{}\{}.png'.format(outdir, cluname),
                         dpi=500,
+                        bbox_inches='tight')
+            fig.savefig('{}\{}.pdf'.format(outdir, cluname),
                         bbox_inches='tight')
             
             plt.close(fig)

@@ -13,8 +13,7 @@ plt.rcParams['font.family'] = 'Arial'
 import sys 
 import pandas as pd 
 import scipy.io as sio
-from scipy.stats import wilcoxon 
-from scipy.stats import sem
+from scipy.stats import wilcoxon, ttest_rel, sem
 
 
 #%% load data 
@@ -373,22 +372,21 @@ pval = wilcoxon(early_all_pooled_mean, late_all_pooled_mean)[1]
 
 #%% plot all (logged)
 # log everything 
-fig, ax = plt.subplots(figsize=(3,4))
+fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([early_all_pooled_mean, late_all_pooled_mean],
-                   showmeans=True, showextrema=False,
-                   quantiles=[[0.25, 0.75], [0.25, 0.75]])
+                   showmeans=True, showextrema=False)
 vp['bodies'][0].set_color('darkred')
 vp['bodies'][1].set_color('darkred')
 for i in [0,1]:
-    vp['bodies'][i].set_edgecolor(None)
+    vp['bodies'][i].set_edgecolor('k')
     vp['bodies'][i].set_alpha(i*0.2+0.4)
 vp['cmeans'].set(color='darkred')
     
 ax.scatter([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [early_all_pooled_mean, late_all_pooled_mean], zorder=2,
-           s=3, color='grey', edgecolor='dimgrey', alpha=.4)
-ax.plot([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [early_all_pooled_mean, late_all_pooled_mean], zorder=2,
-        color='grey', alpha=.3)
+           s=3, color='grey', edgecolor='none', alpha=1)
+ax.plot([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [early_all_pooled_mean, late_all_pooled_mean], lw=1, zorder=2,
+        color='grey', alpha=.5)
 
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
@@ -397,17 +395,19 @@ ax.spines['left'].set_linewidth(1)
 ax.set(xlim=(0.5, 2.5),
        xticks=[1,2], xticklabels=['early', 'late'],
        yticks=[5,10,15,20],
-       ylabel='log pop. spike rate',
-       title='early v late lick trials p={}'.format(round(pval, 3)))
+       ylabel='log pop. spike rate (Hz)',
+       title='early v late lick trials\n wilcp={}'.format(round(pval, 6)))
 
 fig.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
-            bbox_inches='tight')
 fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.png',
             bbox_inches='tight',
             dpi=500)
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:/Dinghao/paper/figures/figure_2_early_v_late_pop_spike_rate.pdf',
+            bbox_inches='tight')
 
 plt.close(fig)
 

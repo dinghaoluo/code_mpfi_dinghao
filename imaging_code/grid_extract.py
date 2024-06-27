@@ -23,8 +23,8 @@ from time import time
 from datetime import timedelta
 
 # import pre-processing functions 
-if ('Z:\Dinghao\code_mpfi_dinghao\imaging_code' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_mpfi_dinghao\imaging_code')
+if ('Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils' in sys.path) == False:
+    sys.path.append('Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import grid_roi_functions as grf
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:

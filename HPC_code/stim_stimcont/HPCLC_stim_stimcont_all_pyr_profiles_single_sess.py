@@ -111,13 +111,13 @@ for pathname in pathHPC:
             
             curr_stim_cont_ratio = np.nanmean(temp_cont_mean[625:1875])/np.nanmean(temp_cont_mean[3125:4375])
             curr_stim_ratio = np.nanmean(temp_stim_mean[625:1875])/np.nanmean(temp_stim_mean[3125:4375])
-            if curr_stim_cont_ratio < .9:
+            if curr_stim_cont_ratio < .8:
                 curr_stim_cont_rise_count+=1
-            elif curr_stim_cont_ratio > 1.1:
+            elif curr_stim_cont_ratio > 1.25:
                 curr_stim_cont_down_count+=1
-            if curr_stim_ratio < .9:
+            if curr_stim_ratio < .8:
                 curr_stim_rise_count+=1
-            elif curr_stim_ratio > 1.1:
+            elif curr_stim_ratio > 1.25:
                 curr_stim_down_count+=1
             
     stim_cont_rise_count.append(curr_stim_cont_rise_count/tot_pyr)
@@ -139,20 +139,6 @@ ax.plot([1.97, 2.03], [np.median(stim_rise_count), np.median(stim_rise_count)],
 ax.plot([1.07, 1.93], [np.median(stim_cont_rise_count), np.median(stim_rise_count)],
         color='k', linewidth=1.5)
 
-# # confidence interval 
-# stim_cont_cf = st.t.interval(confidence=0.95, 
-#                              df=len(stim_cont_rise_count)-1, 
-#                              loc=np.mean(stim_cont_rise_count), 
-#                              scale=st.sem(stim_cont_rise_count)) 
-# stim_cf = st.t.interval(confidence=0.95, 
-#                         df=len(stim_rise_count)-1, 
-#                         loc=np.mean(stim_rise_count), 
-#                         scale=st.sem(stim_rise_count))
-
-# # plot confidence interval 
-# ax.plot([0.5, 0.5], [stim_cont_cf[0], stim_cont_cf[1]], color='grey', linewidth=2, alpha=.3)
-# ax.plot([2, 2], [stim_cf[0], stim_cf[1]], color='royalblue', linewidth=2, alpha=.3)
-
 # plot scatter 
 ax.scatter([1]*len(stim_cont_rise_count), 
            stim_cont_rise_count, 
@@ -163,26 +149,6 @@ ax.scatter([2]*len(stim_rise_count),
 ax.plot([[1]*len(stim_cont_rise_count), [2]*len(stim_rise_count)], 
         [stim_cont_rise_count, stim_rise_count], 
         color='grey', alpha=.1, linewidth=1)
-
-# boxplot
-# bp = ax.boxplot([stim_cont_rise_count, stim_rise_count],
-#                 positions=[.5, 2],
-#                 patch_artist=True)
-
-# colors = ['grey', 'royalblue']
-# for patch, color in zip(bp['boxes'], colors):
-#     patch.set_facecolor(color)
-# bp['fliers'][0].set(marker ='o',
-#                 color ='#e7298a',
-#                 markersize=2,
-#                 alpha=0.5)
-# bp['fliers'][1].set(marker ='o',
-#                 color ='#e7298a',
-#                 markersize=2,
-#                 alpha=0.5)
-# for median in bp['medians']:
-#     median.set(color='darkblue',
-#                linewidth=1)
 
 ax.set(xticks=[1, 2], xticklabels=['cont', 'stim'],
        ylabel='% run-onset pyr.', 
@@ -206,3 +172,52 @@ elif not HPC_LC:
                 dpi=500, bbox_inches='tight')
     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_cells.pdf',
                 bbox_inches='tight')
+    
+plt.close(fig)
+
+
+fig, ax = plt.subplots(figsize=(2,3))
+
+# plot means 
+ax.plot([.97, 1.03], [np.median(stim_cont_down_count), np.median(stim_cont_down_count)],
+        color='grey', linewidth=4)
+ax.plot([1.97, 2.03], [np.median(stim_down_count), np.median(stim_down_count)],
+        color='royalblue', linewidth=4)
+ax.plot([1.07, 1.93], [np.median(stim_cont_down_count), np.median(stim_down_count)],
+        color='k', linewidth=1.5)
+
+# plot scatter 
+ax.scatter([1]*len(stim_cont_down_count), 
+           stim_cont_down_count, 
+           s=10, c='grey', ec='none', lw=.5, alpha=.1)
+ax.scatter([2]*len(stim_down_count), 
+           stim_down_count, 
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.1)
+ax.plot([[1]*len(stim_cont_down_count), [2]*len(stim_down_count)], 
+        [stim_cont_down_count, stim_down_count], 
+        color='grey', alpha=.1, linewidth=1)
+
+ax.set(xticks=[1, 2], xticklabels=['ctrl', 'stim'],
+       ylabel='% run-onset inh. pyr.', 
+       xlim=(.5, 2.5))
+
+for s in ['top', 'bottom', 'right']:
+    ax.spines[s].set_visible(False)
+
+fig.tight_layout()
+plt.show()
+
+if HPC_LC:
+    ax.set_title('HPC_LC\np={}'.format(wilcoxon(stim_cont_down_count, stim_down_count)[1]))
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_inh_cells.png',
+                dpi=500, bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_inh_cells.pdf',
+                bbox_inches='tight')
+elif not HPC_LC:
+    ax.set_title('HPC_LCterm\np={}'.format(wilcoxon(stim_cont_down_count, stim_down_count)[1]))
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_inh_cells.png',
+                dpi=500, bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_inh_cells.pdf',
+                bbox_inches='tight')
+    
+plt.close(fig)

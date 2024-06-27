@@ -256,8 +256,8 @@ else:
         if np.isnan(stim_pp_ratio[i]):
             stim_pp_ratio[i] = 100
             buffer_count_stim+=1
-    # def helper(x):  # comment out this function to sort by stim 
-    #     return stim_pp_ratio[x]
+    def helper(x):  # comment out this function to sort by stim 
+        return stim_pp_ratio[x]
     stim_pp_ord_ind = sorted(np.arange(tot_clu), key=helper)
     
     line_count_stim_cont = 0
@@ -281,9 +281,9 @@ else:
     #%% plotting (pre-post)
     fig, ax = plt.subplots(figsize=(3,2.5))
     ax.set(title='ctrl pyr pre-post R', xlabel='time (s)', ylabel='pyr #',
-           xticks=[-2,0,2,4])
-    image_stim_cont = ax.imshow(im_mat_stim_cont_pp, interpolation='none', cmap='Greys', aspect='auto', 
-                                extent=[-2, 4, 1, tot_clu-buffer_count_stim_cont])
+           xticks=[0,2,4], xlim=(-1,4))
+    image_stim_cont = ax.imshow(im_mat_stim_cont_pp[:, 1250:], interpolation='none', cmap='Greys', aspect='auto', 
+                                extent=[-1, 4, 1, tot_clu-buffer_count_stim_cont])
     plt.colorbar(image_stim_cont, shrink=.5)
     if HPC_LC:
         # fig.suptitle('HPC_LC')
@@ -301,9 +301,9 @@ else:
     
     fig, ax = plt.subplots(figsize=(3,2.5))
     ax.set(title='stim pyr pre-post R', xlabel='time (s)', ylabel='pyr #',
-           xticks=[-2,0,2,4])
-    image_stim = ax.imshow(im_mat_stim_pp, interpolation='none', cmap='Greys', aspect='auto', 
-                           extent=[-2, 4, 1, tot_clu-buffer_count_stim])
+           xticks=[0,2,4])
+    image_stim = ax.imshow(im_mat_stim_pp[:, 1250:], interpolation='none', cmap='Greys', aspect='auto', 
+                           extent=[-1, 4, 1, tot_clu-buffer_count_stim])
     plt.colorbar(image_stim, shrink=.5)
     if HPC_LC:
         # fig.suptitle('HPC_LC')

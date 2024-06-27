@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import sys 
 from scipy.stats import ttest_rel, wilcoxon, sem
-from ast import literal_eval
+# from ast import literal_eval
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
@@ -389,9 +389,10 @@ rs, = ax.plot(xaxis, rise_stim_mean, c='royalblue')
 ax.fill_between(xaxis, rise_stim_mean+rise_stim_sem,
                        rise_stim_mean-rise_stim_sem,
                 alpha=.2, color='royalblue', edgecolor='none')
-ax.set(xlabel='time (s)', ylabel='spike rate (Hz)', title='LC stim., CA1 RO-act.',
-       xticks=[-2, 0, 2, 4], yticks=[2, 3, 4])
-plt.legend([rc, rs], ['ctrl.', 'stim.'], frameon=False, fontsize=8, loc='upper left')
+ax.set(xlabel='time (s)', xlim=(-1,4), xticks=[0,2,4], 
+       ylabel='spike rate (Hz)', yticks=[2,4],
+       title='LC stim., CA1 RO-act.')
+plt.legend([rc, rs], ['ctrl.', 'stim.'], frameon=False, fontsize=7, loc='upper right')
 fig.tight_layout()
 plt.show()
 fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_rise.png',
@@ -409,9 +410,10 @@ ds, = ax.plot(xaxis, down_stim_mean, c='royalblue')
 ax.fill_between(xaxis, down_stim_mean+down_stim_sem,
                        down_stim_mean-down_stim_sem,
                 alpha=.2, color='royalblue', edgecolor='none')
-ax.set(xlabel='time (s)', ylabel='spike rate (Hz)', title='LC stim., CA1 RO-inh.',
-       xticks=[-2, 0, 2, 4], yticks=[2, 3])
-plt.legend([dc, ds], ['ctrl.', 'stim.'], frameon=False, fontsize=8)
+ax.set(xlabel='time (s)', xlim=(-1,4), xticks=[0,2,4], 
+       ylabel='spike rate (Hz)', yticks=[1,2,3],
+       title='LC stim., CA1 RO-inh.')
+plt.legend([dc, ds], ['ctrl.', 'stim.'], frameon=False, fontsize=7, loc='lower right')
 fig.tight_layout()
 plt.show()
 fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_down.png',

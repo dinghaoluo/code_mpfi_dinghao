@@ -1,89 +1,59 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun June 11 13:12:54 2023
+Created on Fri 3 Feb 2023
 
-LC: visual and statistical comparison between good and bad trial RO peaks 
+**GENERAL POPULATION**
+plot run-bouts identified using 'Z:\Dinghao\code\runBouts' (modified Raphi's)
 
-*use putative Dbh RO peaking cells*
+analyse run-onset vs run-bout-onset burst with peaking neurons
 
-bad trial parameters 30 Jan 2023 (in getBehParameters()):
-    rewarded == -1
-    noStop
-    noFullStop
+updated 20 Feb 2023 for speed-matching between trial onsets and run-bout-onsets
 
 @author: Dinghao Luo
 """
 
+
 #%% imports
-import sys
 import numpy as np
-import pandas as pd
 from scipy.stats import sem, ttest_rel, wilcoxon
-import matplotlib.pyplot as plt 
 import scipy.io as sio
+import matplotlib.pyplot as plt
 import mat73
-
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
-
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
-import rec_list
-pathLC = rec_list.pathLC
-
-
-#%% load data 
-all_train = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
-                    allow_pickle=True).item()
-cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
-
-
-#%% specify RO peaking putative Dbh cells
-RO_peaking_keys = []
-for cell in cell_prop.index:
-    up = cell_prop['peakness'][cell]  # union-peakness
-    pt = cell_prop['putative'][cell]  # putative
-    tg = cell_prop['tagged'][cell]
-    
-    if up and pt:
-        RO_peaking_keys.append(cell)
-    if up and tg:  # since putative does not include tagged
-        RO_peaking_keys.append(cell)
+import pandas as pd
 
 
 #%% MAIN
+all_train = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
+                    allow_pickle=True).item()
 all_ro_rb = {}
-
+clstr = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_clustered_hierarchical_centroid.npy',
+                allow_pickle=True).item()
+clstr_clu = list(clstr['clustering result'].values())
+clstr_name = list(clstr['clustering result'].keys())
+burst = []
+others = []
+for i in range(len(clstr['clustering result'])):
+    if clstr_clu[i]=='3':
+        burst.append(clstr_name[i])
+    else:
+        others.append(clstr_name[i])
 avg_ro = []; avg_rb = []
-pk_ro = []; pk_rb = []
+burst_ro = []; burst_rb = []
 
 for clu in list(all_train.items()):
     cluname = clu[0]
-    
-    if cluname not in RO_peaking_keys:
-        continue
-    
     print('processing {}'.format(cluname))
     clunum = int(cluname[21:])-2  # index for retrieving fsa
     pathname = 'Z:\Dinghao\MiceExp\ANMD'+cluname[1:5]+'\\'+cluname[:14]+'\\'+cluname[:17]
     
     # load bad trial indices
-    behPar = sio.loadmat(pathname+pathname[42:]+
-                         '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
-                         # -1 to account for MATLAB Python difference
-    ind_bad_beh = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
-                         # -1 to account for 0 being an empty trial
-    ind_good_beh = np.arange(behPar['behPar'][0]['indTrBadBeh'][0].shape[1]-1)
+    beh_par_file = sio.loadmat(pathname+pathname[42:]+
+                               '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
+                                   # -1 to account for MATLAB Python difference
+    ind_bad_beh = np.where(beh_par_file['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
+                                     # -1 to account for 0 being an empty trial
+    ind_good_beh = np.arange(beh_par_file['behPar'][0]['indTrBadBeh'][0].shape[1]-1)
     ind_good_beh = np.delete(ind_good_beh, ind_bad_beh)
-    
-    # import stim trial indices
-    stimOn = behPar['behPar']['stimOn'][0][0][0]
-    first_stim = next((i for i, j in enumerate(stimOn) if j), None)
-    if type(first_stim)==int:  # only the baseline trials
-        ind_bad_beh = ind_bad_beh[ind_bad_beh<first_stim]
-        ind_good_beh = ind_good_beh[ind_good_beh<first_stim]
     
     curr_spike_all = clu[1]
     curr_spike_good = curr_spike_all[ind_good_beh]
@@ -97,17 +67,17 @@ for clu in list(all_train.items()):
     speed_f = sio.loadmat(filename + '_alignRun_msess1.mat')
     ro_speed_bef = []; ro_speed_aft = []
     for ind in ind_good_beh:
-        bef_curr = speed_f['trialsRun'][0][0]['speed_MMsecBef'][0][ind+1][1250:]
-        for tbin in range(1250):
+        bef_curr = speed_f['trialsRun'][0][0]['speed_MMsecBef'][0][ind+1][1875:]
+        for tbin in range(1875):
             if bef_curr[tbin] < 0:
-                if tbin == 1249:
+                if tbin == 1874:
                     bef_curr[tbin] = bef_curr[tbin-1]
                 elif tbin == 0:
                     bef_curr[tbin] = bef_curr[tbin+1]
                 else:
                     bef_curr[tbin] = (bef_curr[tbin-1]+bef_curr[tbin+1])/2
         ro_speed_bef.append(np.mean(bef_curr))
-        ro_speed_aft.append(np.mean(speed_f['trialsRun'][0][0]['speed_MMsec'][0][ind+1][:1250]))
+        ro_speed_aft.append(np.mean(speed_f['trialsRun'][0][0]['speed_MMsec'][0][ind+1][:1875]))
 
     ro_speed_bef_mean = np.mean(ro_speed_bef, axis=0)
     ro_speed_bef_std = np.std(ro_speed_bef, axis=0)
@@ -143,7 +113,7 @@ for clu in list(all_train.items()):
     # peak_det = np.mean([trial[:6250] for trial in curr_spike_all], axis=0)
     # if fsa.shape[0]==9201 or fsa.shape[0]<=50 or neu_peak_detection(peak_det)==False:
     #     pass
-    if fsa.shape[0]==9201 or len(matched_bouts)<=10:
+    if fsa.shape[0]==9201 or cluname in others or len(matched_bouts)<=15:
         pass
     else:
         fsa_mean = np.mean(fsa[matched_bouts, 400:2800], axis=0)  # 2s around bout-onset
@@ -151,8 +121,8 @@ for clu in list(all_train.items()):
         all_ro_rb[cluname] = [run_onset_mean, run_onset_sem, fsa_mean, fsa_sem]
         avg_ro.append(run_onset_mean)
         avg_rb.append(fsa_mean)
-        pk_ro.append(np.mean(run_onset_mean[2250:2750]))  # .4s around onset
-        pk_rb.append(np.mean(fsa_mean[640:960]))
+        burst_ro.append(np.mean(run_onset_mean[2250:2750]))  # .4s around onset
+        burst_rb.append(np.mean(fsa_mean[640:960]))
 
 
 #%% speed matching finished
@@ -213,16 +183,14 @@ for clu in list(all_ro_rb.items()):
 plt.subplots_adjust(hspace = 0.5)
 plt.show()
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_putDbh_ROpeaking.png',
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_clstr1.png',
             dpi=300,
             bbox_inches='tight')
 
 
 #%% plotting average
-w_res = wilcoxon(pk_ro, pk_rb)[1]
-
 print('plotting average spiking profiles...')
-fig, ax = plt.subplots(figsize=(2.8,2))
+fig, ax = plt.subplots(figsize=(5,4))
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 
@@ -244,87 +212,77 @@ ax.fill_between(rb_xaxis,
                 color='gainsboro',
                 alpha=.1)
 ax.vlines(0, 0, 10, color='grey', linestyle='dashed', alpha=.1)
-ax.set(xlim=(-1,4), xticks=[0,2,4],
-       ylim=(1.5,5), yticks=[2,4], 
-       title='trial RO v run-bout onset (all Dbh+)',
+ax.set(xlim=(-1,4),
+       ylim=(1.5,6),
+       title='trial run onset v run-bout onset (cluster 1)',
        xlabel='time (s)',
        ylabel='spike rate (Hz)')
-ax.legend([avg_ro_ln, avg_rb_ln], ['trial run onset', 'run-bout onset'], frameon=False, fontsize=8)
-
-plt.plot([-.5,.5], [4.8,4.8], c='k', lw=.5)
-plt.text(0, 4.85, 'p={}'.format(round(w_res, 8)), ha='center', va='bottom', color='k', fontsize=5)
+ax.legend([avg_ro_ln, avg_rb_ln], ['trial run onset', 'run-bout onset'])
 
 plt.show()
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_allDbh_ROpeaking.png',
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_clstr1.png',
             dpi=300,
-            bbox_inches='tight')
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_allDbh_ROpeaking.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_rovrb_ROpeaking.pdf',
             bbox_inches='tight')
 
 
 #%% t-test and plotting bar graph
-t_res = ttest_rel(pk_ro, pk_rb, alternative='two-sided')[1]
-
+t_res = ttest_rel(a=burst_ro, b=burst_rb)
+pval = t_res[1]
 print('t_test: {}'.format(t_res))
-print('Wilcoxon: {}'.format(w_res))
+
+wilc = wilcoxon(burst_ro, burst_rb, alternative='two-sided')
+pvalwilc = wilc[1]
+print('Wilcoxon: {}'.format(wilc))
 
 fig, ax = plt.subplots(figsize=(4,4))
 
 x = [0, 20]; y = [0, 20]
 ax.plot(x, y, color='grey')
-ax.scatter(pk_ro, pk_rb, s=5, color='grey', alpha=.5)
-mean_pro = np.mean(pk_ro); mean_prb = np.mean(pk_rb)
-sem_pro = sem(pk_ro); sem_prb = sem(pk_ro)
-ax.scatter(mean_pro, mean_prb, s=15, color='navy', alpha=.9)
-ax.plot([mean_pro, mean_pro], 
-        [mean_prb+sem_prb, mean_prb-sem_prb], 
+ax.scatter(burst_ro, burst_rb, s=5, color='grey', alpha=.5)
+mean_bro = np.mean(burst_ro); mean_brb = np.mean(burst_rb)
+sem_bro = sem(burst_ro); sem_brb = sem(burst_ro)
+ax.scatter(mean_bro, mean_brb, s=15, color='navy', alpha=.9)
+ax.plot([mean_bro, mean_bro], 
+        [mean_brb+sem_brb, mean_brb-sem_brb], 
         color='royalblue', alpha=.7)
-ax.plot([mean_pro+sem_pro, mean_pro-sem_pro], 
-        [mean_prb, mean_prb],
+ax.plot([mean_bro+sem_bro, mean_bro-sem_bro], 
+        [mean_brb, mean_brb],
         color='royalblue', alpha=.7)
 
-ax.set(title='tt {}\nwilc {}'.format(t_res,w_res),
-       xlabel='trial run onset spike rate (Hz)',
-       ylabel='run-bout onset spike rate (Hz)',
-       xlim=(0,10), ylim=(0,10),
-       xticks=[0,5,10], yticks=[0,5,10])
+ax.set(title='tt {}\nwilc {}'.format(pval,pvalwilc),
+       xlabel='trial run onset',
+       ylabel='run-bout onset',
+       xlim=(0,18), ylim=(0,18))
 
 plt.show()
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_all_Dbh_ROpeaking_bivariate.png',
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_clstr1_bivariate.png',
             dpi=300,
             bbox_inches='tight')
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_allDbh_ROpeaking_bivariate.pdf',
+
+
+fig, ax = plt.subplots(figsize=(3,6))
+
+xaxis = [1, 2]
+ax.bar(xaxis, 
+       [np.mean(burst_ro), np.mean(burst_rb)],
+       yerr=[sem(burst_ro), sem(burst_rb)], capsize=5,
+       width=0.8,
+       tick_label=['run-onset', 'run-bout'],
+       edgecolor=['royalblue', 'grey'],
+       color=(0,0,0,0))
+
+ax.scatter(1+np.random.random(len(burst_ro))*0.5-0.25, burst_ro,
+           s=3, color='royalblue', alpha=.5)
+ax.scatter(2+np.random.random(len(burst_rb))*0.5-0.25, burst_rb,
+           s=3, color='grey', alpha=.5)
+
+ax.set(title='tt {}\nwilc {}'.format(pval,pvalwilc),
+       ylabel='spike rate (Hz)')
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_clstr1_bar.png',
+            dpi=300,
             bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_rovrb_ROpeaking_bivariate.pdf',
-            bbox_inches='tight')
-
-
-
-# fig, ax = plt.subplots(figsize=(3,6))
-
-# xaxis = [1, 2]
-# ax.bar(xaxis, 
-#        [np.mean(burst_ro), np.mean(burst_rb)],
-#        yerr=[sem(burst_ro), sem(burst_rb)], capsize=5,
-#        width=0.8,
-#        tick_label=['run-onset', 'run-bout'],
-#        edgecolor=['royalblue', 'grey'],
-#        color=(0,0,0,0))
-
-# ax.scatter(1+np.random.random(len(burst_ro))*0.5-0.25, burst_ro,
-#            s=3, color='royalblue', alpha=.5)
-# ax.scatter(2+np.random.random(len(burst_rb))*0.5-0.25, burst_rb,
-#            s=3, color='grey', alpha=.5)
-
-# ax.set(title='tt {}\nwilc {}'.format(pval,pvalwilc),
-#        ylabel='spike rate (Hz)')
-
-# fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_clstr1_bar.png',
-#             dpi=300,
-#             bbox_inches='tight')
 
 
 #%% plot speed-matched examples 

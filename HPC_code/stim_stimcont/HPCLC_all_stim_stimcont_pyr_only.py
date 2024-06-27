@@ -22,7 +22,7 @@ import scipy.io as sio
 from scipy.stats import sem, ttest_rel
 
 # plotting parameters 
-xaxis = np.arange(-2500, 5000)/1250  # 2 s bef, 4 s after
+xaxis = np.arange(-1250, 5000)/1250  # 1 s bef, 4 s after
 import matplotlib
 plt.rcParams['font.family'] = 'Arial'
 matplotlib.rcParams['pdf.fonttype'] = 42
@@ -103,7 +103,7 @@ for pathname in pathHPC:
     beh_info = info['beh'][0][0]
     behPar = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(pathname, recname))
     stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-    stim_trials = np.where(stimOn!=0)[0]
+    stim_trials = np.where(stimOn!=0)[0]+1
     cont_trials = stim_trials+2
     tot_stim = len(stim_trials)
     
@@ -169,7 +169,7 @@ for pathname in pathHPC:
             # sig_threshold_late = np.percentile(shuf_mod_late, [5, 95])
             
             # plotting 
-            fig, axs = plt.subplot_mosaic('AAB', figsize=(5,3))
+            fig, axs = plt.subplot_mosaic('AAB', figsize=(4,2.8))
             
             # mean profile 
             mean_prof_cont = np.mean(temp_cont, axis=0)*1250
@@ -181,24 +181,24 @@ for pathname in pathHPC:
             cont_pp_ratio = np.nanmean(mean_prof_cont[625:1875])/np.nanmean(mean_prof_cont[3125:4375])  # .5~1.5s
             stim_pp_ratio = np.nanmean(mean_prof_stim[625:1875])/np.nanmean(mean_prof_stim[3125:4375])  # .5~1.5s
             
-            contln, = axs['A'].plot(xaxis, mean_prof_cont, color='grey')
-            axs['A'].fill_between(xaxis, mean_prof_cont+sem_prof_cont,
-                                  mean_prof_cont-sem_prof_cont,
+            contln, = axs['A'].plot(xaxis, mean_prof_cont[1250:], color='grey')
+            axs['A'].fill_between(xaxis, mean_prof_cont[1250:]+sem_prof_cont[1250:],
+                                         mean_prof_cont[1250:]-sem_prof_cont[1250:],
                                   alpha=.25, color='grey')
-            stimln, = axs['A'].plot(xaxis, mean_prof_stim, color='royalblue')
-            axs['A'].fill_between(xaxis, mean_prof_stim+sem_prof_stim,
-                                  mean_prof_stim-sem_prof_stim,
+            stimln, = axs['A'].plot(xaxis, mean_prof_stim[1250:], color='royalblue')
+            axs['A'].fill_between(xaxis, mean_prof_stim[1250:]+sem_prof_stim[1250:],
+                                         mean_prof_stim[1250:]-sem_prof_stim[1250:],
                                   alpha=.25, color='royalblue')
             
-            axs['A'].legend([contln, stimln], ['control', 'stim'], 
-                            frameon=False, fontsize=10)
+            axs['A'].legend([contln, stimln], ['ctrl', 'stim'], 
+                            frameon=False, fontsize=8)
             for p in ['top', 'right']:
                 axs['A'].spines[p].set_visible(False)
             
             fig.suptitle(cluname)
             axs['A'].set(title='depth={}'.format(d),
                          xlabel='time (s)', ylabel='spike rate (Hz)',
-                         xlim=(-2, 4))
+                         xlim=(-1, 4))
             
             # # sensitivity 
             # # 27 Mar 24, tests for each time bin
@@ -287,6 +287,8 @@ for pathname in pathHPC:
             
             fig.savefig('{}\{}'.format(outdir, cluname),
                         dpi=500,
+                        bbox_inches='tight')
+            fig.savefig('{}\{}.pdf'.format(outdir, cluname),
                         bbox_inches='tight')
              
             plt.close(fig)

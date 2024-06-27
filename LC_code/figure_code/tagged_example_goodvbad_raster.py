@@ -52,7 +52,7 @@ spk_all = np.empty(tot_trial-1, dtype='object')
 for trial in range(tot_trial-1):
     curr_trial_trunc = np.concatenate([spk_bef[trial].reshape(-1),
                                        spk[trial].reshape(-1)])
-    curr_trial_trunc = [i for i in curr_trial_trunc if i>=-725 and i<=1250]
+    # curr_trial_trunc = [i for i in curr_trial_trunc if i>=-725 and i<=1250]
     spk_all[trial] = curr_trial_trunc
 
 
@@ -60,7 +60,7 @@ for trial in range(tot_trial-1):
 print('plotting rasters...')
 
 fig, ax = plt.subplots(figsize=(4, 3))
-ax.set(ylim=(-1, len(spk_all)), xlim=(-.5, 1),
+ax.set(ylim=(-1, len(spk_all)), xlim=(-1, 4),
        title=example)
 for p in ['left', 'top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
@@ -77,28 +77,36 @@ for trial in ind_good_beh[-15:]:
     ax.scatter([t/1250 for t in spk_all[trial]], [count]*len(spk_all[trial]),
                s=3, color='limegreen')
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad.png',
+plt.show()
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad_-1-4.png',
             dpi=500,
             bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad_-1-4.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_tagged_egcell_goodvbad_-1-4.pdf',
+            bbox_inches='tight')
 
-good_trains = [t[2500:7500]*1250 for i,t in enumerate(example_trains) if i in ind_good_beh]
-bad_trains = [t[2500:7500]*1250 for i,t in enumerate(example_trains) if i in ind_bad_beh]
+plt.close(fig)
+
+
+good_trains = [t[2500:8750]*1250 for i,t in enumerate(example_trains) if i in ind_good_beh if len(t)>=8750]
+bad_trains = [t[2500:8750]*1250 for i,t in enumerate(example_trains) if i in ind_bad_beh if len(t)>=8750]
 
 good_avg = np.mean(good_trains, axis=0)
 good_sem = sem(good_trains, axis=0)
 bad_avg = np.mean(bad_trains, axis=0)
 bad_sem = sem(bad_trains, axis=0)
 
-fig, ax = plt.subplots(figsize=(4,3))
+fig, ax = plt.subplots(figsize=(2,1.6))
 
 ax.set(xlabel='time (s)',
        ylabel='spike rate (Hz)',
-       xlim=(-.5, 1),
+       xlim=(-1, 4),
        ylim=(0, max(good_avg)*1.2),
-       xticks=[-.5, 0, .5, 1],
-       yticks=[0,2,4,6])
+       xticks=[0,2,4],
+       yticks=[0,4])
 
-xaxis = np.arange(-1250, 3750)/1250
+xaxis = np.arange(-1250, 5000)/1250
 
 gd, = ax.plot(xaxis, good_avg, color='limegreen')
 ax.fill_between(xaxis, good_avg+good_sem, good_avg-good_sem,
@@ -108,14 +116,18 @@ bd, = ax.plot(xaxis, bad_avg, color='darkgrey')
 ax.fill_between(xaxis, bad_avg+bad_sem, bad_avg-bad_sem,
                 color='darkgrey', alpha=.25)
 
-ax.legend([gd, bd], ['good trial', 'bad trial'], frameon=False)
+ax.legend([gd, bd], ['good trial', 'bad trial'], frameon=False, fontsize=8)
 
 for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
 
 plt.show()
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell.png',
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_-1-4.png',
             dpi=500,
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_-1_4.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_tagged_egcell_-1_4.pdf',
             bbox_inches='tight')
 
 plt.close(fig)

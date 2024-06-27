@@ -2,15 +2,17 @@
 """
 Created on Mon Apr 15 16:50:53 2024
 
-functions for grid-ROI processing
+functions for the Python imaging pipeline
 
 @author: Dinghao Luo
+@contributor: Jingyu Cao
 """
 
 
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
+from scipy.ndimage import gaussian_filter
 
 
 #%% constants 
@@ -18,16 +20,86 @@ import matplotlib.pyplot as plt
 of_constant = (2**32-1)/1000
 
 
-#%% main 
+#%% utilities
 def sum_mat(matrix):
+    """
+    Parameters
+    ----------
+    matrix : numpy array
+        A 2D array to be summed over.
+
+    Returns
+    -------
+        Sum of all values in the 2D array.
+    """
     return sum(map(sum, matrix))
+
+
+def rolling_min(arr, win):
+    length = arr.shape[1]
+    half_win = int(np.ceil(win/2))
+    array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
+    output = np.array([np.min(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
+    return output
+
+def rolling_max(arr, win):
+    length = arr.shape[1]
+    half_win = int(np.ceil(win/2))
+    array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
+    output = np.array([np.max(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
+    return output
+
+
+def calculate_dFF(F_array, window=1800, sigma=300):    
+    """
+    Parameters
+    ----------
+    F_array : numpy array
+        2D array with fluorescence traces for each ROI.
+    window : int, default=1800
+        Window for calculating baselines.
+    sigma : int, default=300
+        Sigma for Gaussian filter.
+
+    Returns
+    -------
+        2D array containing the dFF for each ROI.
+
+    """
+    baseline = gaussian_filter(F_array, sigma, axes=1)
+    baseline = rolling_min(baseline, window)
+    baseline = rolling_max(baseline, window)
+    
+    return (F_array-baseline)/baseline
+
+
+#%% grid functions 
+def check_stride_border(stride, border, dim=512):
+    """
+    Parameters
+    ----------
+    stride : int
+        How many pixels per grid (stride x stride).
+    border : int
+        How many pixels to ignore at the border of the movie.
+    dim : int, default=512
+        Dimensions of the movie.
+
+    Returns
+    -------
+    NONE
+    """
+    if not np.mod(512-border*2, stride)==0:
+        print('\n***\nWARNING:\nborder does not fit stride.\n***\n')
+    return np.mod(512-border*2, stride)==0
+
 
 def make_grid(stride=8, dim=512, border=0):
     """
     Parameters
     ----------
     stride : int, default=8
-        how many pixels per grid.
+        How many pixels per grid.
     dim : int, default=512
         x/y dimension; either should do since we are imaging squared images.
 
@@ -109,7 +181,7 @@ def find_nearest(value, arr):
     return nearest_value_index
     
     
-#%% text file processing
+#%% behaviour file processing
 def process_txt(txtfile):
     curr_logfile = {} 
     file = open(txtfile, 'r')
@@ -145,7 +217,8 @@ def process_txt(txtfile):
         if line[0] == '$MV':
             mv_trial.append([float(line[1]), float(line[2])])
         if line[0] == '$WE':
-            wt_trial.append([float(line[1]), float(line[2]), float(line[3])])
+            wt_trial.append([float(line[1]), float(line[2])*.04*50, float(line[3])])  # 2nd value in each line is the number of clicks per 20 ms, and each click corresponds to .04 cm, Dinghao, 20240625
+            # wt_trial.append([float(line[1]), float(line[2])*.04*50, float(line[3])])  # old way of doing this, reading in the 2nd value directly, but it is not the true speed
         if line[0] == '$LE' and line[3] == '1':
             lt_trial.append([float(line[1]), float(line[2])]) 
         if line[0] == '$PE' and line[3] == '1':
@@ -224,6 +297,25 @@ def correct_overflow(data, label):
                         new_trial.append(curr_trial[s])
                     else:
                         new_trial.append([curr_trial[s][0]+of_constant, curr_trial[s][1], curr_trial[s][2]])
+                new_data.append(new_trial)              
+    if label == 'lick':  # added by Jingyu 6/22/2024
+        first_trial_with_licks = next(x for x in data if len(x)!=0)  # in case the first trial has no licks, Dinghao, 20240626
+        curr_time = first_trial_with_licks[0][0]
+        for t in range(tot_trial):
+            if len(data[t])==0:  # if there is no lick, append an empty list
+                new_data.append([])
+            elif data[t][-1][0]-curr_time>=0:  # if the last lick cell is within overflow, then simply append
+                new_data.append(data[t])
+                curr_time = data[t][-1][0]
+            else:  # once overflow is detected, do not update curr_time
+                new_trial = []
+                curr_trial = data[t]
+                curr_length = len(curr_trial)
+                for s in range(curr_length):
+                    if curr_trial[s][0]-curr_time>0:
+                        new_trial.append(curr_trial[s])
+                    else:
+                        new_trial.append([curr_trial[s][0]+of_constant, curr_trial[s][1]])
                 new_data.append(new_trial)
     if label=='pump':
         curr_time = data[0][0]

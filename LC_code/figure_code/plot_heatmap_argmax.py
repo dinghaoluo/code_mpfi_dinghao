@@ -136,9 +136,9 @@ def sort_helper(x):
     return max_pt[x]
 keys = sorted(keys, key=sort_helper)
 
-im_matrix = np.zeros((len(keys), 1250*4))
+im_matrix = np.zeros((len(keys), 1250*5))
 for i, key in enumerate(keys):
-    im_matrix[i, :] = normalise(avg_profile[key][3125:1250*6+625])
+    im_matrix[i, :] = normalise(avg_profile[key][2500:1250*4+3750])
 
 
 #%% plotting 
@@ -148,11 +148,11 @@ ax.set(xlabel='time (s)',
 fig.suptitle('tagged Dbh+ cells')
 
 im_ordered = ax.imshow(im_matrix, aspect='auto',
-                       extent=[-.5, 3.5, 1, len(keys)], cmap='Greys')
+                       extent=[-1, 4, 1, len(keys)], cmap='Greys')
 plt.colorbar(im_ordered, shrink=.5, ticks=[0,1])
 
 ax.set(yticks=[1, 100, 200],
-       xticks=[0, 1, 2, 3])
+       xticks=[0,2,4])
 
 fig.tight_layout()
 plt.show()

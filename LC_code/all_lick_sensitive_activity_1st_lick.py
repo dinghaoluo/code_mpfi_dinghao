@@ -167,56 +167,48 @@ mean_cutoff_stim_clean = [s for i, s in enumerate(mean_cutoff_stim) if i not in 
 
 pval = wilcoxon(mean_cutoff_all_clean, mean_cutoff_stim_clean)[1]
 
-fig, ax = plt.subplots(figsize=(3,4.5))
+fig, ax = plt.subplots(figsize=(2,3))
 
-bp = ax.boxplot([mean_cutoff_all_clean, mean_cutoff_stim_clean],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
-
-ax.scatter([.8]*len(mean_cutoff_all_clean), 
-           mean_cutoff_all_clean, 
-           s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([1.7]*len(mean_cutoff_stim_clean), 
-           mean_cutoff_stim_clean, 
-           s=10, c='royalblue', ec='none', lw=.5)
+vp = ax.violinplot([mean_cutoff_all_clean, mean_cutoff_stim_clean],
+                   positions=[1, 2],
+                   showextrema=False, showmedians=True)
 
 colors = ['grey', 'royalblue']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
+for i in range(2):
+    vp['bodies'][i].set_color(colors[i])
+    vp['bodies'][i].set_edgecolor('k')
+vp['cmedians'].set(color='darkred', lw=2)
 
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
+ax.scatter([1]*len(mean_cutoff_all_clean), 
+           mean_cutoff_all_clean, 
+           s=3, c='grey', ec='none', alpha=.5)
 
-for median in bp['medians']:
-    median.set(color='darkred',
-                linewidth=1)
+ax.scatter([2]*len(mean_cutoff_stim_clean), 
+           mean_cutoff_stim_clean, 
+           s=3, c='royalblue', ec='none', alpha=.5)
 
-ax.plot([[.8]*len(mean_cutoff_all_clean), [1.7]*len(mean_cutoff_stim_clean)], [mean_cutoff_all_clean, mean_cutoff_stim_clean], 
+ax.plot([[1]*len(mean_cutoff_all_clean), [2]*len(mean_cutoff_stim_clean)], [mean_cutoff_all_clean, mean_cutoff_stim_clean], 
         color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(mean_cutoff_all_clean), np.median(mean_cutoff_stim_clean)],
-        color='k', linewidth=1.5)
-ax.set(xlim=(0,2.5), ylim=(2,5.2),
+ax.plot([1, 2], [np.median(mean_cutoff_all_clean), np.median(mean_cutoff_stim_clean)],
+        color='darkred', linewidth=1.5)
+
+ax.set(xlim=(.5,2.5), ylim=(2,5.2),
        yticks=[2, 3, 4, 5],
        ylabel='time to inh. (s)',
-       title='time to inh., p={}'.format(np.round(pval, 5)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
+       title='time to inh.\np={}'.format(np.round(pval, 8)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl', 'stim'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
-fig.suptitle('time to inh.')
 
 fig.tight_layout()
 plt.show()
 
 fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_ttinhibition.png',
             dpi=500,
+            bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_ttinhibition.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\paper\figures\figure_2_opto_time_to_inhibition.pdf',
             bbox_inches='tight')
 
 plt.close(fig)

@@ -23,6 +23,11 @@ from scipy.stats import sem, ttest_rel, wilcoxon
 import matplotlib.pyplot as plt 
 import scipy.io as sio
 
+import matplotlib
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
@@ -38,7 +43,7 @@ cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_pr
 #%% specify RO peaking putative Dbh cells
 RO_peaking_keys = []
 for cell in cell_prop.index:
-    up = cell_prop['union_peakness'][cell]  # union-peakness
+    up = cell_prop['peakness'][cell]  # union-peakness
     pt = cell_prop['putative'][cell]  # putative
     tg = cell_prop['tagged'][cell]
     
@@ -94,6 +99,8 @@ for pathname in pathLC:
                 p_bad_sem[name] = sem(curr_bad, axis=0)
                 pk_bad.append(np.mean(p_bad[name][3125:4375]))
 
+
+#%% calculation 
 p_g_avg = []
 p_b_avg = []
 for clu in list(p_good.items()):
@@ -153,6 +160,10 @@ fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_putDbh_ROpeaking.
 #%% avg profile for onset-bursting clus
 print('\nplotting avg onset-bursting good vs bad averaged spike trains...')
 
+w_res = wilcoxon(pk_good, pk_bad)[1]
+
+xaxis = np.arange(-3750, 10000, 1)/1250 
+
 p_g_burst_avg = []
 p_b_burst_avg = []
 for clu in list(p_good.items()):
@@ -163,7 +174,7 @@ p_g_burst_avg = np.mean(p_g_burst_avg, axis=0)
 p_b_burst_sem = sem(p_b_burst_avg, axis=0)
 p_b_burst_avg = np.mean(p_b_burst_avg, axis=0)
 
-fig, ax = plt.subplots(figsize=(5,4))
+fig, ax = plt.subplots(figsize=(2.8,2))
 p_good_ln, = ax.plot(xaxis, p_g_burst_avg*1250, color='forestgreen')
 p_bad_ln, = ax.plot(xaxis, p_b_burst_avg*1250, color='grey')
 ax.fill_between(xaxis, p_g_burst_avg*1250+p_g_burst_sem*1250, 
@@ -173,29 +184,34 @@ ax.fill_between(xaxis, p_b_burst_avg*1250+p_b_burst_sem*1250,
                        p_b_burst_avg*1250-p_b_burst_sem*1250,
                        color='gainsboro', alpha=.1)
 ax.vlines(0, 0, 10, color='grey', linestyle='dashed', alpha=.1)
-ax.set(title='good v bad trials (putative Dbh+)',
-       ylim=(2,7),
-       xlim=(-1,4),
+ax.set(title='good v bad trials (all Dbh+)',
+       ylim=(1.5,5),yticks=[2,4],
+       xlim=(-1,4),xticks=[0,2,4],
        ylabel='spike rate (Hz)',
        xlabel='time (s)')
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.legend([p_good_ln, p_bad_ln], 
-          ['good trial', 'bad trial'])
+          ['good trial', 'bad trial'], frameon=False, fontsize=8)
 
-fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_avg_putDbh_ROpeaking.png',
+plt.plot([-.5,.5], [4.9,4.9], c='k', lw=.5)
+plt.text(0, 4.95, 'p={}'.format(round(w_res, 8)), ha='center', va='bottom', color='k', fontsize=5)
+
+fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_avg_ROpeaking.png',
             dpi=300,
+            bbox_inches='tight')
+fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_avg_ROpeaking.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_goodvbad_ROpeaking.pdf',
             bbox_inches='tight')
 
 
 #%% tests and bar graph
-t_res = ttest_rel(a=pk_good, b=pk_bad)
-pval = t_res[1]
+t_res = ttest_rel(pk_good, pk_bad, alternative='two-sided')[1]
+
 print('t_test: {}'.format(t_res))
 
-wilc = wilcoxon(pk_good, pk_bad, alternative='two-sided')
-pvalwilc = wilc[1]
-print('Wilcoxon: {}'.format(wilc))
+print('Wilcoxon: {}'.format(w_res))
 
 pg_disp = [i*1250 for i in pk_good]
 pb_disp = [i*1250 for i in pk_bad]
@@ -204,7 +220,7 @@ fig, ax = plt.subplots(figsize=(4,4))
 # for p in ['top', 'right']:
 #     ax.spines[p].set_visible(False)
 
-x = [0, 11]; y = [0, 11]
+x = [0, 20]; y = [0, 20]
 ax.plot(x, y, color='grey')
 ax.scatter(pg_disp, pb_disp, s=5, color='grey', alpha=.5)
 mean_pg = np.mean(pg_disp); mean_pb = np.mean(pb_disp)
@@ -217,13 +233,18 @@ ax.plot([mean_pg+sem_pg, mean_pg-sem_pg],
         [mean_pb, mean_pb], 
         color='mediumseagreen', alpha=.7)
 
-ax.set(title='tt {}\nwilc {}'.format(pval,pvalwilc),
+ax.set(title='tt {}\nwilc {}'.format(t_res, w_res),
        xlabel='good trial spike rate (Hz)',
        ylabel='bad trial spike rate (Hz)',
-       xlim=(1,9), ylim=(1,9))
+       xlim=(0,10), ylim=(0,10),
+       xticks=[0,5,10], yticks=[0,5,10])
 
 plt.show()
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_goodvbad_avg_putDbh_ROpeaking_bivariate.png')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_goodvbad_avg_putDbh_ROpeaking_bivariate.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_goodvbad_ROpeaking_bivariate.pdf',
+            bbox_inches='tight')
 
 
 # fig, ax = plt.subplots(figsize=(3,6))

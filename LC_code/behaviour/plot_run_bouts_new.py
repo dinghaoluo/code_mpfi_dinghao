@@ -94,12 +94,16 @@ for t in np.arange(2, len(endLfpInd)-2, 3):
     
     # save fig 
     if len(run_bout_t)>0:
-        save_path = save_path_base+'trials {} to {} w rb.png'.format(t-1, t+1)
-        fig.savefig(save_path,
+        save_path = save_path_base+'trials {} to {} w rb.'.format(t-1, t+1)
+        fig.savefig(save_path+'png',
                     dpi=300,
                     bbox_inches='tight')
+        fig.savefig(save_path+'pdf',
+                    bbox_inches='tight')
     else:
-        save_path = save_path_base+'trials {} to {}.png'.format(t-1, t+1)
-        fig.savefig(save_path,
+        save_path = save_path_base+'trials {} to {}.'.format(t-1, t+1)
+        fig.savefig(save_path+'png',
                     dpi=300,
+                    bbox_inches='tight')
+        fig.savefig(save_path+'pdf',
                     bbox_inches='tight')

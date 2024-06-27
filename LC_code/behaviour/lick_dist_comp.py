@@ -145,26 +145,36 @@ fig, ax = plt.subplots(figsize=(3,4.5))
 
 vp = ax.violinplot([all_licks_non_stim, all_licks_stim],
                    positions=[1, 2],
-                   showextrema=False, showmedians=True)
+                   showextrema=False)
 
 vp['bodies'][0].set_color('grey')
 vp['bodies'][1].set_color('royalblue')
 for i in [0,1]:
     vp['bodies'][i].set_edgecolor('none')
-vp['cmedians'].set(color='darkred', lw=2)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
-ax.scatter([1]*len(all_licks_non_stim), 
+ax.scatter([1.1]*len(all_licks_non_stim), 
            all_licks_non_stim, 
-           s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([2]*len(all_licks_stim), 
+           s=10, c='grey', ec='none', lw=.5, alpha=.25)
+ax.scatter([1.9]*len(all_licks_stim), 
            all_licks_stim, 
-           s=10, c='royalblue', ec='none', lw=.5)
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.25)
 
-ax.plot([[1]*len(all_licks_stim), [2]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
+ax.plot([[1.1]*len(all_licks_stim), [1.9]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
         color='grey', alpha=.25, linewidth=1)
-ax.plot([1, 2], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
-        color='darkred', linewidth=2)
+ax.plot([1.1, 1.9], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
+        color='grey', linewidth=2)
+ax.scatter(1.1, np.median(all_licks_non_stim), 
+           s=20, c='grey', ec='none', lw=.5)
+ax.scatter(1.9, np.median(all_licks_stim), 
+           s=20, c='royalblue', ec='none', lw=.5)
 ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.5
 ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.5
 ax.set(xlim=(.5,2.5), ylim=(ymin,ymax),
@@ -175,11 +185,11 @@ for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 fig.suptitle('distance 1st licks')
 
-if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary_wilc.png',
-                dpi=500,
-                bbox_inches='tight')
-elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary_wilc.png',
-                dpi=500,
-                bbox_inches='tight')
+# if comp_method == 'baseline':
+#     fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary_wilc.png',
+#                 dpi=500,
+#                 bbox_inches='tight')
+# elif comp_method == 'stim_cont':
+#     fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary_wilc.png',
+#                 dpi=500,
+#                 bbox_inches='tight')

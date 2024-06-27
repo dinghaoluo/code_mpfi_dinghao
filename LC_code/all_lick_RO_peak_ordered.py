@@ -11,11 +11,18 @@ Does the RO-peak have anything to do with licking?
 #%% imports 
 import numpy as np
 import matplotlib.pyplot as plt 
-plt.rcParams['font.family'] = 'Arial' 
 import scipy.io as sio
 import pandas as pd
 from scipy.stats import ttest_rel, ranksums, wilcoxon
 
+# plotting parameters
+import matplotlib
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+
+#%% load data 
 rasters = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters_simp_name.npy',
                   allow_pickle=True).item()
 all_train = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
@@ -61,7 +68,7 @@ noStim = input('Get rid of stim trials? (Y/N) (for plotting purposes... etc. etc
 lick_sensitive = []
 lick_sensitive_type = []
 
-for cluname in clu_list[382:383]:
+for cluname in clu_list[334:335]:
     print(cluname)
     raster = rasters[cluname]
     train = all_train[cluname]
@@ -100,7 +107,7 @@ for cluname in clu_list[382:383]:
         tot_trial = len(temp_ordered)  # reset tot_trial if noStim
 
     # plotting
-    fig, axs = plt.subplot_mosaic('AAAABBCC',figsize=(9,4))
+    fig, axs = plt.subplot_mosaic('AAAABBCC',figsize=(7.1,3))
     axs['A'].set(xlabel='time (s)', ylabel='trial # by first licks',
                  xlim=(-1, 7))
     for p in ['top', 'right']:
@@ -110,7 +117,7 @@ for cluname in clu_list[382:383]:
     pre_rate_shuf = []; post_rate_shuf = []
     ratio = []; ratio_shuf = []
     # rge = np.arange(5, tot_trial-40)-4
-    for trial in range(tot_trial):
+    for trial in range(tot_trial-20):
         curr_raster = raster[temp_ordered[trial]]
         curr_train = train[temp_ordered[trial]]
         window = [licks_ordered[trial]+3750-625, licks_ordered[trial]+3750, licks_ordered[trial]+3750+625]
@@ -143,14 +150,15 @@ for cluname in clu_list[382:383]:
         axs['A'].plot([licks_ordered[trial]/1250, licks_ordered[trial]/1250],
                       [trial, trial+1],
                       linewidth=2, color='orchid')
-        axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
-                      [trial, trial+1],
-                      linewidth=2, color='darkgreen')
+        # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
+        #               [trial, trial+1],
+        #               linewidth=2, color='darkgreen')
      
     fl, = axs['A'].plot([],[],color='orchid',label='1st licks')
-    pp, = axs['A'].plot([],[],color='darkgreen',alpha=.35,label='rew.')
-    axs['A'].legend(handles=[fl], frameon=False, fontsize=10)
-    axs['A'].set(yticks=[1, 50, 100, 150], xticks=[0, 2, 4, 6])
+    # pp, = axs['A'].plot([],[],color='darkgreen',alpha=.35,label='rew.')
+    # axs['A'].legend(handles=[fl, pp], frameon=False, fontsize=8)
+    axs['A'].set(yticks=[1, 50, 100, 150], xticks=[0, 2, 4],
+                 xlim=(-1, 6))
     
     # t-test and pre-post comp.
     t_res = ttest_rel(a=pre_rate, b=post_rate)
@@ -228,26 +236,38 @@ for cluname in clu_list[382:383]:
             fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_noStim\{}_tagged.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_noStim\{}_tagged.pdf'.format(cluname),
+                        bbox_inches='tight')
         elif cluname in put_list:
             fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_noStim\{}_putative.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_noStim\{}_putative.pdf'.format(cluname),
+                        bbox_inches='tight')
         else:
             fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_noStim\{}.png'.format(cluname),
                         dpi=300,
+                        bbox_inches='tight')
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_noStim\{}.pdf'.format(cluname),
                         bbox_inches='tight')
     else:
         if cluname in tag_list:
             fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks\{}_tagged.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks\{}_tagged.pdf'.format(cluname),
+                        bbox_inches='tight')
         elif cluname in put_list:
             fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks\{}_putative.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks\{}_putative.pdf'.format(cluname),
+                        bbox_inches='tight')
         else:
             fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks\{}.png'.format(cluname),
                         dpi=300,
+                        bbox_inches='tight')
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks\{}.pdf'.format(cluname),
                         bbox_inches='tight')
     
     plt.close(fig)
