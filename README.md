@@ -2,7 +2,7 @@
 my scripts at MPFI
 
 ## caiman_code
-*not in use*
+*not in use*\
 includes a working CaImAn analysis pipeline modified to work on Wang Lab data, mostly by [Nico Spiller](https://github.com/nspiller).
 
 ## imaging_code
@@ -50,7 +50,7 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **all_lick_RO_peak_ordered.py** analyses single cell's response to 1st-licks by ordering the trials based on the time from run-onset to 1st-licks
 - **all_lick_sensitive_activity_1st_lick.py** looks at the time from run-onset to neuronal inhibition of cells that are sensitive to 1st-licks; depends on the dataframe output by all_lick_RO_peak_ordered.py
 - **all_lick_sensitive.py** also depends on the dataframe output by all_lick_RO_peak_ordered.py and looks at the neuronal inhibition/activation around the 1st-licks
-- **
+- **all_rasters.py** 
 
 ### behaviour 
 - **1st_lick_profile.py** plots a stair histogram of the first-lick distance and time of all the trials in LC-optotagging sessions
