@@ -147,5 +147,9 @@ for path in pathGRABNE:
         register(path)
     # if 'no tiffs' is raised, most likely it is due to typos in pathnames
     
-    print('running roi extraction on {}'.format(sessname))
     run_roi_extraction(path)
+    
+    
+"""
+note to self: put those ugly functions into another script please
+"""

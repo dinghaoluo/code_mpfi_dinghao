@@ -95,46 +95,57 @@ for pathname in pathHPC:
         im_mat_cont[i,:] = profile_cont[ind,:]
         im_mat_stim[i,:] = profile_stim[ind,:]
        
+    # yticks
+    if tot_pc>10:
+        ytks = np.arange(0, tot_pc, 10)
+        ytks[0] = 1
+    elif tot_pc==10:
+        ytks = [1,5,10]
+    else:
+        ytks = [1,5]
+       
     # stimcont sequence 
-    fig, ax = plt.subplots(figsize=(4.5,3))
+    fig, ax = plt.subplots(figsize=(3,2.2))
     image_cont = ax.imshow(im_mat_cont, 
                            aspect='auto', cmap='Greys', interpolation='none',
                            extent=(-1, 4, 0, tot_pc))
     plt.colorbar(image_cont, shrink=.5)
-    yticks = range(1, tot_pc+1, 5)
-    ax.set(yticks=yticks,
+    ax.set(yticks=ytks,
            ylabel='cell #', xlabel='time (s)',
-           title='{} stimcont'.format(recname))
+           title='{} ctrl.'.format(recname))
     
     plt.show()
     
     # save figure
     outdirroot = 'Z:\Dinghao\code_dinghao\HPC_all\{}'.format(recname)
-    outdir = '{}\sequence_pyr_stimcont.png'.format(outdirroot)
-    fig.savefig('{}'.format(outdir),
+    outdir = '{}\sequence_pyr_stimcont'.format(outdirroot)
+    fig.savefig('{}.png'.format(outdir),
                 dpi=500,
+                bbox_inches='tight')
+    fig.savefig('{}.pdf'.format(outdir),
                 bbox_inches='tight')
     
     plt.close(fig)
     
     # stim sequence ordered by stimcont
-    fig, ax = plt.subplots(figsize=(4.5,3))
+    fig, ax = plt.subplots(figsize=(3,2.2))
     image_stim = ax.imshow(im_mat_stim, 
                            aspect='auto', cmap='Greys', interpolation='none',
                            extent=(-1, 4, 0, tot_pc))
     plt.colorbar(image_stim, shrink=.5)
-    yticks = range(1, tot_pc+1, 5)
-    ax.set(yticks=yticks,
+    ax.set(yticks=ytks,
            ylabel='cell #', xlabel='time (s)',
-           title='{} stim'.format(recname))
+           title='{} stim.'.format(recname))
     
     plt.show()
     
     # save figure
     outdirroot = 'Z:\Dinghao\code_dinghao\HPC_all\{}'.format(recname)
-    outdir = '{}\sequence_pyr_stim_by_stimcont.png'.format(outdirroot)
-    fig.savefig('{}'.format(outdir),
+    outdir = '{}\sequence_pyr_stim_by_stimcont'.format(outdirroot)
+    fig.savefig('{}.png'.format(outdir),
                 dpi=500,
+                bbox_inches='tight')
+    fig.savefig('{}.pdf'.format(outdir),
                 bbox_inches='tight')
     
     plt.close(fig)

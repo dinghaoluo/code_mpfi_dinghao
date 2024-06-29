@@ -490,3 +490,14 @@ fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_rel_rate_change_do
             dpi=500, bbox_inches='tight')
 fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_rel_rate_change_down.pdf',
             bbox_inches='tight')
+
+
+#%% temp
+cpp = df['ctrl_pre_post']
+spp = df['stim_pre_post']
+
+cppd = cpp[cpp>1.25]
+cppr = cpp[cpp<0.8]
+
+sppd = spp[spp>1.25]
+sppr = spp[spp<0.8]

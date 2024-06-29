@@ -11,7 +11,6 @@ compare opto stim vs baseline lickdist
 #%% imports 
 import numpy as np
 import matplotlib.pyplot as plt 
-plt.rcParams['font.family'] = 'Arial' 
 import scipy.io as sio
 from scipy.stats import ranksums, wilcoxon  # median used 
 import sys
@@ -29,11 +28,12 @@ comp_method = 'baseline'
 print('\n**BOOTSTRAP # = {}**'.format(n_bst))
 print('**comparison method: {}**\n'.format(comp_method))
 
-# samp_freq = 1250  # Hz
-# gx_speed = np.arange(-50, 50, 1)  # xaxis for Gaus
-# sigma_speed = samp_freq/100  # 10 ms
-# gaus_speed = [1 / (sigma_speed*np.sqrt(2*np.pi)) * 
-#               np.exp(-x**2/(2*sigma_speed**2)) for x in gx_speed]
+
+#%% plotting parameters 
+import matplotlib
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 
 
 #%% MAIN 
@@ -137,11 +137,10 @@ for sessname in sess_list:
   
     
 #%% summary statistics 
-res = 0; pval = 0
 res, pval = wilcoxon(all_licks_non_stim, all_licks_stim)
 
 # licks summary
-fig, ax = plt.subplots(figsize=(3,4.5))
+fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([all_licks_non_stim, all_licks_stim],
                    positions=[1, 2],
@@ -151,6 +150,7 @@ vp['bodies'][0].set_color('grey')
 vp['bodies'][1].set_color('royalblue')
 for i in [0,1]:
     vp['bodies'][i].set_edgecolor('none')
+    vp['bodies'][i].set_alpha(.75)
     b = vp['bodies'][i]
     # get the centre 
     m = np.mean(b.get_paths()[0].vertices[:,0])
@@ -162,34 +162,33 @@ for i in [0,1]:
 
 ax.scatter([1.1]*len(all_licks_non_stim), 
            all_licks_non_stim, 
-           s=10, c='grey', ec='none', lw=.5, alpha=.25)
+           s=10, c='grey', ec='none', lw=.5, alpha=.2)
 ax.scatter([1.9]*len(all_licks_stim), 
            all_licks_stim, 
-           s=10, c='royalblue', ec='none', lw=.5, alpha=.25)
-
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.2)
 ax.plot([[1.1]*len(all_licks_stim), [1.9]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
-        color='grey', alpha=.25, linewidth=1)
+        color='grey', alpha=.2, linewidth=1)
+
 ax.plot([1.1, 1.9], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
         color='grey', linewidth=2)
 ax.scatter(1.1, np.median(all_licks_non_stim), 
-           s=20, c='grey', ec='none', lw=.5)
+           s=30, c='grey', ec='none', lw=.5, zorder=2)
 ax.scatter(1.9, np.median(all_licks_stim), 
-           s=20, c='royalblue', ec='none', lw=.5)
+           s=30, c='royalblue', ec='none', lw=.5, zorder=2)
 ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.5
 ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.5
 ax.set(xlim=(.5,2.5), ylim=(ymin,ymax),
        ylabel='dist. 1st licks (cm)',
-       title='dist. 1st licks non-stim v stim, p={}'.format(np.round(pval, 4)))
+       title='dist. 1st licks ctrl v stim\nwilc p={}'.format(np.round(pval, 6)))
 ax.set_xticks([1, 2]); ax.set_xticklabels(['non-stim', 'stim'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
-fig.suptitle('distance 1st licks')
 
-# if comp_method == 'baseline':
-#     fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary_wilc.png',
-#                 dpi=500,
-#                 bbox_inches='tight')
-# elif comp_method == 'stim_cont':
-#     fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary_wilc.png',
-#                 dpi=500,
-#                 bbox_inches='tight')
+if comp_method == 'baseline':
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary_wilc.png',
+                dpi=500,
+                bbox_inches='tight')
+elif comp_method == 'stim_cont':
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary_wilc.png',
+                dpi=500,
+                bbox_inches='tight')

@@ -2,6 +2,7 @@
 my scripts at MPFI
 
 ## caiman_code
+*not in use*
 includes a working CaImAn analysis pipeline modified to work on Wang Lab data, mostly by [Nico Spiller](https://github.com/nspiller).
 
 ## imaging_code
@@ -30,6 +31,8 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing
 - **HPCLC_place_cell_profiles.py** and **HPCLCterm_place_cell_profiles.py** summarise the place cell indices and number of place cells for each recording session
 - **HPC_session_PCA_traj.py** performs PCA on averaged all trials, averaged stim or control trials, and calculate and plot the distances between points on the trajectories
+### behaviour
+### figure_code
 ### sequence 
 - **HPC_LC_plot_sequence.py** and **HPC_LCterm_plot_sequence.py** plot temporal cell sequences for single sessions
 - **HPC_LC_plot_sequence_dist.py** and **HPC_LCterm_plot_sequence_dist.py** plot distance cell sequences for single sessions
@@ -38,6 +41,16 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 
 ## LC_code 
 includes analysis scripts for behaviour and neural data collected from locus coeruleus recordings
-- **all_earlyvlate_rop_population.py** compares the population spike rates between early 1st-lick trials and late 1st-lick trials; includes tagged, putative and all LC Dbh+ cells
+- **all_acg.py** gets ACGs of all the cells throughout entire recording sessions and save them as an .npy file
+- **all_acg_baseline.py** is similar to the above script, but gets only ACGs throughout the baseline (pre-stim.) condition, since stimulation may change the ACGs of hChR2-expressing cells 
+- **all_earlyvlate_RO_peak.py** compares single-unit spike rates between early 1st-lick and late 1st-lick trials
+- **all_earlyvlate_RO_peak_population.py** compares the population spike rates between early 1st-lick trials and late 1st-lick trials; includes tagged, putative and all LC Dbh+ cells
+- **all_goodvbad_RO_peak.py** compares the peak spike rate of run-onset peaking Dbh+ cells between good and bad trials
+- **all_goodvbad_RO_peak_bef.py** compares the slightly-before-peak spike rate of run-onset peaking Dbh+ cells between good and bad trials 
+- **all_lick_RO_peak_ordered.py** analyses single cell's response to 1st-licks by ordering the trials based on the time from run-onset to 1st-licks
+- **all_lick_sensitive_activity_1st_lick.py** looks at the time from run-onset to neuronal inhibition of cells that are sensitive to 1st-licks; depends on the dataframe output by all_lick_RO_peak_ordered.py
+- **all_lick_sensitive.py** also depends on the dataframe output by all_lick_RO_peak_ordered.py and looks at the neuronal inhibition/activation around the 1st-licks
+- **
+
 ### behaviour 
 - **1st_lick_profile.py** plots a stair histogram of the first-lick distance and time of all the trials in LC-optotagging sessions
