@@ -12,12 +12,8 @@ plot lick curves (beh example)
 import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio 
-
-# for Illustrator
-import matplotlib
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
-plt.rcParams['font.family'] = 'Arial'
+import mat73
+import h5py
 
 
 #%% MAIN
@@ -39,7 +35,7 @@ sess_licks_sem = all_licks['SEMRun'][0][0][0,sess_used].reshape(-1)[:220]
 
 #%% plotting 
 fig, ax = plt.subplots(figsize=(2.2,1.8))
-ax.set(title='avg lick profile',
+ax.set(title='lick profile',
        xlabel='distance (cm)', ylabel='lick rate (Hz)',
        xlim=(30, 220), ylim=(0, 5.5))
 for p in ['right', 'top']:
@@ -50,23 +46,10 @@ ax.plot(xaxis, sess_licks_mean, 'k')
 ax.fill_between(xaxis,
                 sess_licks_mean-sess_licks_sem,
                 sess_licks_mean+sess_licks_sem,
-                color='grey', alpha=0.25,
-                edgecolor='none')
+                color='grey', edgecolor='none', alpha=.25)
 
-plt.show()
 fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick.png',
             dpi=300,
             bbox_inches='tight')
 fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick.pdf',
-            bbox_inches='tight')
-
-
-rew_ln, = ax.plot([180, 180], [0, 10], color='limegreen', alpha=.45)
-ax.legend([rew_ln], ['reward'], loc='upper left', frameon=False, fontsize=8)
-
-plt.show()
-fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick_w_rew.png',
-            dpi=300,
-            bbox_inches='tight')
-fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick_w_rew.pdf',
             bbox_inches='tight')

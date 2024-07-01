@@ -140,14 +140,20 @@ def run_roi_extraction(path):
 #%% run all sessions
 for path in pathGRABNE:
     sessname = path[-17:]
-    print(sessname)
+    print('\n{}'.format(sessname))
     
     reg_path = path+r'\processed'
     if not os.path.exists(reg_path):  # if registration has not been performed
         register(path)
+    else:
+        print('session already registered')
     # if 'no tiffs' is raised, most likely it is due to typos in pathnames
     
-    run_roi_extraction(path)
+    roi_path = reg_path+r'\suite2p\plane0\stat.npy'
+    if not os.path.exists(roi_path):  # if roi extraction has not been performed 
+        run_roi_extraction(path)
+    else:
+        print('session ROIs already extracted')
     
     
 """

@@ -31,10 +31,10 @@ sess_licks_sem = sem(all_licks, axis=0)[:220]
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(3,2))
-ax.set(title='avg. lick profile',
-       xlabel='distance (cm)', ylabel='lick histogram',
-       xlim=(30, 220), ylim=(0, 1.2))
+fig, ax = plt.subplots(figsize=(2.2,1.8))
+ax.set(title='avg lick profile',
+       xlabel='distance (cm)', ylabel='lick rate (Hz)',
+       xlim=(30, 220), ylim=(0, 5.5))
 for p in ['right', 'top']:
     ax.spines[p].set_visible(False)
 
@@ -43,10 +43,23 @@ ax.plot(xaxis, sess_licks_mean, 'k')
 ax.fill_between(xaxis,
                 sess_licks_mean-sess_licks_sem,
                 sess_licks_mean+sess_licks_sem,
-                color='grey', alpha=.25)
-rew_ln, = ax.plot([180, 180], [0, 10], color='limegreen', alpha=.45)
-ax.legend([rew_ln], ['reward'], loc='upper left', frameon=False, fontsize=7)
+                color='grey', alpha=.25,
+                edgecolor='none')
 
+plt.show()
 fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick_passive.png',
             dpi=300,
+            bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick_passive.pdf',
+            bbox_inches='tight')
+
+
+rew_ln, = ax.plot([180, 180], [0, 10], color='limegreen', alpha=.45)
+ax.legend([rew_ln], ['reward'], loc='upper left', frameon=False, fontsize=8)
+
+plt.show()
+fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick_passive_w_rew.png',
+            dpi=300,
+            bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_lick_passive_w_rew.pdf',
             bbox_inches='tight')

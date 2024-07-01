@@ -31,10 +31,11 @@ sess_speeds_sem = sem(all_speeds, axis=0)/10
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(3,2))
+fig, ax = plt.subplots(figsize=(2.2,1.8))
 ax.set(title='avg. velocity profile',
        xlabel='distance (cm)', ylabel='velocity (cm/s)',
-       xlim=(0, 180), ylim=(0, 60))
+       xlim=(0, 180), ylim=(0, 80),
+       yticks=[0, 50])
 for p in ['right', 'top']:
     ax.spines[p].set_visible(False)
 
@@ -44,8 +45,6 @@ ax.fill_between(xaxis,
                 sess_speeds_mean-sess_speeds_sem,
                 sess_speeds_mean+sess_speeds_sem,
                 color='grey', alpha=.25)
-# rew_ln, = ax.plot([180, 180], [0, 100], color='limegreen', alpha=.45)
-# ax.legend([rew_ln], ['reward'])
 
 fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_speed_passive.png',
             dpi=300,

@@ -12,7 +12,7 @@ compare opto stim vs baseline lickdist
 import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio
-from scipy.stats import ranksums, wilcoxon  # median used 
+from scipy.stats import ttest_rel, wilcoxon, ranksums
 import sys
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
@@ -137,7 +137,8 @@ for sessname in sess_list:
   
     
 #%% summary statistics 
-res, pval = wilcoxon(all_licks_non_stim, all_licks_stim)
+wilc_p = wilcoxon(all_licks_non_stim, all_licks_stim)[1]
+ttest_p = ttest_rel(all_licks_non_stim, all_licks_stim)[1]
 
 # licks summary
 fig, ax = plt.subplots(figsize=(2,3))
@@ -177,18 +178,23 @@ ax.scatter(1.9, np.median(all_licks_stim),
            s=30, c='royalblue', ec='none', lw=.5, zorder=2)
 ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.5
 ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.5
-ax.set(xlim=(.5,2.5), ylim=(ymin,ymax),
+ax.set(xlim=(.5,2.5), ylim=(115,185),
+       yticks=[120, 150, 180],
        ylabel='dist. 1st licks (cm)',
-       title='dist. 1st licks ctrl v stim\nwilc p={}'.format(np.round(pval, 6)))
-ax.set_xticks([1, 2]); ax.set_xticklabels(['non-stim', 'stim'])
+       title='dist. 1st licks ctrl v stim\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 5), round(ttest_p, 5)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl.', 'stim.'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary_wilc.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary.png',
                 dpi=500,
                 bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary.pdf',
+                bbox_inches='tight')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary_wilc.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary.png',
                 dpi=500,
+                bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary.pdf',
                 bbox_inches='tight')

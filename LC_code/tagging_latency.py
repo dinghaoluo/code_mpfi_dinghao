@@ -61,10 +61,10 @@ for cluname in all_tagged.keys():
     # tagged
     stim_tp = np.zeros(60)  # hard-coded for LC stim protocol
     for i in behEvents['stimPulse'][0, 0][:, 4]-1:
-        temp = (behEvents['stimPulse'][0, 0][i, 0] 
-                + (behEvents['stimPulse'][0, 0][i, 1])/10000000)  # pulse time with highest precision
+        temp = (behEvents['stimPulse'][0, 0][int(i), 0] 
+                + (behEvents['stimPulse'][0, 0][int(i), 1])/10000000)  # pulse time with highest precision
         temp_s = round(temp/20000, 4)  # f[sampling] = 20kHz
-        stim_tp[i] = temp  # time points of each stim 
+        stim_tp[int(i)] = temp  # time points of each stim 
     
     tagged_spk_index = np.zeros(60)
     tagged_spk_time = np.zeros(60)
@@ -96,16 +96,16 @@ np.save('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_all_tagging_latency.npy',
 
 
 #%% plotting
-n_bins = np.linspace(0, 15, 31)
-x_ticks = np.linspace(0, 12, 7)
-y_ticks = np.linspace(0, 12, 7)
+n_bins = np.linspace(0, 14, 20)
+x_ticks = np.linspace(0, 15, 4)
+y_ticks = np.linspace(0, 10, 3)
 latencies = []
 for clu in list(all_tagging_latency.items()):
     if 'avg' in clu[0]:
         latencies.append(clu[1])
 
-fig, ax = plt.subplots(figsize=(3, 4), tight_layout=True)
-ax.set(xlim=(0, 10),
+fig, ax = plt.subplots(figsize=(2, 2), tight_layout=True)
+ax.set(xlim=(0,15),
        xticks=x_ticks, yticks=y_ticks,
        title='average latencies',
        xlabel='latency (ms)',
@@ -113,8 +113,8 @@ ax.set(xlim=(0, 10),
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 
-n, bins, patches = ax.hist(latencies, color='cornflowerblue',
-                           edgecolor='gray', bins=n_bins)
+n, bins, patches = ax.hist(latencies, color='royalblue',
+                           edgecolor='gray', linewidth=.5, bins=n_bins)
 
 # fracs = ((n**(1 / 5)) / n.max())
 # norm = colors.Normalize(fracs.min(), fracs.max())
@@ -134,4 +134,6 @@ n, bins, patches = ax.hist(latencies, color='cornflowerblue',
 out_directory = r'Z:\Dinghao\code_dinghao\LC_all_tagged'
 fig.savefig(out_directory + '\\'+'LC_tagging_latencies.png',
             dpi=300,
+            bbox_inches='tight')
+fig.savefig(out_directory + '\\'+'LC_tagging_latencies.pdf',
             bbox_inches='tight')

@@ -38,10 +38,10 @@ sess_speeds_sem = all_speeds['SEMRun'][0][0][0,sess_used].reshape(-1)[:1800]
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(3,2))
+fig, ax = plt.subplots(figsize=(2.2,1.8))
 ax.set(title='avg speed profile',
-       xlabel='distance (cm)', ylabel='speed (cm/s)',
-       xlim=(0, 180),
+       xlabel='distance (cm)', ylabel='velocity (cm/s)',
+       xlim=(0, 180), ylim=(0, 80),
        yticks=[0, 50])
 for p in ['right', 'top']:
     ax.spines[p].set_visible(False)
@@ -58,5 +58,4 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_speed.png',
             dpi=300,
             bbox_inches='tight')
 fig.savefig('Z:\Dinghao\code_dinghao\LC_figures\egsess_speed.pdf',
-            dpi=300,
             bbox_inches='tight')

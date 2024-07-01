@@ -32,6 +32,14 @@ if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
 from common import normalise
 
 
+#%% plotting parameters
+xaxis = np.arange(-1250, 5000)/1250
+import matplotlib
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+
 #%% load data 
 # acgs = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_acg.npy',
 #                allow_pickle=True).item()
@@ -99,7 +107,9 @@ min_dist_cmap = mpl.colormaps['ocean'](min_dist_norm)[:len(acgs)]
 dist2mean_norm = normalise(np.concatenate((dist2mean, np.array([max(dist2mean)*1.1]))))
 dist2mean_cmap = mpl.colormaps['ocean'](dist2mean_norm)[:len(acgs)]
 
-fig, ax = plt.subplots(figsize=(3.5,3))
+
+#%% plotting
+fig, ax = plt.subplots(figsize=(3,2.6))
 umap_scatter = ax.scatter(acg_embedding[:, 0], acg_embedding[:, 1], s=5,
                           c=dist2mean_cmap, alpha=.75, ec='none')
 umap_scatter_tagged = ax.scatter(acg_embedding[tagged_ind, 0], acg_embedding[tagged_ind, 1], 
@@ -120,20 +130,22 @@ ax.set(title='UMAP embedding of ACGs',
 
 fig.tight_layout()
 plt.show()
-# fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg.png',
-#             dpi=300,
-#             bbox_inches='tight',
-#             transparent=False)
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg.png',
+            dpi=300,
+            bbox_inches='tight',
+            transparent=False)
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg.pdf',
+            bbox_inches='tight')
 
 plt.close(fig)
 
 
 #%% same figure but with greyscale colours
-fig, ax = plt.subplots(figsize=(3.5,3))
+fig, ax = plt.subplots(figsize=(3,2.6))
 umap_scatter_grey = ax.scatter(acg_embedding[:,0], acg_embedding[:,1], s=10,
                                c='grey', alpha=.5, ec='none')
 umap_scatter_tg_grey = ax.scatter(acg_embedding[tagged_ind, 0], acg_embedding[tagged_ind,1],
-                                  s=10, c='royalblue', ec='none')
+                                  s=5, c='royalblue', ec='none')
 ax.legend([umap_scatter_tg_grey, umap_scatter_grey], ['tagged', 'non-tagged'],
           frameon=False, loc='upper left', fontsize=7)
 ax.set(title='UMAP embedding of ACGs',
@@ -147,6 +159,8 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_grey.png',
             dpi=500,
             bbox_inches='tight',
             transparent=False)
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_grey.pdf',
+            bbox_inches='tight')
 
 plt.close(fig)
 
@@ -195,7 +209,9 @@ labels = kmeans.labels_
 np.save('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_kmeans.npy',
         labels)
 
-fig, ax = plt.subplots(figsize=(3.5,3))
+
+#%% plotting
+fig, ax = plt.subplots(figsize=(3,2.6))
 
 colours = []
 for i in labels:
@@ -204,11 +220,11 @@ for i in labels:
     else:
         colours.append('grey')
 
-ax.scatter(acg_embedding[:,0], acg_embedding[:,1], c=colours, s=10, ec='none')
+ax.scatter(acg_embedding[:,0], acg_embedding[:,1], c=colours, s=10, ec='none', alpha=.5)
 
 c1 = ax.scatter([], [], c='k', s=10, ec='none')
 c2 = ax.scatter([], [], c='grey', s=10, ec='none')
-ax.legend([c1, c2], ['cluster 1', 'cluster 2'], frameon=False, fontsize=7)
+ax.legend([c1, c2], ['cluster 1', 'cluster 2'], frameon=False, fontsize=8)
 
 ax.set(title='UMAP embedding of ACGs',
        xlabel='1st dim.', ylabel='2nd dim.',
@@ -221,10 +237,14 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_kmeans.png',
             dpi=500,
             bbox_inches='tight',
             transparent=False)
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_kmeans.pdf',
+            bbox_inches='tight')
+
+plt.close(fig)
 
 
 #%% replot with categorised data 
-fig, ax = plt.subplots(figsize=(3.5,3))
+fig, ax = plt.subplots(figsize=(3,2.6))
 
 colours = []
 for i in labels:
@@ -233,9 +253,9 @@ for i in labels:
     else:
         colours.append('grey')
 
-ax.scatter(acg_embedding[:,0], acg_embedding[:,1], c=colours, s=10, ec='none')
+ax.scatter(acg_embedding[:,0], acg_embedding[:,1], c=colours, s=10, ec='none', alpha=.5)
 ax.scatter(acg_embedding[tagged_ind, 0], acg_embedding[tagged_ind,1],
-                    s=10, c='royalblue', ec='none')
+                    s=10, c='royalblue', ec='none', alpha=1)
 
 ntggrey = ax.scatter([], [], s=10, c='grey', ec='none')
 tgblue = ax.scatter([], [], s=10, c='royalblue', ec='none')
@@ -254,6 +274,10 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_kmeans_categorised.p
             dpi=500,
             bbox_inches='tight',
             transparent=False)
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_UMAP_acg_kmeans_categorised.pdf',
+            bbox_inches='tight')
+
+plt.close(fig)
 
 
 #%% mapper for plotting 

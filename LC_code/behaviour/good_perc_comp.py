@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.rcParams['font.family'] = 'Arial' 
 import scipy.io as sio
-from scipy.stats import ranksums, wilcoxon  # median used 
+from scipy.stats import ttest_rel, wilcoxon
 import sys
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
@@ -48,42 +48,52 @@ for sessname in pathOpt:
     
     
 #%% stats and plotting 
-results = wilcoxon(all_stimOff_good, all_stimOn_good)
-pval = results[1]
+wilc_p = wilcoxon(all_stimOff_good, all_stimOn_good)[1]
+ttest_p = ttest_rel(all_stimOff_good, all_stimOn_good)[1]
 
 fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([all_stimOff_good, all_stimOn_good],
                    positions=[1, 2],
-                   showextrema=False, showmedians=True)
+                   showextrema=False)
 
 vp['bodies'][0].set_color('grey')
 vp['bodies'][1].set_color('royalblue')
 for i in [0,1]:
-    vp['bodies'][i].set_edgecolor('k')
-vp['cmedians'].set(color='darkred', lw=2)
+    vp['bodies'][i].set_edgecolor('none')
+    vp['bodies'][i].set_alpha(.75)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
-ax.scatter([1]*len(all_stimOff_good), 
+ax.scatter([1.1]*len(all_stimOff_good), 
            all_stimOff_good, 
-           s=5, c='grey', ec='none', lw=.5)
-
-ax.scatter([2]*len(all_stimOn_good), 
+           s=10, c='grey', ec='none', lw=.5, alpha=.2)
+ax.scatter([1.9]*len(all_stimOn_good), 
            all_stimOn_good, 
-           s=5, c='royalblue', ec='none', lw=.5)
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.2)
+ax.plot([[1.1]*len(all_stimOff_good), [1.9]*len(all_stimOn_good)], [all_stimOff_good, all_stimOn_good], 
+        color='grey', alpha=.2, linewidth=1)
 
-ax.plot([[1]*len(all_stimOff_good), [2]*len(all_stimOn_good)], [all_stimOff_good, all_stimOn_good], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([1, 2], [np.median(all_stimOff_good), np.median(all_stimOn_good)],
-        color='darkred', linewidth=2)
-ymin = min(min(all_stimOn_good), min(all_stimOff_good))-.05
-ymax = max(max(all_stimOn_good), max(all_stimOff_good))+.05
+ax.plot([1.1, 1.9], [np.median(all_stimOff_good), np.median(all_stimOn_good)],
+        color='grey', linewidth=2)
+ax.scatter(1.1, np.median(all_stimOff_good), 
+           s=30, c='grey', ec='none', lw=.5, zorder=2)
+ax.scatter(1.9, np.median(all_stimOn_good), 
+           s=30, c='royalblue', ec='none', lw=.5, zorder=2)
+ymin = min(min(all_stimOff_good), min(all_stimOn_good))-.03
+ymax = max(max(all_stimOff_good), max(all_stimOn_good))+.03
 ax.set(xlim=(.5,2.5), ylim=(ymin,ymax),
-       ylabel='good trial percentage',
-       title='stim v non-stim\nrsums p={}'.format(np.round(pval, 6)))
-ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl', 'stim'])
+       ylabel='good trial prop.',
+       title='good prop. ctrl v stim\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 5), round(ttest_p, 5)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['non-stim', 'stim'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
-# fig.suptitle('good trial percentage')
 
 fig.tight_layout()
 plt.show()
