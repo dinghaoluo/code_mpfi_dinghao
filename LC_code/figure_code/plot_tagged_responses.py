@@ -40,7 +40,7 @@ from param_to_array import param2array, get_clu
 #%% MAIN
 all_tagging_latency = {}
 
-for cluname in all_tagged_keys[27:28]:
+for cluname in all_tagged_keys:
     sessname = cluname[:17]
     datename = cluname[:14]
     animalname = cluname[1:5]

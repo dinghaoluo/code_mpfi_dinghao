@@ -12,7 +12,7 @@ compare opto stim vs baseline licktime
 import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio
-from scipy.stats import ranksums, wilcoxon  # median used 
+from scipy.stats import ranksums, wilcoxon, ttest_rel 
 import sys
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
@@ -262,225 +262,260 @@ for sessname in sess_list:
                     bbox_inches='tight')
 
 
-#%% summary statistics 
-res = 0; pval = 0
-res_mspeeds = 0; pval_mspeeds = 0
-res_pspeeds = 0; pval_pspeeds = 0
-res, pval = wilcoxon(all_licks_non_stim, all_licks_stim)
-res_mspeeds, pval_mspeeds = wilcoxon(all_mspeeds_non_stim, all_mspeeds_stim)
-res_pspeeds, pval_pspeeds = wilcoxon(all_pspeeds_non_stim, all_pspeeds_stim)
-res_initacc, pval_initacc = wilcoxon(all_initacc_non_stim, all_initacc_stim)
-
-
 #%% licks summary
-res = 0; pval = 0
-res, pval = wilcoxon(all_licks_non_stim, all_licks_stim)
+wilc_p = wilcoxon(all_licks_non_stim, all_licks_stim)[1]
+ttest_p = ttest_rel(all_licks_non_stim, all_licks_stim)[1]
 
 # licks summary
 fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([all_licks_non_stim, all_licks_stim],
                    positions=[1, 2],
-                   showextrema=False, showmedians=True)
+                   showextrema=False)
 
 vp['bodies'][0].set_color('grey')
 vp['bodies'][1].set_color('royalblue')
 for i in [0,1]:
-    vp['bodies'][i].set_edgecolor('k')
-vp['cmedians'].set(color='darkred', lw=2)
+    vp['bodies'][i].set_edgecolor('none')
+    vp['bodies'][i].set_alpha(.75)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
-ax.scatter([1]*len(all_licks_non_stim), 
+ax.scatter([1.1]*len(all_licks_non_stim), 
            all_licks_non_stim, 
-           s=5, c='grey', ec='none', lw=.5)
-
-ax.scatter([2]*len(all_licks_stim), 
+           s=10, c='grey', ec='none', lw=.5, alpha=.2)
+ax.scatter([1.9]*len(all_licks_stim), 
            all_licks_stim, 
-           s=5, c='royalblue', ec='none', lw=.5)
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.2)
+ax.plot([[1.1]*len(all_licks_stim), [1.9]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
+        color='grey', alpha=.2, linewidth=1)
 
-ax.plot([[1]*len(all_licks_stim), [2]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([1, 2], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
-        color='darkred', linewidth=2)
-ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.1
-ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.1
+ax.plot([1.1, 1.9], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
+        color='grey', linewidth=2)
+ax.scatter(1.1, np.median(all_licks_non_stim), 
+           s=30, c='grey', ec='none', lw=.5, zorder=2)
+ax.scatter(1.9, np.median(all_licks_stim), 
+           s=30, c='royalblue', ec='none', lw=.5, zorder=2)
+ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.2
+ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.2
 ax.set(xlim=(.5,2.5), ylim=(ymin,ymax),
+       yticks=[3,5],
        ylabel='time 1st licks (s)',
-       title='t. 1st licks ctrl-stim\n wilc p={}'.format(np.round(pval, 6)))
-ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl', 'stim'])
+       title='time 1st licks ctrl v stim\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 5), round(ttest_p, 5)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl.', 'stim.'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
-# fig.suptitle('time 1st licks')
 
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary.pdf',
                 bbox_inches='tight')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary.pdf',
                 bbox_inches='tight')
     
 
 #%% mean speeds summary
+wilc_p_mspeeds = wilcoxon(all_mspeeds_non_stim, all_mspeeds_stim)[1]
+ttest_p_mspeeds = ttest_rel(all_mspeeds_non_stim, all_mspeeds_stim)[1]
+
 fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([all_mspeeds_non_stim, all_mspeeds_stim],
                    positions=[1, 2],
-                   showextrema=False, showmedians=True)
+                   showextrema=False)
 
 vp['bodies'][0].set_color('grey')
 vp['bodies'][1].set_color('royalblue')
 for i in [0,1]:
-    vp['bodies'][i].set_edgecolor('k')
-vp['cmedians'].set(color='darkred', lw=2)
+    vp['bodies'][i].set_edgecolor('none')
+    vp['bodies'][i].set_alpha(.75)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
-ax.scatter([1]*len(all_mspeeds_non_stim), 
+ax.scatter([1.1]*len(all_mspeeds_non_stim), 
            all_mspeeds_non_stim, 
-           s=5, c='grey', ec='none', lw=.5)
-ax.scatter([2]*len(all_mspeeds_stim), 
+           s=10, c='grey', ec='none', lw=.5, alpha=.2)
+ax.scatter([1.9]*len(all_mspeeds_stim), 
            all_mspeeds_stim, 
-           s=5, c='royalblue', ec='none', lw=.5)
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.2)
+ax.plot([[1.1]*len(all_mspeeds_non_stim), [1.9]*len(all_mspeeds_stim)], [all_mspeeds_non_stim, all_mspeeds_stim], 
+        color='grey', alpha=.2, linewidth=1)
 
-ax.plot([[1]*len(all_mspeeds_stim), [2]*len(all_mspeeds_stim)], [all_mspeeds_non_stim, all_mspeeds_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([1, 2], [np.median(all_mspeeds_non_stim), np.median(all_mspeeds_stim)],
-        color='darkred', linewidth=2)
-ymin_speed = min(min(all_mspeeds_stim), min(all_mspeeds_non_stim))-5
-ymax_speed = max(max(all_mspeeds_stim), max(all_mspeeds_non_stim))+5
-ax.set(xlim=(0.5,2.5), ylim=(ymin_speed,ymax_speed),
+ax.plot([1.1, 1.9], [np.median(all_mspeeds_non_stim), np.median(all_mspeeds_stim)],
+        color='grey', linewidth=2)
+ax.scatter(1.1, np.median(all_mspeeds_non_stim), 
+           s=30, c='grey', ec='none', lw=.5, zorder=2)
+ax.scatter(1.9, np.median(all_mspeeds_stim), 
+           s=30, c='royalblue', ec='none', lw=.5, zorder=2)
+ymin = min(min(all_mspeeds_stim), min(all_mspeeds_non_stim))-2
+ymax = max(max(all_mspeeds_stim), max(all_mspeeds_non_stim))+2
+ax.set(xlim=(.5,2.5), ylim=(ymin,ymax), yticks=[30,40,50],
        ylabel='mean velocity (cm/s)',
-       title='mean v. ctrl-stim\nwilc p={}'.format(np.round(pval_mspeeds, 6)))
-ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl', 'stim'])
+       title='mean vel. ctrl v stim\nwilc_p={}\nttest_p={}'.format(round(wilc_p_mspeeds, 5), round(ttest_p_mspeeds, 5)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl.', 'stim.'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
-# fig.suptitle('mean velocity')
 
-fig.tight_layout()
 plt.show()
-
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc_control_velocity.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_control_velocity.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc_control_velocity.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_control_velocity.pdf',
                 bbox_inches='tight')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc_control_velocity.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_control_velocity.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc_control_velocity.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_control_velocity.pdf',
                 bbox_inches='tight')
     
 plt.close(fig)
     
 
 #%% peak speeds summary
+wilc_p_pspeeds = wilcoxon(all_pspeeds_non_stim, all_pspeeds_stim)[1]
+ttest_p_pspeeds = ttest_rel(all_pspeeds_non_stim, all_pspeeds_stim)[1]
+
 fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([all_pspeeds_non_stim, all_pspeeds_stim],
                    positions=[1, 2],
-                   showextrema=False, showmedians=True)
+                   showextrema=False)
 
 vp['bodies'][0].set_color('grey')
 vp['bodies'][1].set_color('royalblue')
 for i in [0,1]:
-    vp['bodies'][i].set_edgecolor('k')
-vp['cmedians'].set(color='darkred', lw=2)
+    vp['bodies'][i].set_edgecolor('none')
+    vp['bodies'][i].set_alpha(.75)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
-ax.scatter([1]*len(all_pspeeds_non_stim), 
+ax.scatter([1.1]*len(all_pspeeds_non_stim), 
            all_pspeeds_non_stim, 
-           s=5, c='grey', ec='none', lw=.5)
-
-ax.scatter([2]*len(all_pspeeds_stim), 
+           s=10, c='grey', ec='none', lw=.5, alpha=.2)
+ax.scatter([1.9]*len(all_pspeeds_stim), 
            all_pspeeds_stim, 
-           s=5, c='royalblue', ec='none', lw=.5)
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.2)
+ax.plot([[1.1]*len(all_pspeeds_non_stim), [1.9]*len(all_pspeeds_stim)], [all_pspeeds_non_stim, all_pspeeds_stim], 
+        color='grey', alpha=.2, linewidth=1)
 
-ax.plot([[1]*len(all_pspeeds_stim), [2]*len(all_pspeeds_stim)], [all_pspeeds_non_stim, all_pspeeds_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([1, 2], [np.median(all_pspeeds_non_stim), np.median(all_pspeeds_stim)],
-        color='darkred', linewidth=2)
-
-ymin_pspeed = min(min(all_pspeeds_stim), min(all_pspeeds_non_stim))-1
-ymax_pspeed = max(max(all_pspeeds_stim), max(all_pspeeds_non_stim))+1
-ax.set(xlim=(.5,2.5), ylim=(ymin_pspeed,ymax_pspeed),
+ax.plot([1.1, 1.9], [np.median(all_pspeeds_non_stim), np.median(all_pspeeds_stim)],
+        color='grey', linewidth=2)
+ax.scatter(1.1, np.median(all_pspeeds_non_stim), 
+           s=30, c='grey', ec='none', lw=.5, zorder=2)
+ax.scatter(1.9, np.median(all_pspeeds_stim), 
+           s=30, c='royalblue', ec='none', lw=.5, zorder=2)
+ymin = min(min(all_pspeeds_stim), min(all_pspeeds_non_stim))-2
+ymax = max(max(all_pspeeds_stim), max(all_pspeeds_non_stim))+2
+ax.set(xlim=(.5,2.5), ylim=(ymin,ymax), yticks=[60,80,100],
        ylabel='peak velocity (cm/s)',
-       title='peak v. ctrl-stim\nwilc p={}'.format(np.round(pval_pspeeds, 6)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['ctrl', 'stim'])
+       title='peak vel. ctrl v stim\nwilc_p={}\nttest_p={}'.format(round(wilc_p_pspeeds, 5), round(ttest_p_pspeeds, 5)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl.', 'stim.'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
-# fig.suptitle('peak velocity')
 
-fig.tight_layout()
 plt.show()
-
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc_control_peak_velocity.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_control_peak_velocity.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc_control_peak_velocity.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_control_peak_velocity.pdf',
                 bbox_inches='tight')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc_control_peak_velocity.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_control_peak_velocity.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc_control_peak_velocity.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_control_peak_velocity.pdf',
                 bbox_inches='tight')
     
 plt.close(fig)
     
     
 #%% init accels summary
+wilc_p_accel = wilcoxon(all_initacc_non_stim, all_initacc_stim)[1]
+ttest_p_accel = ttest_rel(all_initacc_non_stim, all_initacc_stim)[1]
+
 fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([all_initacc_non_stim, all_initacc_stim],
                    positions=[1, 2],
-                   showextrema=False, showmedians=True)
+                   showextrema=False)
 
 vp['bodies'][0].set_color('grey')
 vp['bodies'][1].set_color('royalblue')
 for i in [0,1]:
     vp['bodies'][i].set_edgecolor('none')
-vp['cmedians'].set(color='darkred', linewidth=2)
+    vp['bodies'][i].set_alpha(.75)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
-ax.scatter([1]*len(all_initacc_non_stim), 
+ax.scatter([1.1]*len(all_initacc_non_stim), 
            all_initacc_non_stim, 
-           s=5, c='grey', ec='none', lw=.5)
-ax.scatter([2]*len(all_initacc_stim), 
+           s=10, c='grey', ec='none', lw=.5, alpha=.2)
+ax.scatter([1.9]*len(all_initacc_stim), 
            all_initacc_stim, 
-           s=5, c='royalblue', ec='none', lw=.5)
+           s=10, c='royalblue', ec='none', lw=.5, alpha=.2)
+ax.plot([[1.1]*len(all_initacc_non_stim), [1.9]*len(all_initacc_stim)], [all_initacc_non_stim, all_initacc_stim], 
+        color='grey', alpha=.2, linewidth=1)
 
-ax.plot([[1]*len(all_initacc_stim), [2]*len(all_initacc_stim)], [all_initacc_non_stim, all_initacc_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([1, 2], [np.median(all_initacc_non_stim), np.median(all_initacc_stim)],
-        color='darkred', linewidth=2)
-ymin_acc = min(min(all_initacc_stim), min(all_initacc_non_stim))-.25
-ymax_acc = max(max(all_initacc_stim), max(all_initacc_non_stim))+.25
-ax.set(xlim=(.5,2.5), ylim=(ymin_acc,ymax_acc),
+ax.plot([1.1, 1.9], [np.median(all_initacc_non_stim), np.median(all_initacc_stim)],
+        color='grey', linewidth=2)
+ax.scatter(1.1, np.median(all_initacc_non_stim), 
+           s=30, c='grey', ec='none', lw=.5, zorder=2)
+ax.scatter(1.9, np.median(all_initacc_stim), 
+           s=30, c='royalblue', ec='none', lw=.5, zorder=2)
+ymin = min(min(all_initacc_stim), min(all_initacc_non_stim))-.5
+ymax = max(max(all_initacc_stim), max(all_initacc_non_stim))+.5
+ax.set(xlim=(.5,2.5), ylim=(ymin,ymax), yticks=[2,5,8],
        ylabel='init. accel. (cm/s\u00b2)',
-       title='init. accel. ctrl-stim\nwilc p={}'.format(np.round(pval_initacc, 6)))
-ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl', 'stim'])
+       title='init. accel. ctrl v stim\nwilc_p={}\nttest_p={}'.format(round(wilc_p_accel, 5), round(ttest_p_accel, 5)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl.', 'stim.'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
-# fig.suptitle('initial acceleration')
 
-fig.tight_layout()
 plt.show()
-
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc_control_init_accel.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_control_init_accel.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_wilc_control_init_accel.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_control_init_accel.pdf',
                 bbox_inches='tight')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc_control_init_accel.png',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_control_init_accel.png',
                 dpi=500,
                 bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_wilc_control_init_accel.pdf',
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_control_init_accel.pdf',
                 bbox_inches='tight')
     
 plt.close(fig)

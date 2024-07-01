@@ -13,6 +13,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
+#%% plotting parameters 
+import matplotlib
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+
 #%% load dataframe
 cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 
@@ -28,7 +35,7 @@ for cell in cell_prop.index:
 tot_tagged = len(tag_list)
 peak_counter = 0
 for key in tag_list:
-    if cell_prop['union_peakness'][key]==True:
+    if cell_prop['peakness'][key]==True:
         peak_counter+=1
 
 freq_peak = peak_counter/tot_tagged 
@@ -38,7 +45,7 @@ freq_others = 1-peak_counter/tot_tagged
 #%% plot
 print('plotting barplot for freq of occ...')
 
-fig, ax = plt.subplots(figsize=(3, 6))
+fig, ax = plt.subplots(figsize=(1.5, 3))
 ax.set(title='tagged Dbh+ cells',
        ylabel='proportion of cells',
        ylim=(0, .7))
@@ -52,4 +59,6 @@ ax.bar(['RO-peaking', 'others'],
 
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_all_tagged_ROpeaking_freqocc.png',
             dpi=300,
+            bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_all_tagged_ROpeaking_freqocc.pdf',
             bbox_inches='tight')

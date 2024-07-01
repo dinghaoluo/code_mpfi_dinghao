@@ -26,7 +26,7 @@ from param_to_array import param2array
 filename = 'Z:\Dinghao\MiceExp\ANMD056r\A056r-20230417\A056r-20230417-04\A056r-20230417-04'
 clu = param2array(filename + '.clu.1')  # load .clu
 res = param2array(filename + '.res.1')  # load .res
-t_spike = get_clu_20kHz(5, res, clu)  # timestamps in 20kHz for spikes 
+t_spike = get_clu_20kHz(4, res, clu)  # timestamps in 20kHz for spikes 
 
 # get stim time
 stim = sio.loadmat('Z:/Dinghao/MiceExp/ANMD056r/A056r-20230417/A056r-20230417-04/A056r-20230417-04BTDT.mat')['behEventsTdt']['stimOn'][0][0]

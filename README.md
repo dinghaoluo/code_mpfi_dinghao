@@ -84,4 +84,25 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **plot_cue_start_difference.py** plots the cue time and the run-onset time for each trial to demonstrate the separation between these 2 alignment landmarks
 - **plot_run_bouts.py** plots example run-bouts
 ### ephys_opto
-- **all_stim_effects_avg.py**
+- **all_stim_rasters.py** plots rasters to examine ctrl. versus stim. spiking for all cells
+- **nontagged_stim_rasters.py** does a similar thing as the above function but for cells that were not tagged 
+- **stim_effect_spikes.py** plots the spike raster and histogram aligned to stimulation pulses for 1 unit as example plots
+- **tagged_stim_rasters.py** plots the stimulation-trial rasters for tagged cells
+### figure_code
+- **plot_all_clustered_acg_heatmap.py** plots the ACGs of each category of LC cells (tagged and putative *Dbh*+ and putative non-*Dbh*+) as heatmaps 
+- **plot_avg_acg_tagged.py** plots the mean ACG of tagged *Dbh*+ cells overlaid on single-unit ACG traces
+- **plot_demo_tonic_phasic.py** plots artificially-generated examples for tonic versus phasic dynamics
+- **plot_eg_tagged_cell_wf.py** plots waveforms of one example tagged cell
+- **plot_example_train.py** plots example rasters for one example tagged cell 
+- **plot_heatmap_argmax.py** plots superpopulation plot for LC cells, ordered by their run-onset-to-peak latencies
+- **plot_heatmap_argmax.py** is similar to the above function but only plots the run-onset peaking cells
+- **plot_proportion_bar_graph.py** plots the percentage of tagged cells that are RO-peaking and non-RO-peaking as a bar graph 
+- **plot_single_cell_property.py** plots single-cell property (ACG, run-onset-aligned raster, waveform) plots for each recorded unit into \single_cell_property_plots; **plot_single_cell_property_tagged.py** is similar but for tagged cells
+- **plot_single_cell_raster_compare.py** plots single-cell rasters aligned to run-onsets, rewards and cues
+- **plot_tagged_responses.py** plots single-cell responses to the tagging pulses
+- **putative_example_cell.py** plots rasters of example putative *Dbh*+ cells, whereas **tagged_example_cell.py** plots those of example tagged cells 
+- **tagged_example_goodvbad_raster.py** plots good versus bad trial rasters for an example cell
+### utils 
+- **paramC.py** lists parameters (e.g. sampling frequency)
+- **RO_peak_detection.py** provides functions for shuffle-based peak-detection
+- **single_unit.py** provides basic functions for single-unit analyses
