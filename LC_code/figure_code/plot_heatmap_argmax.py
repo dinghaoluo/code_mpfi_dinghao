@@ -145,11 +145,11 @@ for i, key in enumerate(keys):
 fig, ax = plt.subplots(figsize=(4, 3.6))
 ax.set(xlabel='time (s)',
        ylabel='cell #')
-fig.suptitle('tagged Dbh+ cells')
+fig.suptitle('Dbh+ cells')
 
 im_ordered = ax.imshow(im_matrix, aspect='auto',
                        extent=[-1, 4, 1, len(keys)], cmap='Greys')
-plt.colorbar(im_ordered, shrink=.5, ticks=[0,1])
+plt.colorbar(im_ordered, shrink=.5, ticks=[0,1], label='norm. spike rate')
 
 ax.set(yticks=[1, 100, 200],
        xticks=[0,2,4])

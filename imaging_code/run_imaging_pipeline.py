@@ -43,6 +43,8 @@ bef = 1; aft = 4  # in seconds
 if roi_switch=='1':
     # do we want to calculate dFF
     dFF = 1
+    plot_heatmap = 1 
+    plot_trace = 1 
     
 if roi_switch=='2':
     # how many pixels x/y for each grid
@@ -56,25 +58,37 @@ if roi_switch=='2':
     # do we want to save the grid_traces if extracted 
     save_grids = 1
 
-# print out 
-if roi_switch=='1': roi_string='suite2p'
-if roi_switch=='2': roi_string='grid'
-printout = """
-processing {} ROIs...
-    align_run = {}
-    align_rew = {}
-    align_cue = {}
-    bef = {}
-    aft = {}
-    stride = {}
-    border = {}
-    smooth = {}
-    """.format(roi_string, align_run, align_rew, align_cue, bef, aft, stride, border, smooth)
+
+#%% print out 
+if roi_switch=='1': 
+    roi_string='suite2p'
+    printout = """
+    processing {} ROIs...
+        align_run = {}
+        align_rew = {}
+        align_cue = {}
+        bef = {}
+        aft = {}
+        smooth = {}
+        """.format(roi_string, align_run, align_rew, align_cue, bef, aft, smooth)
+if roi_switch=='2':
+    roi_string='grid'
+    printout = """
+    processing {} ROIs...
+        align_run = {}
+        align_rew = {}
+        align_cue = {}
+        bef = {}
+        aft = {}
+        stride = {}
+        border = {}
+        smooth = {}
+        """.format(roi_string, align_run, align_rew, align_cue, bef, aft, stride, border, smooth)
 print(printout)
 
 
 #%% path
-rec_path = r'Z:\Dinghao\2p_recording\A091i\A091i-20240613\A091i-20240613-01'
+rec_path = r'Z:\Dinghao\2p_recording\A093i\A093i-20240627\A093i-20240627-02'
 
 if 'Dinghao' in rec_path:
     reg_path = rec_path+r'\processed\suite2p\plane0'
@@ -88,7 +102,11 @@ if 'Jingyu' in rec_path:
 
 #%% run 
 if roi_switch=='1':
-    ipmf.run_suite2p_pipeline
+    ipmf.run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
+                              plot_ref, plot_heatmap, plot_trace,
+                              smooth, dFF,
+                              bef, aft,
+                              align_run, align_rew, align_cue)
 if roi_switch=='2':
     ipmf.run_grid_pipeline(rec_path, recname, reg_path, txt_path, 
                            stride, border, 

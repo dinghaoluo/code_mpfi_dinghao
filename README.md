@@ -9,7 +9,7 @@ includes a working CaImAn analysis pipeline modified to work on Wang Lab data, m
 includes analysis scripts for dLight and GRABNE data
 - **run_imaging_pipeline.py** runs grid ROI or Suite2p ROI trace extraction and alignment to behaviour
 ### defunct_code
-- **deepvid_grid_roi.py** is a pipeling to extract fluorescence traces and align them to behavioural variables using a grid ROI mask and denoised movies processed by [Colin Porter](https://github.com/porter-colin93).
+- **deepvid_grid_roi.py** is a pipeline to extract fluorescence traces and align them to behavioural variables using a grid ROI mask and denoised movies processed by [Colin Porter](https://github.com/porter-colin93).
 - **dLight_all_heatmap.py**
 - **dLight_plot.py**
 - **GRABNE_grid_roi.py**
@@ -23,9 +23,11 @@ includes analysis scripts for dLight and GRABNE data
 - **imaging_pipeline_functions.py** includes functions used to process imaging recordings
 - **imaging_pipeline_main_functions.py** includes grid ROI and Suite2p ROI extraction and alignment functions; these are what run_imaging_pipeline.py calls directly
 
-
 ## HPC_code
 includes analysis scripts for behaviour and neural data collected from hippocampus recordings
+- **all_acg.py** gets ACGs of all the cells throughout entire recording sessions and save them as an .npy file
+- **all_acg_baseline.py** is similar to the above script, but gets only ACGs throughout the baseline (pre-stim.) condition, since stimulation may change the ACGs of cells affected by stimulations
+- **HPC_all_1st_lick_ordered.py** 
 - **HPCLC_all_rasters.py** and **HPCLCterm_all_rasters.py** read spiketime data from behaviour-aligned spiketime files and produce exactly one 1-0 raster array for every recording session
 - **HPCLC_all_train.py** and **HPCLCterm_all_train.py** read spiketime data similarly to ...rasters.py, but then convolve the spike train with a 100-ms-sigma Gaussian kernel and produce exactly one spike train array for every recording session
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing
@@ -47,17 +49,17 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **all_earlyvlate_RO_peak.py** compares single-unit spike rates between early 1st-lick and late 1st-lick trials
 - **all_earlyvlate_RO_peak_population.py** compares the population spike rates between early 1st-lick trials and late 1st-lick trials; includes tagged, putative and all LC *Dbh*+ cells
 - **all_goodvbad_RO_peak.py** compares the peak spike rate of run-onset peaking *Dbh*+ cells between good and bad trials
-- **all_goodvbad_RO_peak_bef.py** compares the slightly-before-peak spike rate of run-onset peaking *Dbh*+ cells between good and bad trials 
-- **all_lick_RO_peak_ordered.py** analyses single cell's response to 1st-licks by ordering the trials based on the time from run-onset to 1st-licks
+- **all_goodvbad_RO_peak_bef.py** compares the slightly-before-peak spike rate of run-onset peaking *Dbh*+ cells between good and bad trials
+- **all_lick_sensitive.py** also depends on the dataframe output by all_lick_RO_peak_ordered.py and looks at the neuronal inhibition/activation around the 1st-licks; this function edits the dataframe produced by cell_properties.py to add the 'lick_sensitivity' and 'lick_sensitivity_type' 
 - **all_lick_sensitive_activity_1st_lick.py** looks at the time from run-onset to neuronal inhibition of cells that are sensitive to 1st-licks; depends on the dataframe output by all_lick_RO_peak_ordered.py
-- **all_lick_sensitive.py** also depends on the dataframe output by all_lick_RO_peak_ordered.py and looks at the neuronal inhibition/activation around the 1st-licks; this function edits the dataframe produced by cell_properties.py to add the 'lick_sensitivity' and 'lick_sensitivity_type'
+- **all_raster_lick_ordered.py** analyses single cell's response to 1st-licks by ordering the trials based on the time from run-onset to 1st-licks
+- **all_raster_rew_ordered.py** is similar to the above function but orders the trials based on the time from run-onset to reward delivery
 - **all_rasters.py** is a core function that extracts and saves rasters as 0-1 matrices with a structure of trial x time bins
 - **all_rasters_cue_rew_run_lasttocurtr.py** does similar things as above, but deals with the spikes before slightly before the cue, the reward and the run-onset of each trial, hence 'lasttocurtr'
 - **all_rovrb_RO_peak.py** compares the peak spike rate of run-onset peaking *Dbh*+ cells between trial run-onsets and spontaneous run-bout-onsets
 - **all_time_warped.py** first plots each LC cell's activity time-warped between run-onset and 1st-licks, in order to emphasise these cells' responses to these 2 trial landmarks, and then saves the mean warped activity of all the cells into LC_all_warped.npy
 - **all_train.py** is a core function that extracts and saves the spike train (smoothed using a .8-second long Gaussian filter with a sigma of .1 second) into LC_all_info.npy and LC_all_avg_sem.npy, the latter being the mean and sem of the spike rate curve, aligned to run-onsets; it also plots the mean spike rate curve and spike rate heatmap of each cell
 - **all_UMAP.py** is my ultimate way to cluster the LC *Dbh*+ cells after trying k-means, hierarchical and PCA; it performs UMAP dimensionality reduction on the ACGs of the LC cells and classify each cell as either putative *Dbh*+ or putative non-*Dbh*+ (besides the tagged *Dbh*+ cells). The reduced ACG points are then clustered using k-means with a k of 2. The results are plotted to LC_all_UMAP_acg(_grey).pdf and LC_all_UMAP_acg_kmeans.pdf and LC_all_UMAP_acg_kmeans_categorised.png and are the basis of the putative *Dbh*+ analyses. This script also produces diagnostic plots and an interactive plot (interactive_UMAP.html) for debugging
-![all_UMAP](https://github.com/dinghaoluo/code_mpfi_dinghao/blob/main/readme_figures/LC_all_UMAP_acg_kmeans_categorised.png?raw=true)
 - **all_waveform_all.py** depends on all_waveform_proc.py, saving the waveforms to LC_all_waveforms.npy, as well as generating a plot for all of them
 - **all_waveform_proc.py** is a core function that extracts the waveform of each spike of a unit from the raw recording file and save them session-by-session
 - **tag_waveform_all.py** and **tag_waveform_proc.py** are similar to the above 2 functions, but dedicated to tagged units; **tag_waveform_proc_notnorm.py** processes the same data but without normalisation
