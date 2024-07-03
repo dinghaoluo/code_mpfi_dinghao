@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun  1 16:29:45 2023
-Modified on Tue 2 July 2024
+Modified on Wed 3 July 2024
 
-Does the RO-peak have anything to do with current trial reward?
+Does the RO-peak have anything to do with last trial reward?
 
 @author: Dinghao Luo
 """
@@ -66,8 +66,8 @@ def cir_shuf(train, length, num_shuf=1000):
 #%% MAIN 
 noStim = input('Get rid of stim trials? (Y/N) (for plotting purposes... etc. etc.)\n')
 
-rew_sensitive = []
-rew_sensitive_type = []
+last_rew_sensitive = []
+last_rew_sensitive_type = []
 
 for cluname in clu_list:
     print(cluname)
@@ -100,8 +100,11 @@ for cluname in clu_list:
         else:
             first_licks.extend(lk[0]-starts[trial])
 
-    temp = list(np.arange(tot_trial))
-    rew_ordered, temp_ordered = zip(*sorted(zip(pumps, temp)))
+    trial_list = np.arange(1, tot_trial)
+    def last_rew_helper(x):
+        return pumps[x-1][0]
+    temp_ordered = sorted(trial_list, key=last_rew_helper)
+    rew_ordered = [pumps[t][0] for t in temp_ordered]
     
     if noStim=='Y' or noStim=='y':
         temp_ordered = [t for t in temp_ordered if t not in stimOn_ind]
@@ -117,10 +120,10 @@ for cluname in clu_list:
     pre_rate = []; post_rate = []
     pre_rate_shuf = []; post_rate_shuf = []
     ratio = []; ratio_shuf = []
-    for trial in range(tot_trial):
+    for trial in range(tot_trial-20):
         curr_raster = raster[temp_ordered[trial]]
         curr_train = train[temp_ordered[trial]]
-        window = [rew_ordered[trial][0]+3750-625, rew_ordered[trial][0]+3750, rew_ordered[trial][0]+3750+625]
+        window = [rew_ordered[trial]+3750-625, rew_ordered[trial]+3750, rew_ordered[trial]+3750+625]
         pre_rate.append(sum(curr_train[window[0]:window[1]])*2)  # times 2 because it's half a second
         post_rate.append(sum(curr_train[window[1]:window[2]])*2)
         if sum(curr_train[window[1]:window[2]])*2!=0 and sum(curr_train[window[0]:window[1]])*2!=0:
@@ -157,7 +160,7 @@ for cluname in clu_list:
     pp, = axs['A'].plot([],[],color='darkgreen',label='rew.')
     fl, = axs['A'].plot([],[],color='orchid',alpha=.35,label='1st licks')
     axs['A'].legend(handles=[fl, pp], frameon=False, fontsize=8)
-    axs['A'].set(xticks=[0, 2, 4],
+    axs['A'].set(yticks=[1, 50, 100, 150], xticks=[0, 2, 4],
                  xlim=(-1, 6))
     
     # t-test and pre-post comp.
@@ -166,16 +169,16 @@ for cluname in clu_list:
     pval = t_res[1]
     pval_ratio = t_ratio_res[1]
     if pval<0.05:
-        rew_sensitive.append(True)
+        last_rew_sensitive.append(True)
         if np.median(pre_rate)>np.median(post_rate):
-            rew_sensitive_type.append('inhibition')
+            last_rew_sensitive_type.append('inhibition')
             axs['A'].set(title='{} inhibition'.format(cluname))
         else:
-            rew_sensitive_type.append('excitation')
+            last_rew_sensitive_type.append('excitation')
             axs['A'].set(title='{} excitation'.format(cluname))
     else:
-        rew_sensitive.append(False)
-        rew_sensitive_type.append('none')
+        last_rew_sensitive.append(False)
+        last_rew_sensitive_type.append('none')
         axs['A'].set(title=cluname)
 
     for p in ['top', 'right', 'bottom']:
@@ -233,41 +236,41 @@ for cluname in clu_list:
     
     if noStim=='Y' or noStim=='y':
         if cluname in tag_list:
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew_noStim\{}_tagged.png'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew_noStim\{}_tagged.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew_noStim\{}_tagged.pdf'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew_noStim\{}_tagged.pdf'.format(cluname),
                         bbox_inches='tight')
         elif cluname in put_list:
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew_noStim\{}_putative.png'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew_noStim\{}_putative.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew_noStim\{}_putative.pdf'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew_noStim\{}_putative.pdf'.format(cluname),
                         bbox_inches='tight')
         else:
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew_noStim\{}.png'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew_noStim\{}.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew_noStim\{}.pdf'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew_noStim\{}.pdf'.format(cluname),
                         bbox_inches='tight')
     else:
         if cluname in tag_list:
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew\{}_tagged.png'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew\{}_tagged.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew\{}_tagged.pdf'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew\{}_tagged.pdf'.format(cluname),
                         bbox_inches='tight')
         elif cluname in put_list:
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew\{}_putative.png'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew\{}_putative.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew\{}_putative.pdf'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew\{}_putative.pdf'.format(cluname),
                         bbox_inches='tight')
         else:
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew\{}.png'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew\{}.png'.format(cluname),
                         dpi=300,
                         bbox_inches='tight')
-            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_rew\{}.pdf'.format(cluname),
+            fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_last_rew\{}.pdf'.format(cluname),
                         bbox_inches='tight')
     
     plt.close(fig)

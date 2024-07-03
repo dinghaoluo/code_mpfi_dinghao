@@ -46,6 +46,7 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **all_goodvbad_RO_peak_bef.py** compares the slightly-before-peak spike rate of run-onset peaking *Dbh*+ cells between good and bad trials
 - **all_lick_sensitive.py** also depends on the dataframe output by all_lick_RO_peak_ordered.py and looks at the neuronal inhibition/activation around the 1st-licks; this function edits the dataframe produced by cell_properties.py to add the 'lick_sensitivity' and 'lick_sensitivity_type' 
 - **all_lick_sensitive_activity_1st_lick.py** looks at the time from run-onset to neuronal inhibition of cells that are sensitive to 1st-licks; depends on the dataframe output by all_lick_RO_peak_ordered.py
+- **all_raster_last_rew_ordered.py** is similar to the below function but orders the trials based on the time from run-onset to reward delivery of the last trial
 - **all_raster_lick_ordered.py** analyses single cell's response to 1st-licks by ordering the trials based on the time from run-onset to 1st-licks
 - **all_raster_rew_ordered.py** is similar to the above function but orders the trials based on the time from run-onset to reward delivery
 - **all_rasters.py** is a core function that extracts and saves rasters as 0-1 matrices with a structure of trial x time bins
