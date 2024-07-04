@@ -12,11 +12,20 @@ This code combines grid_extract.py (Dinghao) and after_suite2p.py (Jingyu)
 
 #%% imports 
 import sys
+from time import time
+from datetime import timedelta
 
-if (r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils' in sys.path) == False:
+if r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils' not in sys.path:
     sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_pipeline_functions as ipf
 import imaging_pipeline_main_functions as ipmf
+
+
+#%% recording lists 
+if r'Z:\Dinghao\code_dinghao' not in sys.path:
+    sys.path.append('Z:\Dinghao\code_dinghao')
+import rec_list
+pathGRABNE = rec_list.pathHPCGRABNE
 
 
 #%% suite2p ROIs or grid ROIs
@@ -87,30 +96,35 @@ if roi_switch=='2':
 print(printout)
 
 
-#%% path
-rec_path = r'Z:\Dinghao\2p_recording\A093i\A093i-20240627\A093i-20240627-02'
+#%% run
+for rec_path in pathGRABNE[21:]:
 
-if 'Dinghao' in rec_path:
-    reg_path = rec_path+r'\processed\suite2p\plane0'
-    recname = rec_path[-17:]
-    txt_path = r'Z:\Dinghao\MiceExp\ANMD{}\{}{}T.txt'.format(recname[1:4], recname[:4], recname[5:])
-if 'Jingyu' in rec_path:
-    reg_path = rec_path+r'\RegOnly\suite2p\plane0'
-    recname = rec_path[-17:-3]+'-'+rec_path[-2:]
-    txt_path = r'Z:\Jingyu\mice-expdata\{}\A{}T.txt'.format(rec_path[-23:-18], recname[2:])
-
-
-#%% run 
-if roi_switch=='1':
-    ipmf.run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
-                              plot_ref, plot_heatmap, plot_trace,
-                              smooth, dFF,
-                              bef, aft,
-                              align_run, align_rew, align_cue)
-if roi_switch=='2':
-    ipmf.run_grid_pipeline(rec_path, recname, reg_path, txt_path, 
-                           stride, border, 
-                           plot_ref, 
-                           smooth, save_grids, 
-                           bef, aft,
-                           align_run, align_rew, align_cue)
+    # rec_path = r'Z:\Dinghao\2p_recording\A093i\A093i-20240627\A093i-20240627-02'
+    if 'Dinghao' in rec_path:
+        reg_path = rec_path+r'\processed\suite2p\plane0'
+        recname = rec_path[-17:]
+        txt_path = r'Z:\Dinghao\MiceExp\ANMD{}\{}{}T.txt'.format(recname[1:4], recname[:4], recname[5:])
+    if 'Jingyu' in rec_path:
+        reg_path = rec_path+r'\RegOnly\suite2p\plane0'
+        recname = rec_path[-17:-3]+'-'+rec_path[-2:]
+        txt_path = r'Z:\Jingyu\mice-expdata\{}\A{}T.txt'.format(rec_path[-23:-18], recname[2:])
+    
+    print('\nprocessing {}'.format(recname))
+    t0 = time()
+    
+    # main calls
+    if roi_switch=='1':
+        ipmf.run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
+                                  plot_ref, plot_heatmap, plot_trace,
+                                  smooth, dFF,
+                                  bef, aft,
+                                  align_run, align_rew, align_cue)
+    if roi_switch=='2':
+        ipmf.run_grid_pipeline(rec_path, recname, reg_path, txt_path, 
+                               stride, border, 
+                               plot_ref, 
+                               smooth, save_grids, 
+                               bef, aft,
+                               align_run, align_rew, align_cue)
+        
+    print('{} done ({})'.format(recname, str(timedelta(seconds=int(time()-t0)))))

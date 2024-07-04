@@ -120,7 +120,7 @@ for cluname in clu_list:
     pre_rate = []; post_rate = []
     pre_rate_shuf = []; post_rate_shuf = []
     ratio = []; ratio_shuf = []
-    for trial in range(tot_trial-20):
+    for trial in range(tot_trial-1):
         curr_raster = raster[temp_ordered[trial]]
         curr_train = train[temp_ordered[trial]]
         window = [rew_ordered[trial]+3750-625, rew_ordered[trial]+3750, rew_ordered[trial]+3750+625]
@@ -160,7 +160,7 @@ for cluname in clu_list:
     pp, = axs['A'].plot([],[],color='darkgreen',label='rew.')
     fl, = axs['A'].plot([],[],color='orchid',alpha=.35,label='1st licks')
     axs['A'].legend(handles=[fl, pp], frameon=False, fontsize=8)
-    axs['A'].set(yticks=[1, 50, 100, 150], xticks=[0, 2, 4],
+    axs['A'].set(xticks=[0, 2, 4],
                  xlim=(-1, 6))
     
     # t-test and pre-post comp.

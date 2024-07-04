@@ -318,7 +318,8 @@ def correct_overflow(data, label):
                         new_trial.append([curr_trial[s][0]+of_constant, curr_trial[s][1]])
                 new_data.append(new_trial)
     if label=='pump':
-        curr_time = data[0][0]
+        first_trial_with_pump = next(x for x in data if len(x)!=0)  # in case the first trial has no pump, Dinghao, 20240704
+        curr_time = first_trial_with_pump[0]
         for t in range(tot_trial):
             if len(data[t])!=0:
                 if data[t][0]-curr_time>=0:

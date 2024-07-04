@@ -147,7 +147,7 @@ for cluname in clu_list:
         
         axs['A'].scatter(curr_trial, [trial+1]*len(curr_trial),
                          color=c, alpha=calpha, s=dotsize)
-        axs['A'].plot([rew_ordered[trial]/1250, rew_ordered[trial]/1250],
+        axs['A'].plot([rew_ordered[trial][0]/1250, rew_ordered[trial][0]/1250],
                       [trial, trial+1],
                       linewidth=2, color='darkgreen')
         axs['A'].plot([first_licks[temp_ordered[trial]]/1250, first_licks[temp_ordered[trial]]/1250],

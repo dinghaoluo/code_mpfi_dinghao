@@ -104,3 +104,7 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **paramC.py** lists parameters (e.g. sampling frequency)
 - **RO_peak_detection.py** provides functions for shuffle-based peak-detection
 - **single_unit.py** provides basic functions for single-unit analyses
+
+## other_code
+currently includes 2 Python scripts to log and plot temperature and humidility recorded from a custom-built ESP8266 circuit; for monitoring lab/2-photon rig temperature and humidity
+- run **log_temperature_humidity.py** from Anaconda Prompt after navigating to Dinghao\code_mpfi_dinghao\other_code with `Python log_temperature_humidity.py`
