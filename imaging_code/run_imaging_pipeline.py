@@ -39,7 +39,7 @@ if roi_switch not in ['1', '2']:
 plot_ref = True
 
 # align to...
-align_run = 1
+align_run = 0
 align_rew = 1
 align_cue = 0
 
@@ -57,7 +57,7 @@ if roi_switch=='1':
     
 if roi_switch=='2':
     # how many pixels x/y for each grid
-    stride = 16
+    stride = int(496/2/2/2/2)
     # stride = 25
     # stride = 100
     border = 8  # ignore how many pixels at the border (1 side)
@@ -97,7 +97,7 @@ print(printout)
 
 
 #%% run
-for rec_path in pathGRABNE[21:]:
+for rec_path in pathGRABNE[10:]:
 
     # rec_path = r'Z:\Dinghao\2p_recording\A093i\A093i-20240627\A093i-20240627-02'
     if 'Dinghao' in rec_path:

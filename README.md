@@ -46,11 +46,11 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **all_goodvbad_RO_peak_bef.py** compares the slightly-before-peak spike rate of run-onset peaking *Dbh*+ cells between good and bad trials
 - **all_lick_sensitive.py** also depends on the dataframe output by all_lick_RO_peak_ordered.py and looks at the neuronal inhibition/activation around the 1st-licks; this function edits the dataframe produced by cell_properties.py to add the 'lick_sensitivity' and 'lick_sensitivity_type' 
 - **all_lick_sensitive_activity_1st_lick.py** looks at the time from run-onset to neuronal inhibition of cells that are sensitive to 1st-licks; depends on the dataframe output by all_lick_RO_peak_ordered.py
+- **all_raster_cue_rew_run_lasttocurtr.py** does similar things as the functions below, but deals with the spikes before slightly before the cue, the reward and the run-onset of each trial, hence 'lasttocurtr'
 - **all_raster_last_rew_ordered.py** is similar to the below function but orders the trials based on the time from run-onset to reward delivery of the last trial
 - **all_raster_lick_ordered.py** analyses single cell's response to 1st-licks by ordering the trials based on the time from run-onset to 1st-licks
 - **all_raster_rew_ordered.py** is similar to the above function but orders the trials based on the time from run-onset to reward delivery
 - **all_rasters.py** is a core function that extracts and saves rasters as 0-1 matrices with a structure of trial x time bins
-- **all_rasters_cue_rew_run_lasttocurtr.py** does similar things as above, but deals with the spikes before slightly before the cue, the reward and the run-onset of each trial, hence 'lasttocurtr'
 - **all_rovrb_RO_peak.py** compares the peak spike rate of run-onset peaking *Dbh*+ cells between trial run-onsets and spontaneous run-bout-onsets
 - **all_time_warped.py** first plots each LC cell's activity time-warped between run-onset and 1st-licks, in order to emphasise these cells' responses to these 2 trial landmarks, and then saves the mean warped activity of all the cells into LC_all_warped.npy
 - **all_train.py** is a core function that extracts and saves the spike train (smoothed using a .8-second long Gaussian filter with a sigma of .1 second) into LC_all_info.npy and LC_all_avg_sem.npy, the latter being the mean and sem of the spike rate curve, aligned to run-onsets; it also plots the mean spike rate curve and spike rate heatmap of each cell

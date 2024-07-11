@@ -34,9 +34,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
                       plot_ref, 
                       smooth, save_grids, 
                       bef, aft,
-                      align_run, align_rew, align_cue):
-    print('\nprocessing {}'.format(recname))
-    
+                      align_run, align_rew, align_cue):    
     opsfile = reg_path+r'\ops.npy'
     binfile = reg_path+r'\data.bin'
     bin2file = reg_path+r'\data_chan2.bin'
@@ -155,41 +153,24 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     print('\ndetermining behavioural timestamps...') 
     # pumps
     pump_times = txt['pump_times']
-    
     # speed
     speed_times = txt['speed_times']
-    
     # cues 
-    movie_times = txt['movie_times']
-    
-    # licks
-    lick_times = txt['lick_times']
-    
+    movie_times = txt['movie_times'] 
     # frames
     frame_times = txt['frame_times']
     
     tot_trial = len(speed_times)
     tot_frame = len(frame_times)
 
-
     ## correct overflow
     print('\ncorrecting overflow...')
     pump_times = ipf.correct_overflow(pump_times, 'pump')
     speed_times = ipf.correct_overflow(speed_times, 'speed')
     movie_times = ipf.correct_overflow(movie_times, 'movie')
-    lick_times = ipf.correct_overflow(lick_times, 'lick')
     frame_times = ipf.correct_overflow(frame_times, 'frame')
     first_frame = frame_times[0]; last_frame = frame_times[-1]
 
-
-    ## get lick frames
-    lick_frames = []
-    for t in lick_times:
-        if len(t)!=0:  # check if there is any licks in the current trial
-            if t[0][0]>first_frame and t[-1][0]<last_frame:
-                curr_lick_frames = [ipf.find_nearest(lick[0], frame_times) for lick in t]
-                lick_frames.append(curr_lick_frames)
-            
 
     ## **fill in dropped $FM signals
     # since the 2P system does not always successfully transmit frame signals to
@@ -259,7 +240,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('run_aligned')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_run_aligned.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -278,7 +259,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('run_aligned_ch2')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_run_aligned_ch2.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -309,7 +290,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('run_aligned_ch2')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_avg_run_aligned.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -320,7 +301,13 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         print('\nplotting traces aligned to REW...')
         
         # filter pumps ([first_frame, last_frame])
-        pumps = [t for t in pump_times if t>first_frame and t<last_frame]
+        pumps = []
+        for i, p in enumerate(pump_times[:-1]):
+            if p>first_frame and p<last_frame:
+                if p!=0 and p-bef*30>0:
+                    pumps.append(p)
+                else:
+                    pumps.append([])
         
         # get aligned frame numbers
         pump_frames = []
@@ -351,7 +338,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('reward_aligned')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_rew_aligned.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -371,7 +358,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('reward_aligned_ch2')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_rew_aligned_ch2.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -402,7 +389,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('rew_aligned_ch2')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_avg_rew_aligned.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -444,7 +431,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('cue_aligned')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_cue_aligned.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -464,7 +451,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('cue_aligned_ch2')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_cue_aligned_ch2.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -495,7 +482,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig.suptitle('rew_aligned_ch2')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_avg_cue_aligned.png'.format(extract_path, stride),
-                    dpi=300,
+                    dpi=120,
                     bbox_inches='tight')
         plt.show()
         plt.close(fig)
@@ -655,11 +642,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_run_dFF_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_run_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -679,11 +666,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_run_dFF_aligned_ch2.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_run_aligned_ch2.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -702,11 +689,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_run_dFF_aligned_neu.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_run_aligned_neu.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -749,11 +736,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_avgdFF_run_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_avg_run_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -799,11 +786,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_rew_dFF_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_rew_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -824,11 +811,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_rew_dFF_aligned_ch2.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_rew_aligned_ch2.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -849,11 +836,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_rew_dFF_aligned_neu.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_rew_aligned_neu.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -896,11 +883,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             fig.tight_layout()
             if dFF:
                 fig.savefig('{}/suite2pROI_avgdFF_rew_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             else:
                 fig.savefig('{}/suite2pROI_avg_rew_aligned.png'.format(extract_path),
-                            dpi=300,
+                            dpi=120,
                             bbox_inches='tight')
             plt.show()
             plt.close(fig)
@@ -941,7 +928,7 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
     # plt.rcParams['xtick.labelsize']= 10
     # plt.rcParams['ytick.labelsize']= 10
 
-    # fig, ax = plt.subplots(figsize=(12, 2),dpi=300)
+    # fig, ax = plt.subplots(figsize=(12, 2),dpi=120)
     # xaxis = np.arange(f_start, f_end)
     # ax.plot(xaxis,F_trace, color = 'green', linewidth=0.8, label='dLight3.6')
     # ax.set(ylabel='dLight_dFF')
@@ -974,7 +961,7 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
     # plt.rcParams['xtick.labelsize']= 5
     # plt.rcParams['ytick.labelsize']= 5 
 
-    # fig, ax = plt.subplots(figsize=(16, 2),dpi=300)
+    # fig, ax = plt.subplots(figsize=(16, 2),dpi=120)
     # xaxis = np.arange(len(F_trace))/30
     # ax.plot(xaxis,F_trace, color = 'green', linewidth=0.5, label='dLight3.6')
     # ax.set(ylabel='dLight_dFF')
@@ -1035,9 +1022,9 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
     #     ax.set(xlabel='time (s)',ylabel='n_trial', xticks=np.linspace(0, (bef+aft)*30, 2*(bef+aft)+1), xticklabels=np.arange(-bef,aft+0.5,0.5))
     #     fig.tight_layout()
     #     if run:
-    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_heatmap_AC928-20240327-02-roi{}_ro_ramp.pdf".format(roi), dpi=300, transparent=True, bbox_inches="tight", format="pdf")
+    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_heatmap_AC928-20240327-02-roi{}_ro_ramp.pdf".format(roi), dpi=120, transparent=True, bbox_inches="tight", format="pdf")
     #     if rew:
-    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_heatmap_AC928-20240327-02-roi{}_reward_peak.pdf".format(roi), dpi=300, transparent=True, bbox_inches="tight", format="pdf")
+    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_heatmap_AC928-20240327-02-roi{}_reward_peak.pdf".format(roi), dpi=120, transparent=True, bbox_inches="tight", format="pdf")
     #     plt.show()
     #     # plt.close()
 
@@ -1061,7 +1048,7 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
     #     # ax.set(xlabel='time (s)',ylabel='dFF', xticks=np.linspace(0, (bef+aft)*30, 2*(bef+aft)+1), xticklabels=np.arange(-bef,aft+0.5,0.5))
     #     fig.tight_layout()
     #     if run:
-    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_avgTrace_AC928-20240327-02-roi{}_ro_ramp.pdf".format(roi), dpi=300, transparent=False, bbox_inches="tight", format="pdf")
+    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_avgTrace_AC928-20240327-02-roi{}_ro_ramp.pdf".format(roi), dpi=120, transparent=False, bbox_inches="tight", format="pdf")
     #     if rew:
-    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_avgTrace_AC928-20240327-02-roi{}_reward_peak.pdf".format(roi), dpi=300, transparent=False, bbox_inches="tight", format="pdf")
+    #         fig.savefig(r"Z:\Jingyu\plots_20240624\demo_avgTrace_AC928-20240327-02-roi{}_reward_peak.pdf".format(roi), dpi=120, transparent=False, bbox_inches="tight", format="pdf")
     #     plt.show()u
