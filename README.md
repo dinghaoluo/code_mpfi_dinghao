@@ -1,5 +1,5 @@
 # code_dinghao_mpfi
-my scripts at MPFI
+my scripts at MPFI; unless otherwise specified, I am the author of all the scripts below
 
 ## caiman_code
 *not in use*\
