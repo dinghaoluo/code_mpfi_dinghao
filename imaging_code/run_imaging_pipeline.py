@@ -39,7 +39,7 @@ if roi_switch not in ['1', '2']:
 plot_ref = True
 
 # align to...
-align_run = 0
+align_run = 1
 align_rew = 1
 align_cue = 0
 
@@ -97,7 +97,7 @@ print(printout)
 
 
 #%% run
-for rec_path in pathGRABNE[10:]:
+for rec_path in pathGRABNE[32:]:
 
     # rec_path = r'Z:\Dinghao\2p_recording\A093i\A093i-20240627\A093i-20240627-02'
     if 'Dinghao' in rec_path:

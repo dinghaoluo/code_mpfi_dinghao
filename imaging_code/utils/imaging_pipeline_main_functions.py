@@ -161,7 +161,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     frame_times = txt['frame_times']
     
     tot_trial = len(speed_times)
-    tot_frame = len(frame_times)
+    # tot_frame = len(frame_times)
 
     ## correct overflow
     print('\ncorrecting overflow...')
@@ -184,7 +184,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             frame_times.insert(i+1, interp_fm)
             
     # checks $FM against tot_frame
-    if tot_frame<len(frame_times)-3 or tot_frames>len(frame_times):
+    if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
         print('\nWARNING:\ncheck $FM; halting processing for {}\n'.format(recname))
         align_run=0; align_rew=0; align_cue=0  # if tot_frame is more than sync signals or fewer than syncs-3, then halt
 
@@ -227,7 +227,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         
         print('plotting heatmaps...')
         # heatmap chan1
-        fig = plt.figure(1)
+        fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace = run_aligned[p, :, :]
             curr_grid_map = np.zeros((tot_run-1, (bef+aft)*30))
@@ -246,7 +246,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         plt.close(fig)
         
         # heatmap chan2
-        fig = plt.figure(1)
+        fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace_ch2 = run_aligned_ch2[p, :, :]
             curr_grid_map_ch2 = np.zeros((tot_run-1, (bef+aft)*30))
@@ -266,7 +266,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         
         print('plotting combined averaged traces...')
         # average combined 
-        fig = plt.figure(1, figsize=(dimension*4.5, dimension*3))
+        fig = plt.figure(1, figsize=(dimension*4, dimension*3))
         for p in range(tot_plot):
             curr_grid_trace = run_aligned[p, :, :]
             curr_grid_trace_ch2 = run_aligned_ch2[p, :, :]
@@ -277,15 +277,15 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             
             ax = fig.add_subplot(dimension, dimension, p+1)
             ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
-            ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1)
+            ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1, zorder=10)
             ax.fill_between(xaxis, mean_trace+sem_trace,
                                    mean_trace-sem_trace,
-                            color='limegreen', edgecolor='none', alpha=.2)
+                            color='limegreen', edgecolor='none', alpha=.2, zorder=10)
             ax2 = ax.twinx()
-            ax2.plot(xaxis, mean_trace_ch2, color='red', linewidth=1)
+            ax2.plot(xaxis, mean_trace_ch2, color='red', linewidth=1, zorder=1, alpha=.55)
             ax2.fill_between(xaxis, mean_trace_ch2+sem_trace_ch2,
                                     mean_trace_ch2-sem_trace_ch2,
-                             color='red', edgecolor='none', alpha=.2)
+                             color='red', edgecolor='none', alpha=.1, zorder=1)
             ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
         fig.suptitle('run_aligned_ch2')
         fig.tight_layout()
@@ -316,19 +316,19 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     
         # align traces to pumps
         tot_pump = len(pumps)
-        pump_aligned = np.zeros((tot_grid, (tot_pump-1), (bef+aft)*30))
-        pump_aligned_ch2 = np.zeros((tot_grid, (tot_pump-1), (bef+aft)*30))
-        for i, p in enumerate(pump_frames[:-1]):
+        pump_aligned = np.zeros((tot_grid, (tot_pump-2), (bef+aft)*30))
+        pump_aligned_ch2 = np.zeros((tot_grid, (tot_pump-2), (bef+aft)*30))
+        for i, p in enumerate(pump_frames[1:-1]):
             pump_aligned[:, i, :] = grid_traces[:, p-bef*30:p+aft*30]
             pump_aligned_ch2[:, i, :] = grid_traces_ch2[:, p-bef*30:p+aft*30]
             
         print('plotting heatmaps...')
         # heatmap ch1
-        fig = plt.figure(1)
+        fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace = pump_aligned[p, :, :]
-            curr_grid_map = np.zeros((tot_pump-1, (bef+aft)*30))
-            for i in range(tot_pump-1):
+            curr_grid_map = np.zeros((tot_pump-2, (bef+aft)*30))
+            for i in range(tot_pump-2):
                 curr_grid_map[i, :] = normalise(curr_grid_trace[i, :])
             
             ax = fig.add_subplot(dimension, dimension, p+1)
@@ -344,11 +344,11 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         plt.close(fig)
             
         # heatmap ch2
-        fig = plt.figure(1)
+        fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace_ch2 = pump_aligned_ch2[p, :, :]
-            curr_grid_map_ch2 = np.zeros((tot_pump-1, (bef+aft)*30))
-            for i in range(tot_pump-1):
+            curr_grid_map_ch2 = np.zeros((tot_pump-2, (bef+aft)*30))
+            for i in range(tot_pump-2):
                 curr_grid_map_ch2[i, :] = normalise(curr_grid_trace[i, :])
             
             ax = fig.add_subplot(dimension, dimension, p+1)
@@ -365,7 +365,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         
         print('plotting combined averaged traces...')
         # average combined 
-        fig = plt.figure(1, figsize=(dimension*4.5, dimension*3))
+        fig = plt.figure(1, figsize=(dimension*4, dimension*3))
         for p in range(tot_plot):
             curr_grid_trace = pump_aligned[p, :, :]
             curr_grid_trace_ch2 = pump_aligned_ch2[p, :, :]
@@ -376,15 +376,15 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             
             ax = fig.add_subplot(dimension, dimension, p+1)
             ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
-            ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1)
+            ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1, zorder=10)
             ax.fill_between(xaxis, mean_trace+sem_trace,
                                    mean_trace-sem_trace,
-                            color='limegreen', edgecolor='none', alpha=.2)
+                            color='limegreen', edgecolor='none', alpha=.2, zorder=10)
             ax2 = ax.twinx()
-            ax2.plot(xaxis, mean_trace_ch2, color='red', linewidth=1)
+            ax2.plot(xaxis, mean_trace_ch2, color='red', linewidth=1, zorder=1, alpha=.55)
             ax2.fill_between(xaxis, mean_trace_ch2+sem_trace_ch2,
                                     mean_trace_ch2-sem_trace_ch2,
-                             color='red', edgecolor='none', alpha=.2)
+                             color='red', edgecolor='none', alpha=.1, zorder=1)
             ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
         fig.suptitle('rew_aligned_ch2')
         fig.tight_layout()
@@ -417,7 +417,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             
         print('plotting heatmaps...')
         # heatmap ch1
-        fig = plt.figure(1)
+        fig = plt.figure(1, figsize=(dimension*2.5, dimension*1.5))
         for p in range(tot_plot):
             curr_grid_trace = cue_aligned[p, :, :]
             curr_grid_map = np.zeros((tot_cue-1, (bef+aft)*30))
@@ -437,7 +437,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         plt.close(fig)
             
         # heatmap ch2
-        fig = plt.figure(1)
+        fig = plt.figure(1, figsize=(dimension*2.5, dimension*1.5))
         for p in range(tot_plot):
             curr_grid_trace_ch2 = cue_aligned_ch2[p, :, :]
             curr_grid_map_ch2 = np.zeros((tot_cue-1, (bef+aft)*30))
@@ -458,7 +458,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         
         print('plotting combined averaged traces...')
         # average combined 
-        fig = plt.figure(1, figsize=(dimension*4.5, dimension*3))
+        fig = plt.figure(1, figsize=(dimension*2.5, dimension*1.5))
         for p in range(tot_plot):
             curr_grid_trace = cue_aligned[p, :, :]
             curr_grid_trace_ch2 = cue_aligned_ch2[p, :, :]

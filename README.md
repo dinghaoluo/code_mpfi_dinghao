@@ -49,7 +49,9 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **all_raster_cue_rew_run_lasttocurtr.py** does similar things as the functions below, but deals with the spikes before slightly before the cue, the reward and the run-onset of each trial, hence 'lasttocurtr'
 - **all_raster_last_rew_ordered.py** is similar to the below function but orders the trials based on the time from run-onset to reward delivery of the last trial
 - **all_raster_lick_ordered.py** analyses single cell's response to 1st-licks by ordering the trials based on the time from run-onset to 1st-licks
+- **all_raster_lick_reward_sensitivity.py** does not order the trials, but rather determine whether a cell is significantly aligned to rewards or first-licks by comparing the standard deviation of the distributions of transition points around the reward and around the first-licks
 - **all_raster_rew_ordered.py** is similar to the above function but orders the trials based on the time from run-onset to reward delivery
+- **all_raster_rew_to_run_ordered.py** is similar to the above function but orders the trials based on the time from reward delivery of the last trial to the run-onset of the current trial 
 - **all_rasters.py** is a core function that extracts and saves rasters as 0-1 matrices with a structure of trial x time bins
 - **all_rovrb_RO_peak.py** compares the peak spike rate of run-onset peaking *Dbh*+ cells between trial run-onsets and spontaneous run-bout-onsets
 - **all_time_warped.py** first plots each LC cell's activity time-warped between run-onset and 1st-licks, in order to emphasise these cells' responses to these 2 trial landmarks, and then saves the mean warped activity of all the cells into LC_all_warped.npy
