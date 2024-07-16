@@ -209,9 +209,9 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         
         # get aligned frame numbers
         run_frames = []
-        for trial in range(len(run_onsets)):
-            if run_onsets!=-1:  # if there is a clear run-onset in this trial
-                rf = ipf.find_nearest(run_onsets[trial], frame_times)
+        for trial in run_onsets:
+            if trial!=-1:  # if there is a clear run-onset in this trial
+                rf = ipf.find_nearest(trial, frame_times)
                 if rf!=0:
                     run_frames.append(rf)  # find the nearest frame
             else:
@@ -219,9 +219,9 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
                 
         # align traces to run-onsets
         tot_run = len(run_onsets)
-        run_aligned = np.zeros((tot_grid, tot_run-1, (bef+aft)*30))  # grid x trial x frame bin
-        run_aligned_ch2 = np.zeros((tot_grid, tot_run-1, (bef+aft)*30))
-        for i, r in enumerate(run_frames[:-1]):
+        run_aligned = np.zeros((tot_grid, tot_run-2, (bef+aft)*30))  # grid x trial x frame bin
+        run_aligned_ch2 = np.zeros((tot_grid, tot_run-2, (bef+aft)*30))
+        for i, r in enumerate(run_frames[1:-1]):
             run_aligned[:, i, :] = grid_traces[:, r-bef*30:r+aft*30]
             run_aligned_ch2[:, i, :] = grid_traces_ch2[:, r-bef*30:r+aft*30]
         
@@ -230,8 +230,8 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace = run_aligned[p, :, :]
-            curr_grid_map = np.zeros((tot_run-1, (bef+aft)*30))
-            for i in range(tot_run-1):
+            curr_grid_map = np.zeros((tot_run-2, (bef+aft)*30))
+            for i in range(tot_run-2):
                 curr_grid_map[i, :] = normalise(curr_grid_trace[i, :])
                 
             ax = fig.add_subplot(dimension, dimension, p+1)
@@ -249,8 +249,8 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace_ch2 = run_aligned_ch2[p, :, :]
-            curr_grid_map_ch2 = np.zeros((tot_run-1, (bef+aft)*30))
-            for i in range(tot_run-1):
+            curr_grid_map_ch2 = np.zeros((tot_run-2, (bef+aft)*30))
+            for i in range(tot_run-2):
                 curr_grid_map_ch2[i, :] = normalise(curr_grid_trace_ch2[i, :])
             
             ax = fig.add_subplot(dimension, dimension, p+1)
@@ -514,6 +514,18 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
     if not os.path.exists(extract_path):
         os.makedirs(extract_path)
 
+    # check if run already 
+    run_check = os.path.exists(extract_path+'\\suite2pROI_run_dFF_aligned.png')
+    if run_check:
+        align_run==0
+        print('run-aligned ROI traces already plotted')
+    rew_check = os.path.exists(extract_path+'\\suite2pROI_rew_dFF_aligned.png')
+    if rew_check:
+        align_rew==0
+        print('rew-aligned ROI traces already plotted')
+    if run_check and rew_check:
+        return
+
     # beh file
     print('\nreading behaviour file...')
     txt = ipf.process_txt(txt_path)
@@ -526,7 +538,7 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
     tot_roi = F_all.shape[0]
     tot_frames = F_all.shape[1]
 
-    if dFF:
+    if dFF and (align_run or align_rew):
         print('calculating dFF...')
         F_all = ipf.calculate_dFF(F_all)
         F_all2 = ipf.calculate_dFF(F_all2)
@@ -616,11 +628,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
                 
         # align traces to run-onsets
         tot_run = len(run_onsets)
-        run_aligned = np.zeros((tot_roi, tot_run-1, (bef+aft)*30))  # roi x trial x frame bin
-        run_aligned_ch2 = np.zeros((tot_roi, tot_run-1, (bef+aft)*30))
-        run_aligned_neu = np.zeros((tot_roi, tot_run-1, (bef+aft)*30))
+        run_aligned = np.zeros((tot_roi, tot_run-2, (bef+aft)*30))  # roi x trial x frame bin
+        run_aligned_ch2 = np.zeros((tot_roi, tot_run-2, (bef+aft)*30))
+        run_aligned_neu = np.zeros((tot_roi, tot_run-2, (bef+aft)*30))
         for roi in range(tot_roi):
-            for i, r in enumerate(run_frames[:-1]):
+            for i, r in enumerate(run_frames[1:-1]):
                 run_aligned[roi, i, :] = F_all[roi][r-bef*30:r+aft*30]
                 run_aligned_ch2[roi, i, :] = F_all2[roi][r-bef*30:r+aft*30]
                 run_aligned_neu[roi, i, :] = Fneu_all[roi][r-bef*30:r+aft*30]
@@ -628,11 +640,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
         if plot_heatmap:
             print('plotting heatmaps...')
             # heatmap chan1
-            fig = plt.figure(1)
+            fig = plt.figure(1, figsize=(n_col*2.5, n_row*2))
             for p in range(tot_roi):
                 curr_roi_trace = run_aligned[p, :, :]
-                curr_roi_map = np.zeros((tot_run-1, (bef+aft)*30))
-                for i in range(tot_run-1):
+                curr_roi_map = np.zeros((tot_run-2, (bef+aft)*30))
+                for i in range(tot_run-2):
                     curr_roi_map[i, :] = normalise(curr_roi_trace[i, :])
                     
                 ax = fig.add_subplot(n_row, n_col, p+1)
@@ -652,11 +664,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             plt.close(fig)
             
             # heatmap chan2
-            fig = plt.figure(1)
+            fig = plt.figure(1, figsize=(n_col*2.5, n_row*2))
             for p in range(tot_roi):
                 curr_roi_trace_ch2 = run_aligned_ch2[p, :, :]
-                curr_roi_map_ch2 = np.zeros((tot_run-1, (bef+aft)*30))
-                for i in range(tot_run-1):
+                curr_roi_map_ch2 = np.zeros((tot_run-2, (bef+aft)*30))
+                for i in range(tot_run-2):
                     curr_roi_map_ch2[i, :] = normalise(curr_roi_trace_ch2[i, :])
                     
                 ax = fig.add_subplot(n_col, n_row, p+1)
@@ -676,11 +688,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             plt.close(fig)
             
             # heatmap neuropil
-            fig = plt.figure(1)
+            fig = plt.figure(1, figsize=(n_col*2.5, n_row*2))
             for p in range(tot_roi):
                 curr_roi_trace_neu = run_aligned_neu[p, :, :]
-                curr_roi_map_neu = np.zeros((tot_run-1, (bef+aft)*30))
-                for i in range(tot_run-1):
+                curr_roi_map_neu = np.zeros((tot_run-2, (bef+aft)*30))
+                for i in range(tot_run-2):
                     curr_roi_map_neu[i, :] = normalise(curr_roi_trace_neu[i, :])           
                 ax = fig.add_subplot(n_col, n_row, p+1)
                 ax.set(xlabel='time (s)', ylabel='trial #', title='roi {}'.format(p))
@@ -759,10 +771,10 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
 
         # align traces to pumps
         tot_pump = len(pumps)
-        pump_aligned = np.zeros((tot_roi, (tot_pump-1), (bef+aft)*30))
-        pump_aligned_ch2 = np.zeros((tot_roi, (tot_pump-1), (bef+aft)*30))
-        pump_aligned_neu = np.zeros((tot_roi, (tot_pump-1), (bef+aft)*30))
-        for i, p in enumerate(pump_frames[:-1]):
+        pump_aligned = np.zeros((tot_roi, (tot_pump-2), (bef+aft)*30))
+        pump_aligned_ch2 = np.zeros((tot_roi, (tot_pump-2), (bef+aft)*30))
+        pump_aligned_neu = np.zeros((tot_roi, (tot_pump-2), (bef+aft)*30))
+        for i, p in enumerate(pump_frames[1:-1]):
             pump_aligned[:, i, :] = F_all[:, p-bef*30:p+aft*30]
             pump_aligned_ch2[:, i, :] = F_all2[:, p-bef*30:p+aft*30]
             pump_aligned_neu[:, i, :] = Fneu_all[:, p-bef*30:p+aft*30]
@@ -771,11 +783,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             print('plotting heatmaps...')
             
             # heatmap ch1
-            fig = plt.figure(1)
+            fig = plt.figure(1, figsize=(n_col*2.5, n_row*2))
             for p in range(tot_roi):
                 curr_roi_trace = pump_aligned[p, :, :]
-                curr_roi_map = np.zeros((tot_pump-1, (bef+aft)*30))
-                for i in range(tot_pump-1):
+                curr_roi_map = np.zeros((tot_pump-2, (bef+aft)*30))
+                for i in range(tot_pump-2):
                     curr_roi_map[i, :] = normalise(curr_roi_trace[i, :])
                 
                 ax = fig.add_subplot(n_row, n_col, p+1)
@@ -796,11 +808,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             plt.close(fig)
                 
             # heatmap ch2
-            fig = plt.figure(1)
+            fig = plt.figure(1, figsize=(n_col*2.5, n_row*2))
             for p in range(tot_roi):
                 curr_roi_trace_ch2 = pump_aligned_ch2[p, :, :]
-                curr_roi_map_ch2 = np.zeros((tot_pump-1, (bef+aft)*30))
-                for i in range(tot_pump-1):
+                curr_roi_map_ch2 = np.zeros((tot_pump-2, (bef+aft)*30))
+                for i in range(tot_pump-2):
                     curr_roi_map_ch2[i, :] = normalise(curr_roi_trace_ch2[i, :])
                 
                 ax = fig.add_subplot(n_row, n_col, p+1)
@@ -821,11 +833,11 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             plt.close(fig)
             
             # heatmap neu
-            fig = plt.figure(1)
+            fig = plt.figure(1, figsize=(n_col*2.5, n_row*2))
             for p in range(tot_roi):
                 curr_roi_trace_neu = pump_aligned_neu[p, :, :]
-                curr_roi_map_neu = np.zeros((tot_pump-1, (bef+aft)*30))
-                for i in range(tot_pump-1):
+                curr_roi_map_neu = np.zeros((tot_pump-2, (bef+aft)*30))
+                for i in range(tot_pump-2):
                     curr_roi_map_neu[i, :] = normalise(curr_roi_trace_neu[i, :])
                 
                 ax = fig.add_subplot(n_row, n_col, p+1)

@@ -313,8 +313,8 @@ for pathname in pathHPC:
 
     
 #%% save dataframe 
-df.to_csv('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_pyr_only.csv')
-df.to_pickle('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_pyr_only.pkl')
+df.to_csv(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_pyr_only.csv')
+df.to_pickle(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_pyr_only.pkl')
 
 
 #%% save shuffled MI distributions after converting to numpy arrays and filtering out nan's

@@ -429,9 +429,109 @@ for cluname in clu_list:
                                  dtype='object')
     
 
+#%% save dataframe
+df.to_csv('Z:\Dinghao\code_dinghao\LC_all\LC_all_sensitivity_lick_reward.csv')
+df.to_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_sensitivity_lick_reward.pkl')
+
+
 #%% classfication 
+responsivity = []
+alignment = []
+
 for cluname in clu_list:
     curr_properties = df.loc[cluname]
     lick_activated = curr_properties['lick_activated']
+    lick_rate_p = curr_properties['lick_ttest']
+    lick_ratio_p = curr_properties['lick_ratio_ranksums']
     rew_activated = curr_properties['rew_activated']
+    rew_rate_p = curr_properties['rew_ttest']
+    rew_ratio_p = curr_properties['rew_ratio_ranksums']
     
+    if lick_rate_p<0.05 and lick_ratio_p<0.05:
+        if lick_activated:
+            lick_act = True  # activated 
+        else:
+            lick_act = False  # inhibited 
+    else:
+        lick_act = np.nan
+    if rew_rate_p<0.05 and rew_ratio_p<0.05:
+        if rew_activated:
+            rew_act = True
+        else:
+            rew_act = False
+    else:
+        rew_act = np.nan
+    
+    if (not np.isnan(lick_act)) and (not np.isnan(rew_act)):  # if significantly responding to both 
+        lick_std = curr_properties['lick_tp_std']
+        rew_std = curr_properties['rew_tp_std']
+        if lick_std<rew_std:
+            alignment.append('lick')
+            if lick_act==True:
+                responsivity.append('lick_activated')
+            else:
+                responsivity.append('lick_inhibited')
+        elif lick_std>rew_std:
+            alignment.append('rew')
+            if rew_act==True:
+                responsivity.append('rew_activated')
+            else:
+                responsivity.append('rew_inhibited')
+        else:  # if equal, extremely unlikely
+            alignment.append('both')
+            responsivity.append('bi-modulated')
+    elif not np.isnan(lick_act) and np.isnan(rew_act):
+        alignment.append('unique')
+        if lick_act==True:
+            responsivity.append('lick_activated')
+        else:
+            responsivity.append('lick_inhibited')
+    elif not np.isnan(rew_act) and np.isnan(lick_act):  # if only one passed significance test 
+        alignment.append('unique')
+        if rew_act==True:
+            responsivity.append('rew_activated')
+        else:
+            responsivity.append('rew_inhibited')
+    else:  # if not significant 
+        alignment.append('neither')
+        responsivity.append('none')
+
+df['responsivity'] = responsivity
+df['alignment'] = alignment
+
+
+#%% save dataframe
+df.to_csv('Z:\Dinghao\code_dinghao\LC_all\LC_all_sensitivity_lick_reward.csv')
+df.to_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_sensitivity_lick_reward.pkl')
+
+
+#%% visualisation
+fig, ax = plt.subplots(figsize=(3.8,2))
+sumla = len(df[df['responsivity']=='lick_activated'])/len(df)
+sumli = len(df[df['responsivity']=='lick_inhibited'])/len(df)
+sumra = len(df[df['responsivity']=='rew_activated'])/len(df)
+sumri = len(df[df['responsivity']=='rew_inhibited'])/len(df)
+ax.bar([1,2,3,4], [sumla, sumli, sumra, sumri], color=['orchid', 'orchid', 'forestgreen', 'forestgreen'], alpha=.5)
+
+dfdbh = df.loc[(df['tagged']==True) | (df['putative']==True)]
+sumladbh = len(dfdbh[dfdbh['responsivity']=='lick_activated'])/len(dfdbh)
+sumlidbh = len(dfdbh[dfdbh['responsivity']=='lick_inhibited'])/len(dfdbh)
+sumradbh = len(dfdbh[dfdbh['responsivity']=='rew_activated'])/len(dfdbh)
+sumridbh = len(dfdbh[dfdbh['responsivity']=='rew_inhibited'])/len(dfdbh)
+ax.bar([5,6,7,8], [sumladbh, sumlidbh, sumradbh, sumridbh], color=['orchid', 'orchid', 'forestgreen', 'forestgreen'])
+
+ax.plot([1,4], [.345,.345], c='grey', lw=1)
+ax.text(2.5, .35, 'general LC', ha='center', va='bottom', color='grey', fontsize=8)
+ax.plot([5,8], [.345,.345], c='k', lw=1)
+ax.text(6.5, .35, 'LC Dbh+', ha='center', va='bottom', color='k', fontsize=8)
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+
+ax.set(xticks=[1,2,3,4,5,6,7,8], xticklabels=['lick-\nact.', 'lick-\ninh.', 'rew.-\nact.', 'rew.-\ninh.']*2,
+       ylim=(0,.42))
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_sensitivity_lick_rew_bar.png',
+            dpi=300, bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_sensitivity_lick_rew_bar.pdf',
+            bbox_inches='tight')
