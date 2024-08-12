@@ -18,6 +18,7 @@ import pandas as pd
 if (r'Z:\Dinghao\code_mpfi_dinghao\utils' in sys.path) == False:
     sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 import txt_processing_functions as tpf
+import behaviour_functions as bf
 
 
 #%% recording list
@@ -36,6 +37,8 @@ sess = {'run_onsets': [],
         'cue_frames': [],
         'speed_times': [],
         'lick_times': [],
+        'lick_distances': [],
+        'lick_selectivity': [],
         'pulse_times': [],
         'pulse_descriptions': [],
         'trial_statements': [],
@@ -110,14 +113,16 @@ for pathname in pathGRABNE:
             run_onset_frames.append(-1)
     pump_frames = [] 
     for trial in pump_times:
-        if trial<first_frame or trial>last_frame:
+        if trial==0: #Unrewarded trials, Jingyu, 20240730
+            pump_frames.append(-1)
+        elif trial<first_frame or trial>last_frame:
             pump_frames.append(-1)
         else:
             pf = tpf.find_nearest(trial, frame_times)
             if pf!=0:
                 pump_frames.append(pf)
-            else:
-                pump_frames.append(-1)
+            # else:
+            #     pump_frames.append(-1)
     cue_frames = []
     for trial in movie_times:
         if trial[0][0]<first_frame or trial[0][0]>last_frame:
@@ -129,6 +134,8 @@ for pathname in pathGRABNE:
             else:
                 cue_frames.append(-1)
         
+    lick_locs = bf.get_lick_locs(speed_times, lick_times)
+    lick_selectivity = bf.lick_index(lick_locs)
         
     df.loc[recname] = np.asarray([run_onsets, 
                                   run_onset_frames,
@@ -138,6 +145,8 @@ for pathname in pathGRABNE:
                                   cue_frames,
                                   speed_times,
                                   lick_times,
+                                  lick_locs,
+                                  lick_selectivity,
                                   pulse_times,
                                   pulse_descriptions,
                                   trial_statements,

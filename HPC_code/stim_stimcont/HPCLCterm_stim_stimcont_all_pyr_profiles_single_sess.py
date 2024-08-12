@@ -16,8 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio 
 import sys 
-from scipy.stats import wilcoxon
-# import scipy.stats as st
+from scipy.stats import wilcoxon, ttest_rel
 
 # plotting parameters 
 import matplotlib
@@ -32,7 +31,7 @@ matplotlib.rcParams['ps.fonttype'] = 42
 
 #%% parameters
 # run HPC-LC or HPC-LCterm
-HPC_LC = 1
+HPC_LC = 0
 
 
 #%% load paths to recordings 
@@ -130,6 +129,9 @@ tot_clu = len(stim_cont)
 
 
 #%% plotting 
+rise_wilc_p = wilcoxon(stim_rise_count, stim_cont_rise_count)[1]
+rise_ttest_p = ttest_rel(stim_rise_count, stim_cont_rise_count)[1]
+
 fig, ax = plt.subplots(figsize=(2,3))
 
 # plot means 
@@ -151,8 +153,9 @@ ax.plot([[1]*len(stim_cont_rise_count), [2]*len(stim_rise_count)],
         [stim_cont_rise_count, stim_rise_count], 
         color='grey', alpha=.1, linewidth=1)
 
-ax.set(xticks=[1, 2], xticklabels=['cont', 'stim'],
+ax.set(xticks=[1, 2], xticklabels=['ctrl', 'stim'],
        ylabel='% run-onset pyr.', 
+       title='wilc_p={}\nttest_p={}'.format(round(rise_wilc_p,5), round(rise_ttest_p,5)),
        xlim=(.5, 2.5))
 
 for s in ['top', 'bottom', 'right']:
@@ -177,6 +180,9 @@ elif not HPC_LC:
 plt.close(fig)
 
 
+down_wilc_p = wilcoxon(stim_down_count, stim_cont_down_count)[1]
+down_ttest_p = ttest_rel(stim_down_count, stim_cont_down_count)[1]
+
 fig, ax = plt.subplots(figsize=(2,3))
 
 # plot means 
@@ -199,7 +205,8 @@ ax.plot([[1]*len(stim_cont_down_count), [2]*len(stim_down_count)],
         color='grey', alpha=.1, linewidth=1)
 
 ax.set(xticks=[1, 2], xticklabels=['ctrl', 'stim'],
-       ylabel='% run-onset inh. pyr.', 
+       ylabel='% run-onset inh. pyr.',
+       title='wilc_p={}\nttest_p={}'.format(round(down_wilc_p,5), round(down_ttest_p,5)),
        xlim=(.5, 2.5))
 
 for s in ['top', 'bottom', 'right']:
@@ -209,16 +216,124 @@ fig.tight_layout()
 plt.show()
 
 if HPC_LC:
-    ax.set_title('HPC_LC\np={}'.format(wilcoxon(stim_cont_down_count, stim_down_count)[1]))
     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_inh_cells.png',
                 dpi=500, bbox_inches='tight')
     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_inh_cells.pdf',
                 bbox_inches='tight')
 elif not HPC_LC:
-    ax.set_title('HPC_LCterm\np={}'.format(wilcoxon(stim_cont_down_count, stim_down_count)[1]))
     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_inh_cells.png',
                 dpi=500, bbox_inches='tight')
     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_inh_cells.pdf',
                 bbox_inches='tight')
     
 plt.close(fig)
+
+
+
+#%% boxplot 
+fig, ax = plt.subplots(figsize=(1.2,2))
+
+bp = ax.boxplot([stim_cont_rise_count, stim_rise_count],
+                positions=[1, 2],
+                patch_artist=True,
+                notch='True')
+
+ax.scatter([1.2]*len(stim_cont_rise_count), 
+           stim_cont_rise_count, 
+           s=4, c='grey', ec='none', alpha=.5)
+ax.scatter([1.8]*len(stim_rise_count), 
+           stim_rise_count, 
+           s=4, c='royalblue', ec='none', alpha=.5)
+ax.plot([1.2,1.8], [stim_cont_rise_count, stim_rise_count],
+        color='grey', linewidth=.5, alpha=.25)
+
+colors = ['grey', 'royalblue']
+for patch, color in zip(bp['boxes'], colors):
+    patch.set_facecolor(color)
+
+bp['fliers'][0].set(marker ='o',
+                color ='#e7298a',
+                markersize=2,
+                alpha=0.5)
+bp['fliers'][1].set(marker ='o',
+                color ='#e7298a',
+                markersize=2,
+                alpha=0.5)
+
+for median in bp['medians']:
+    median.set(color='darkred',
+                linewidth=1)
+    
+for s in ['top', 'right', 'bottom']:
+    ax.spines[s].set_visible(False)
+ax.set(xticklabels=['ctrl.', 'stim.'],
+       ylabel='% run-onset pyr.',
+       title='wilc_p={}\nttest_p={}'.format(round(rise_wilc_p,5), round(rise_ttest_p,5)))
+
+plt.show(fig)
+
+if HPC_LC:
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_cells_box.png',
+                dpi=500, bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_cells_box.pdf',
+                bbox_inches='tight')
+elif not HPC_LC:
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_cells_box.png',
+                dpi=500, bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_cells_box.pdf',
+                bbox_inches='tight')
+    
+plt.close(fig)
+
+
+fig, ax = plt.subplots(figsize=(1.2,2))
+
+bp = ax.boxplot([stim_cont_down_count, stim_down_count],
+                positions=[1, 2],
+                patch_artist=True,
+                notch='True')
+
+ax.scatter([1.2]*len(stim_cont_down_count), 
+           stim_cont_down_count, 
+           s=4, c='grey', ec='none', alpha=.5)
+ax.scatter([1.8]*len(stim_down_count), 
+           stim_down_count, 
+           s=4, c='royalblue', ec='none', alpha=.5)
+ax.plot([1.2,1.8], [stim_cont_down_count, stim_down_count],
+        color='grey', linewidth=.5, alpha=.25)
+
+colors = ['grey', 'royalblue']
+for patch, color in zip(bp['boxes'], colors):
+    patch.set_facecolor(color)
+
+bp['fliers'][0].set(marker ='o',
+                color ='#e7298a',
+                markersize=2,
+                alpha=0.5)
+bp['fliers'][1].set(marker ='o',
+                color ='#e7298a',
+                markersize=2,
+                alpha=0.5)
+
+for median in bp['medians']:
+    median.set(color='darkred',
+                linewidth=1)
+    
+for s in ['top', 'right', 'bottom']:
+    ax.spines[s].set_visible(False)
+ax.set(xticklabels=['ctrl.', 'stim.'],
+       ylabel='% run-onset inh. pyr.',
+       title='wilc_p={}\nttest_p={}'.format(round(down_wilc_p,5), round(rise_ttest_p,5)))
+
+plt.show(fig)
+
+if HPC_LC:
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_inh_cells_box.png',
+                dpi=500, bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_start_inh_cells_box.pdf',
+                bbox_inches='tight')
+elif not HPC_LC:
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_inh_cells_box.png',
+                dpi=500, bbox_inches='tight')
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_start_inh_cells_box.pdf',
+                bbox_inches='tight')

@@ -73,6 +73,23 @@ def calculate_dFF(F_array, window=1800, sigma=300):
     return (F_array-baseline)/baseline
 
 
+def filter_outlier(F_array, std_threshold=10):
+    means = F_array.mean(axis=1)  # mean of each ROI trace
+    stds = F_array.std(axis=1)  # std of each ROI trace 
+    tot_roi = F_array.shape[0]
+    
+    for r in range(tot_roi):
+        outlier_ind = np.where(F_array[r]>=means[r]+stds[r]*std_threshold)[0]
+        
+        for i in outlier_ind:  # this is assuming that outliers are artefacts that do not show continuity
+            if i+1<F_array.shape[1]:
+                F_array[r,i] = (F_array[r,i-1]+F_array[r,i+1])/2
+            else:
+                F_array[r,i] = F_array[r,i-1]
+            
+    return F_array
+
+
 #%% grid functions 
 def check_stride_border(stride, border, dim=512):
     """

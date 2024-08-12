@@ -32,7 +32,7 @@ from common import normalise, smooth_convolve  # !be extra cautious when using s
 def run_grid_pipeline(rec_path, recname, reg_path, txt_path, 
                       stride, border, 
                       plot_ref, 
-                      smooth, save_grids, 
+                      smooth, dFF, save_grids, 
                       bef, aft,
                       align_run, align_rew, align_cue):    
     opsfile = reg_path+r'\ops.npy'
@@ -42,6 +42,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     extract_path = rec_path+r'_grid_extract'
     if not os.path.exists(extract_path):
         os.makedirs(extract_path)
+        
+    ref_path_exists = os.path.exists(extract_path+r'\ref_ch1_{}.png'.format(stride))
+    trace_path_exists = os.path.exists(extract_path+r'\grid_traces_{}.npy'.format(stride))
+    trace_path2_exists = os.path.exists(extract_path+r'\grid_traces_{}_ch2.npy'.format(stride))
+    trace_dFF_path_exists = os.path.exists(extract_path+r'\grid_traces_dFF_{}.npy'.format(stride))
+    trace_dFF_path2_exists = os.path.exists(extract_path+r'\grid_traces_dFF_{}_ch2.npy'.format(stride))
+    if ref_path_exists and trace_path_exists and trace_path2_exists:
+        print('session already processed; plotting...')
     
     # beh file
     print('\nreading behaviour file...')
@@ -70,7 +78,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
 
     ## plot references (optional)
     if plot_ref:
-        if not os.path.exists(extract_path+r'\ref_ch1_{}.png'.format(stride)):
+        if not ref_path_exists:
             print('\ngenerating reference images...')
             
             t0 = time()  # timer
@@ -80,15 +88,9 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             print('ref_ch2 done ({})'.format(str(timedelta(seconds=int(time()-t0)))))
 
 
-    ## do we need to extract traces? (channel 1)
-    extract_trace = True  # default to True
-    extract_file_path = extract_path+r'\grid_traces_{}.npy'.format(stride)
-    if os.path.exists(extract_file_path):
-        extract_trace = False
-
-
     ## extract traces (this is going to take the most time)
-    if extract_trace:
+    extract_file_path = extract_path+r'\grid_traces_{}.npy'.format(stride)
+    if not trace_path_exists:
         print('\nch1 trace extraction starts')
         t0 = time()  # timer
         grid_traces = np.zeros((tot_grid, tot_frames))
@@ -106,20 +108,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     
 
     ## save grid traces (optional but recommended)
-    if extract_trace and save_grids:
+    if not trace_path_exists and save_grids:
         np.save(extract_file_path, grid_traces)
         print('ch1 traces saved to {}\n'.format(extract_file_path))
 
     
-    ## do we need to extract traces? (channel 2)
-    extract_trace_ch2 = True  # default to True
-    extract_file_path_ch2 = extract_path+r'\grid_traces_{}_ch2.npy'.format(stride)
-    if os.path.exists(extract_file_path_ch2):
-        extract_trace_ch2 = False
-
-
     ## extract traces (channel 2)
-    if extract_trace_ch2:
+    extract_file_path_ch2 = extract_path+r'\grid_traces_{}_ch2.npy'.format(stride)
+    if not trace_path2_exists:
         print('ch2 trace extraction starts')
         t0 = time()  # timee
         grid_traces_ch2 = np.zeros((tot_grid, tot_frames))
@@ -137,28 +133,57 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     
 
     ## save grid traces (channel 2)
-    if extract_trace_ch2 and save_grids:
+    if not trace_path2_exists and save_grids:
         np.save(extract_file_path_ch2, grid_traces_ch2)
         print('ch2 traces saved to {}\n'.format(extract_file_path_ch2))
-
-
+    
+        
     ## read grid traces (if exists)
-    if extract_trace==False:
+    if trace_path_exists and trace_path2_exists:
         grid_traces = np.load(extract_file_path, allow_pickle=True)
         grid_traces_ch2 = np.load(extract_file_path_ch2, allow_pickle=True)
-        print('\ntraces read from {}'.format(extract_path))
+        print('\ntraces read from {}'.format(extract_path))    
+    
+    
+    ## dFF calculation 
+    if dFF and (align_run or align_rew):
+        print('calculating dFF...')
+        t0 = time()  # timer
+        grid_traces_dFF = ipf.calculate_dFF(grid_traces)
+        print('ch1 dFF calculation complete ({})'.format(str(timedelta(seconds=int(time()-t0)))))
+        
+    extract_dFF_file_path = extract_path+r'\grid_traces_dFF_{}.npy'.format(stride)
+    if not trace_dFF_path_exists and save_grids:
+        np.save(extract_dFF_file_path, grid_traces_dFF)
+        print('ch1 dFF traces saved to {}\n'.format(extract_dFF_file_path))
+        
+    
+    ## ch2 dFF calculation 
+    if dFF and (align_run or align_rew):
+        print('calculating dFF...')
+        t0 = time()  # timer
+        grid_traces_ch2_dFF = ipf.calculate_dFF(grid_traces_ch2)
+        print('ch2 dFF calculation complete ({})'.format(str(timedelta(seconds=int(time()-t0)))))
+        
+    extract_dFF2_file_path = extract_path+r'\grid_traces_dFF_{}_ch2.npy'.format(stride)
+    if not trace_dFF_path_exists and save_grids:
+        np.save(extract_dFF2_file_path, grid_traces_ch2_dFF)
+        print('ch2 dFF traces saved to {}\n'.format(extract_dFF2_file_path))
+    
+    
+    ## read grid traces (if exists)
+    if trace_dFF_path_exists and trace_dFF_path2_exists and dFF:
+        grid_traces = np.load(extract_dFF_file_path, allow_pickle=True)
+        grid_traces_ch2 = np.load(extract_dFF2_file_path, allow_pickle=True)
+        print('\ntraces read from {}'.format(extract_dFF_file_path))
 
 
     ## timestamps
     print('\ndetermining behavioural timestamps...') 
-    # pumps
-    pump_times = txt['pump_times']
-    # speed
-    speed_times = txt['speed_times']
-    # cues 
-    movie_times = txt['movie_times'] 
-    # frames
-    frame_times = txt['frame_times']
+    pump_times = txt['pump_times']  # pumps 
+    speed_times = txt['speed_times']  # speeds
+    movie_times = txt['movie_times']  # cues☻
+    frame_times = txt['frame_times']  # frames 
     
     tot_trial = len(speed_times)
     # tot_frame = len(frame_times)
@@ -276,7 +301,10 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             sem_trace_ch2 = sem(curr_grid_trace_ch2, axis=0)
             
             ax = fig.add_subplot(dimension, dimension, p+1)
-            ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
+            if dFF==0:
+                ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
+            else:
+                ax.set(xlabel='time (s)', ylabel='dFF', title='grid {}'.format(p))
             ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1, zorder=10)
             ax.fill_between(xaxis, mean_trace+sem_trace,
                                    mean_trace-sem_trace,
@@ -287,9 +315,29 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
                                     mean_trace_ch2-sem_trace_ch2,
                              color='red', edgecolor='none', alpha=.1, zorder=1)
             ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
-        fig.suptitle('run_aligned_ch2')
         fig.tight_layout()
         fig.savefig('{}/grid_traces_{}_avg_run_aligned.png'.format(extract_path, stride),
+                    dpi=120,
+                    bbox_inches='tight')
+        plt.show()
+        plt.close(fig)
+        
+        # extra figure for green only
+        fig = plt.figure(1, figsize=(dimension*4, dimension*3))
+        for p in range(tot_plot):
+            curr_grid_trace = run_aligned[p, :, :]
+            mean_trace = np.mean(curr_grid_trace, axis=0)
+            sem_trace = sem(curr_grid_trace, axis=0)
+            
+            ax = fig.add_subplot(dimension, dimension, p+1)
+            ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
+            ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1, zorder=10)
+            ax.fill_between(xaxis, mean_trace+sem_trace,
+                                   mean_trace-sem_trace,
+                            color='limegreen', edgecolor='none', alpha=.2, zorder=10)
+            ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
+        fig.tight_layout()
+        fig.savefig('{}/grid_traces_{}_avg_run_aligned_ch1_only.png'.format(extract_path, stride),
                     dpi=120,
                     bbox_inches='tight')
         plt.show()
@@ -375,7 +423,10 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             sem_trace_ch2 = sem(curr_grid_trace_ch2, axis=0)
             
             ax = fig.add_subplot(dimension, dimension, p+1)
-            ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
+            if dFF==0:
+                ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
+            else:
+                ax.set(xlabel='time (s)', ylabel='dFF', title='grid {}'.format(p))
             ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1, zorder=10)
             ax.fill_between(xaxis, mean_trace+sem_trace,
                                    mean_trace-sem_trace,
@@ -514,18 +565,6 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
     if not os.path.exists(extract_path):
         os.makedirs(extract_path)
 
-    # check if run already 
-    run_check = os.path.exists(extract_path+'\\suite2pROI_run_dFF_aligned.png')
-    if run_check:
-        align_run==0
-        print('run-aligned ROI traces already plotted')
-    rew_check = os.path.exists(extract_path+'\\suite2pROI_rew_dFF_aligned.png')
-    if rew_check:
-        align_rew==0
-        print('rew-aligned ROI traces already plotted')
-    if run_check and rew_check:
-        return
-
     # beh file
     print('\nreading behaviour file...')
     txt = ipf.process_txt(txt_path)
@@ -547,21 +586,12 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
         
     ## timestamps
     print('\ndetermining behavioural timestamps...') 
-    # pumps
     pump_times = txt['pump_times']
-
-    # speed
     speed_times = txt['speed_times']
-
-    # cues 
     movie_times = txt['movie_times']
-
-    # frames
     frame_times = txt['frame_times']
-
-    # licks
     lick_times = txt['lick_times']
-
+    
     tot_trial = len(speed_times)
     
 
@@ -636,6 +666,15 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
                 run_aligned[roi, i, :] = F_all[roi][r-bef*30:r+aft*30]
                 run_aligned_ch2[roi, i, :] = F_all2[roi][r-bef*30:r+aft*30]
                 run_aligned_neu[roi, i, :] = Fneu_all[roi][r-bef*30:r+aft*30]
+        
+        # save 
+        print('saving run-aligned traces...')
+        np.save('{}/suite2pROI_run_dFF_aligned.npy'.format(extract_path),
+                run_aligned)
+        np.save('{}/suite2pROI_run_dFF_aligned_ch2.npy'.format(extract_path),
+                run_aligned_ch2)
+        np.save('{}/suite2pROI_run_dFF_aligned_neu.npy'.format(extract_path),
+                run_aligned_neu)
         
         if plot_heatmap:
             print('plotting heatmaps...')
@@ -778,6 +817,15 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
             pump_aligned[:, i, :] = F_all[:, p-bef*30:p+aft*30]
             pump_aligned_ch2[:, i, :] = F_all2[:, p-bef*30:p+aft*30]
             pump_aligned_neu[:, i, :] = Fneu_all[:, p-bef*30:p+aft*30]
+        
+        # save
+        print('saving rew-aligned traces...')
+        np.save('{}/suite2pROI_rew_dFF_aligned.npy'.format(extract_path),
+                pump_aligned)
+        np.save('{}/suite2pROI_rew_dFF_aligned_ch2.npy'.format(extract_path),
+                pump_aligned_ch2)
+        np.save('{}/suite2pROI_rew_dFF_aligned_neu.npy'.format(extract_path),
+                pump_aligned_neu)
         
         if plot_heatmap:
             print('plotting heatmaps...')

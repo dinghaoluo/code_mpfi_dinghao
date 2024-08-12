@@ -16,8 +16,9 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import pandas as pd
 import sys 
-from scipy.stats import ttest_rel, wilcoxon, sem
-# from ast import literal_eval
+from scipy.stats import ttest_rel, wilcoxon, sem, ranksums
+import scipy.stats as st
+from decimal import Decimal
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
@@ -51,9 +52,9 @@ shuf_MIl = np.load('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_shuf_MI
 #%% plot shuffled MI distribution 
 def gen_jit(data):
     return np.random.uniform(-.05, .05, len(data))
-MI_perc = np.percentile(shuf_MI, [10, 90])
-MIe_perc = np.percentile(shuf_MIe, [10, 90])
-MIl_perc = np.percentile(shuf_MIl, [10, 90])
+MI_perc = np.percentile(shuf_MI, [5, 95])
+MIe_perc = np.percentile(shuf_MIe, [5, 95])
+MIl_perc = np.percentile(shuf_MIl, [5, 95])
 
 fig, ax = plt.subplots(figsize=(5,3))
 ax.scatter([1]*len(shuf_MI)+gen_jit(shuf_MI), shuf_MI, s=.5, c='grey', ec='none', alpha=.025)
@@ -95,8 +96,8 @@ tot_seed = []
 
 tot_clu = []
 
-down_thres = 1.5
-rise_thres = .67
+down_thres = 1.25
+rise_thres = .8
 
 
 #%% iterate over all 
@@ -135,15 +136,16 @@ other_ctrl_change = []
 other_stim_change = []
 
 # overlap analysis 
-rise_rise = 0
-rise_down = 0
-rise_other = 0
-down_rise = 0
-down_down = 0
-down_other = 0
-other_rise = 0
-other_down = 0
-other_other = 0
+rise_rise = []; rr=0
+rise_down = []; rd=0
+rise_other = []; ro=0
+down_rise = []; dr=0
+down_down = []; dd=0
+down_other = []; do=0
+other_rise = []; ori=0
+other_down = []; od=0
+other_other = []; oo=0
+n_rise=0; n_down=0; n_other=0
 
 clu = 0
 
@@ -161,10 +163,25 @@ for cluname, row in df.iterrows():
         
         recs.append(recname)
         
+        if n_rise!=0:
+            rise_rise.append(rr/n_rise)
+            rise_down.append(rd/n_rise)
+            rise_other.append(ro/n_rise)
+        if n_down!=0:
+            down_down.append(dd/n_down)
+            down_rise.append(dr/n_down)
+            down_other.append(do/n_down)
+        if n_other!=0:
+            other_other.append(oo/n_other)
+            other_rise.append(ori/n_other)
+            other_down.append(od/n_other)
+        
         # reset counters 
         recname = row['recname']
         excited = 0
         inhibited = 0
+        rr=0; rd=0; ro=0; dd=0; dr=0; do=0; oo=0; ori=0; od=0
+        n_rise=0; n_down=0; n_other=0
         
         seeds = []
         
@@ -184,41 +201,80 @@ for cluname, row in df.iterrows():
             inhibited_MI.append(-mi)
             inhibited_MIe.append(-mie)
             inhibited_MIl.append(-mil)
-        if row['ctrl_pre_post']>down_thres:
-            down_ctrl.append(row['ctrl_mean'])
-            down_stim.append(row['stim_mean'])
-            down_ctrl_change.append(np.mean(row['ctrl_mean'][2500:5000])/np.mean(row['ctrl_mean'][:2500]))
-            down_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
-            if row['stim_pre_post']>down_thres:
-                down_down+=1
-            elif row['stim_pre_post']<rise_thres:
-                down_rise+=1
-            else:
-                down_other+=1
-        elif row['ctrl_pre_post']<rise_thres:
-            rise_ctrl.append(row['ctrl_mean'])
-            rise_stim.append(row['stim_mean'])
-            rise_ctrl_change.append(np.mean(row['ctrl_mean'][2500:5000])/np.mean(row['ctrl_mean'][:2500]))
-            rise_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
-            if row['stim_pre_post']<rise_thres:
-                rise_rise+=1
-            elif row['stim_pre_post']>down_thres:
-                rise_down+=1
-            else:
-                rise_other+=1
+            
+    if row['ctrl_pre_post']>down_thres:
+        n_down+=1
+        down_ctrl.append(row['ctrl_mean'])
+        # down_stim.append(row['stim_mean'])
+        down_ctrl_change.append(np.mean(row['ctrl_mean'][2500:5000])/np.mean(row['ctrl_mean'][:2500]))
+        # down_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
+        if row['stim_pre_post']>down_thres:
+            dd+=1
+        elif row['stim_pre_post']<rise_thres:
+            dr+=1
         else:
-            other_ctrl.append(row['ctrl_mean'])
-            other_stim.append(row['stim_mean'])
-            other_ctrl_change.append(np.mean(row['ctrl_mean'][2500:5000])/np.mean(row['ctrl_mean'][:2500]))
-            other_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
-            if row['stim_pre_post']>down_thres:
-                other_down+=1
-            elif row['stim_pre_post']<rise_thres:
-                other_rise+=1
-            else:
-                other_other+=1
+            do+=1
+    elif row['ctrl_pre_post']<rise_thres:
+        n_rise+=1
+        rise_ctrl.append(row['ctrl_mean'])
+        # rise_stim.append(row['stim_mean'])
+        rise_ctrl_change.append(np.mean(row['ctrl_mean'][2500:5000])/np.mean(row['ctrl_mean'][:2500]))
+        # rise_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
+        if row['stim_pre_post']<rise_thres:
+            rr+=1
+        elif row['stim_pre_post']>down_thres:
+            rd+=1
+        else:
+            ro+=1
+    else:
+        n_other+=1
+        other_ctrl.append(row['ctrl_mean'])
+        other_stim.append(row['stim_mean'])
+        other_ctrl_change.append(np.mean(row['ctrl_mean'][2500:5000])/np.mean(row['ctrl_mean'][:2500]))
+        other_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
+        if row['stim_pre_post']>down_thres:
+            od+=1
+        elif row['stim_pre_post']<rise_thres:
+            ori+=1
+        else:
+            oo+=1
+            
+    if row['stim_pre_post']>down_thres:
+        down_stim.append(row['stim_mean'])
+        down_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
+    elif row['stim_pre_post']<rise_thres:
+        rise_stim.append(row['stim_mean'])
+        rise_stim_change.append(np.mean(row['stim_mean'][2500:5000])/np.mean(row['stim_mean'][:2500]))
             
     clu+=1
+
+
+#%% change statistics
+rise_rise_mean = np.mean(rise_rise); rise_rise_sem = sem(rise_rise)
+rise_down_mean = np.mean(rise_down); rise_down_sem = sem(rise_down)
+rise_other_mean = np.mean(rise_other); rise_other_sem = sem(rise_other)
+down_down_mean = np.mean(down_down); down_down_sem = sem(down_down)
+down_rise_mean = np.mean(down_rise); down_rise_sem = sem(down_rise)
+down_other_mean = np.mean(down_other); down_other_sem = sem(down_other)
+other_other_mean = np.mean(other_other); other_other_sem = sem(other_other)
+other_rise_mean = np.mean(other_rise); other_rise_sem = sem(other_rise)
+other_down_mean = np.mean(other_down); other_down_sem = sem(other_down)
+
+# conf int
+rise_rise_cint = (st.t.interval(confidence=.95, df=len(rise_rise)-1, loc=rise_rise_mean, scale=rise_rise_sem)-rise_rise_mean)[1]
+rise_down_cint = (st.t.interval(confidence=.95, df=len(rise_down)-1, loc=rise_down_mean, scale=rise_down_sem)-rise_down_mean)[1]
+rise_other_cint = (st.t.interval(confidence=.95, df=len(rise_other)-1, loc=rise_other_mean, scale=rise_other_sem)-rise_other_mean)[1]
+down_down_cint = (st.t.interval(confidence=.95, df=len(down_down)-1, loc=down_down_mean, scale=down_down_sem)-down_down_mean)[1]
+down_rise_cint = (st.t.interval(confidence=.95, df=len(down_rise)-1, loc=down_rise_mean, scale=down_rise_sem)-down_rise_mean)[1]
+down_other_cint = (st.t.interval(confidence=.95, df=len(down_other)-1, loc=down_other_mean, scale=down_other_sem)-down_other_mean)[1]
+other_other_cint = (st.t.interval(confidence=.95, df=len(other_other)-1, loc=other_other_mean, scale=other_other_sem)-other_other_mean)[1]
+other_rise_cint = (st.t.interval(confidence=.95, df=len(other_rise)-1, loc=other_rise_mean, scale=other_rise_sem)-other_rise_mean)[1]
+other_down_cint = (st.t.interval(confidence=.95, df=len(other_down)-1, loc=other_down_mean, scale=other_down_sem)-other_down_mean)[1]
+
+# statistics 
+rrdd = ranksums(rise_rise, down_down)[1]
+rroo = ranksums(rise_rise, other_other)[1]
+ddoo = ranksums(down_down, other_other)[1]
 
 
 #%% proportions
@@ -258,7 +314,7 @@ for s in ['top', 'right']:
     
 plt.show()
 
-fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_term_stim_all_responsive_divided_bar.png',
+fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_responsive_divided_bar.png',
             dpi=500,
             bbox_inches='tight')
 
@@ -357,14 +413,6 @@ plt.close(fig)
 
 #%% rise down cell analysis 
 tot_rise = len(rise_ctrl); tot_down = len(down_ctrl); tot_other = len(other_ctrl)
-# for clu in range(tot_rise):
-#     full_data = np.concatenate((rise_ctrl[clu], rise_stim[clu]))
-#     rise_ctrl[clu] = normalise_to_all(rise_ctrl[clu], full_data)
-#     rise_stim[clu] = normalise_to_all(rise_stim[clu], full_data)
-# for clu in range(tot_down):
-#     full_data = np.concatenate((down_ctrl[clu], down_stim[clu]))
-#     down_ctrl[clu] = normalise_to_all(down_ctrl[clu], full_data)
-#     down_stim[clu] = normalise_to_all(down_stim[clu], full_data)
 
 rise_ctrl_mean = np.mean(rise_ctrl, axis=0)
 rise_ctrl_sem = sem(rise_ctrl, axis=0)
@@ -390,7 +438,7 @@ ax.fill_between(xaxis, rise_stim_mean+rise_stim_sem,
                        rise_stim_mean-rise_stim_sem,
                 alpha=.2, color='royalblue', edgecolor='none')
 ax.set(xlabel='time (s)', xlim=(-1,4), xticks=[0,2,4], 
-       ylabel='spike rate (Hz)', yticks=[2,4],
+       ylabel='spike rate (Hz)', yticks=[3,6,9],
        title='LC stim., CA1 RO-act.')
 plt.legend([rc, rs], ['ctrl.', 'stim.'], frameon=False, fontsize=7, loc='upper right')
 fig.tight_layout()
@@ -423,22 +471,69 @@ fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_down.pdf',
 
 
 #%% overlap plots 
-fig, ax = plt.subplots(figsize=(9,2))
+fig, ax = plt.subplots(figsize=(4.7,2.3))
 
-ax.bar([1,2,3,4,5,6,7,8,9], [rise_rise/tot_rise, rise_down/tot_rise, rise_other/tot_rise,
-                             down_down/tot_down, down_rise/tot_down, down_other/tot_down,
-                             other_rise/tot_other, other_down/tot_other, other_other/tot_other])
+colours = [(.55,0,0,1),(.55,0,0,.3),(.55,0,0,.3),
+           (.72,.53,.04,1),(.72,.53,.04,.3),(.72,.53,.04,.3),
+           (.41,.41,.41,1),(.41,.41,.41,.3),(.41,.41,.41,.3)]
+x = [1,2,3,4,5,6,7,8,9]
+y = [rise_rise_mean, rise_down_mean, rise_other_mean,
+     down_down_mean, down_rise_mean, down_other_mean,
+     other_other_mean, other_rise_mean, other_down_mean]
+y_data = [rise_rise, rise_down, rise_other,
+          down_down, down_rise, down_other,
+          other_other, other_rise, other_down]
+errors = [rise_rise_sem, rise_down_sem, rise_other_sem,
+          down_down_sem, down_rise_sem, down_other_sem,
+          other_other_sem, other_rise_sem, other_down_sem]
+cint = [rise_rise_cint, rise_down_cint, rise_other_cint,
+        down_down_cint, down_rise_cint, down_other_cint,
+        other_other_cint, other_rise_cint, other_down_cint]
+
+# USING CONFIDENCE INTERVAL FOR ERRORBARS
+ax.bar(x, y,
+       width=.8,
+       color=colours)
+ax.errorbar([pos+.05 for pos in x], y,
+            cint,
+            fmt='none', linewidth=1.5, color='k')
+for i in range(9):
+    ax.scatter([i+.95]*len(y_data[i]), y_data[i], c='grey', ec='none', s=3, alpha=.55)
+
+ax.plot([1.2, 3.8], [1.08, 1.08], c='k', lw=.5)
+ax.text(2.5, 1.11, '***p={}'.format('%.2E' % Decimal(rrdd)), ha='center', va='bottom', color='k', fontsize=6)
+
+ax.plot([1.2, 6.8], [1.2, 1.2], c='k', lw=.5)
+ax.text(4, 1.23, '*p={}'.format(round(rroo, 5)), ha='center', va='bottom', color='k', fontsize=6)
+
+ax.plot([4.2, 6.8], [1.05, 1.05], c='k', lw=.5)
+ax.text(5.5, 1.08, '***p={}'.format('%.2E' % Decimal(ddoo)), ha='center', va='bottom', color='k', fontsize=6)
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
 ax.set(xticks=[1,2,3,4,5,6,7,8,9],
-       xticklabels=['rise-rise', 'rise-down', 'rise-other',
-                    'down-down', 'down-rise', 'down-other',
-                    'other-rise', 'other-down', 'other-other'])
+       xticklabels=['rise-\nrise', 'rise-\ndown', 'rise-\nother',
+                    'down-\ndown', 'down-\nrise', 'down-\nother',
+                    'other-\nother', 'other-\nrise', 'other-\ndown'],
+       yticks=[0,.5,1],
+       ylabel='proportion',
+       title='cell ident. change')
+
+fig.tight_layout()
+plt.show()
+
+fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_identity_change_bar.png',
+            dpi=500, bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_identity_change_bar.pdf',
+            bbox_inches='tight')
+
 
 #%% change plot 
-pval_r = ttest_rel(rise_ctrl_change, rise_stim_change)[1]
+pval_r = ranksums(rise_ctrl_change, rise_stim_change)[1]
 
 fig, ax = plt.subplots(figsize=(1,2))
 
-ax.plot([1, 2], [rise_ctrl_change, rise_stim_change], color='grey', lw=.1)
+# ax.plot([1, 2], [rise_ctrl_change, rise_stim_change], color='grey', lw=.1)
 vpr = ax.violinplot([rise_ctrl_change, rise_stim_change], showmeans=True, showextrema=False)
 ax.set(xticks=[1,2], xticklabels=['ctrl.', 'stim.'],
        title='(0~2 s)/(-2~0 s)\nRO-act.',
@@ -463,11 +558,11 @@ fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_rel_rate_change_ri
             bbox_inches='tight')
 
 
-pval_d = ttest_rel(down_ctrl_change, down_stim_change)[1]
+pval_d = ranksums(down_ctrl_change, down_stim_change)[1]
 
 fig, ax = plt.subplots(figsize=(1,2))
 
-ax.plot([1, 2], [down_ctrl_change, down_stim_change], color='grey', lw=.1)
+# ax.plot([1, 2], [down_ctrl_change, down_stim_change], color='grey', lw=.1)
 vpd = ax.violinplot([down_ctrl_change, down_stim_change], showmeans=True, showextrema=False)
 ax.set(xticks=[1,2], xticklabels=['ctrl.', 'stim.'],
        title='(0~2 s)/(-2~0 s)\nRO-inh.',
@@ -490,14 +585,3 @@ fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_rel_rate_change_do
             dpi=500, bbox_inches='tight')
 fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_stim_rel_rate_change_down.pdf',
             bbox_inches='tight')
-
-
-#%% temp
-cpp = df['ctrl_pre_post']
-spp = df['stim_pre_post']
-
-cppd = cpp[cpp>1.25]
-cppr = cpp[cpp<0.8]
-
-sppd = spp[spp>1.25]
-sppr = spp[spp<0.8]

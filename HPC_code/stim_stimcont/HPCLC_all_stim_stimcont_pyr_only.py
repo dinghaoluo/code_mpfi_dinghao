@@ -108,7 +108,7 @@ for pathname in pathHPC:
     tot_stim = len(stim_trials)
     
     # shuffle trial label
-    pooled_trials = np.concatenate((stim_trials, cont_trials))
+    pooled_trials = np.concatenate((stim_trials, cont_trials ))
     shuf_type1 = [];  shuf_type2 = []  # shuffled trial types 
     for i in range(100):  # shuffle 100 times
         shuf = np.random.permutation(pooled_trials)
@@ -200,19 +200,19 @@ for pathname in pathHPC:
                          xlabel='time (s)', ylabel='spike rate (Hz)',
                          xlim=(-1, 4))
             
-            # # sensitivity 
-            # # 27 Mar 24, tests for each time bin
-            # test_window = 2 * 1250  # 2 s
-            # cont_rate = temp_cont[:,1250:1250+test_window]
-            # stim_rate = temp_stim[:,1250:1250+test_window]
-            # bar_y = max(max(mean_prof_cont), max(mean_prof_stim)) * 1.1
+            # sensitivity 
+            # 27 Mar 24, tests for each time bin
+            test_window = 2 * 1250  # 2 s
+            cont_rate = temp_cont[:,2500:2500+test_window]
+            stim_rate = temp_stim[:,2500:2500+test_window]
+            bar_y = max(max(mean_prof_cont), max(mean_prof_stim)) * 1.1
             
-            # sig_bins = []
-            # for i in range(test_window):
-            #     p_curr = ttest_rel(a=cont_rate[:,i], b=stim_rate[:,i])[1]
-            #     if p_curr<0.05:
-            #         sig_bins.append(i/1250)
-            # axs['A'].scatter(sig_bins, [bar_y]*len(sig_bins), s=3, c='r')
+            sig_bins = []
+            for i in range(test_window):
+                p_curr = ttest_rel(a=cont_rate[:,i], b=stim_rate[:,i])[1]
+                if p_curr<0.05:
+                    sig_bins.append(i/1250)
+            axs['A'].scatter(sig_bins, [bar_y]*len(sig_bins), s=3, c='r')
             
             cont_rate_mean = np.mean(temp_cont[:, 3125:4375], axis=1)*1250  # 0.5-1.5 s mean 
             stim_rate_mean = np.mean(temp_stim[:, 3125:4375], axis=1)*1250

@@ -7,14 +7,19 @@ includes a working CaImAn analysis pipeline modified to work on Wang Lab data, m
 
 ## imaging_code
 includes analysis scripts for dLight and GRABNE data
+- **extract_significant_ROI.py** determines if each ROI in a recording is significantly active, based on 2 criteria: 1. the ROI's dFF must exceed 99-percentile of trial-shuffled dFF and 2. the ROI's dFF must *NOT* significantly correlate with the neuropil dFF; it then saves the IDs of these ROIs into a dataframe
+- **plot_sorted_heatmaps_grids.py** plots the heatmaps (unsorted and sorted by argmax) for each session's grid ROIs aligned to run-onsets or rewards
+- **plot_sorted_heatmaps_rois.py** similar to above, but plot the Suite2p-detected ROIs
 - **run_imaging_pipeline.py** runs grid ROI or Suite2p ROI trace extraction and alignment to behaviour
 ### suite2p_code
 - **registration_roi_extraction.py** registers and extract ROI traces from each recording in lists of sessions listed in rec_list.py using [the Wang lab version of Suite2p](https://github.com/the-wang-lab/suite2p-wang-lab), fine-tuned by [Nico Spiller](https://github.com/nspiller) and [Jingyu Cao](https://github.com/yuxi62).
 ### tonic_activity 
 - **tonic_fft.py** uses FFT to process entire recording traces after calculating dFF (to get rid of the slow decaying of signal strength due to bleaching and evaporation) in order to look for slow periodicity in the signal
+- **whole_session_f_dff.py** plots F/dFF of entire sessions
 ### utils
 - **imaging_pipeline_functions.py** contains functions used to process imaging recordings
 - **imaging_pipeline_main_functions.py** contains grid ROI and Suite2p ROI extraction and alignment functions; these are what run_imaging_pipeline.py calls directly
+- **imaging_utility_functions.py** contains functions for basic trace analyses, such as circ_shuffle() which performs trial-based circular shuffling to provide baselines for trace significance tests
 - **suite2p_functions.py** contains customised calls to the registration and ROI extraction functions of Suite2p-Wang-Lab
 
 ## HPC_code

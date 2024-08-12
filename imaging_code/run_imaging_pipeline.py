@@ -31,6 +31,8 @@ if ("Z:\Jingyu\Code\Python" in sys.path) == False:
     sys.path.append("Z:\Jingyu\Code\Python")
 import anm_list_running
 path_dLight = anm_list_running.grid_tmp
+
+
 #%% suite2p ROIs or grid ROIs
 roi_switch = input('process with...\n1: suite2p ROIs\n2: grid ROIs\n')
 if roi_switch not in ['1', '2']:
@@ -60,12 +62,13 @@ if roi_switch=='1':
     
 if roi_switch=='2':
     # how many pixels x/y for each grid
-    stride = int(496/2**0)
-    # stride = 25
-    # stride = 100
+    stride = int(496/2/2/2/2)
+    # stride = 496
     border = 8  # ignore how many pixels at the border (1 side)
     # border = 6
     fit = ipf.check_stride_border(stride, border)
+    
+    dFF = 1
     
     # do we want to save the grid_traces if extracted 
     save_grids = 1
@@ -95,14 +98,13 @@ if roi_switch=='2':
         stride = {}
         border = {}
         smooth = {}
-        """.format(roi_string, align_run, align_rew, align_cue, bef, aft, stride, border, smooth)
+        dFF = {}
+        """.format(roi_string, align_run, align_rew, align_cue, bef, aft, stride, border, smooth, dFF)
 print(printout)
 
 
 #%% run
-for rec_path in path_dLight:
-
-    # rec_path = r'Z:\Dinghao\2p_recording\A093i\A093i-20240627\A093i-20240627-02'
+for rec_path in pathGRABNE[-4:]:
     if 'Dinghao' in rec_path:
         reg_path = rec_path+r'\processed\suite2p\plane0'
         recname = rec_path[-17:]
@@ -126,7 +128,7 @@ for rec_path in path_dLight:
         ipmf.run_grid_pipeline(rec_path, recname, reg_path, txt_path, 
                                stride, border, 
                                plot_ref, 
-                               smooth, save_grids, 
+                               smooth, dFF, save_grids, 
                                bef, aft,
                                align_run, align_rew, align_cue)
         
