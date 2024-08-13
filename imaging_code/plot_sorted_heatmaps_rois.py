@@ -34,8 +34,11 @@ import rec_list
 pathGRABNE = rec_list.pathHPCGRABNE
 
 
-#%% load behav data 
-behaviour = pd.read_pickle('Z:/Dinghao/code_dinghao/behaviour/all_GRABNE_sessions.pkl')
+#%% significant activity only?
+sig_act_only = True
+
+if sig_act_only:
+    df = pd.read_pickle('Z:/Dinghao/code_dinghao/GRABNE/significant_activity_roi.pkl')
 
 
 #%% main loop
@@ -43,14 +46,12 @@ for path in pathGRABNE:  # start from the first good recording animal (A093i)
     recname = path[-17:]
     print(recname)
     
-    roi_traces = np.load(r'{}/processed/suite2p/plane0/F.npy'.format(path),
+    aligned_run_dff = np.load(r'{}_roi_extract/suite2pROI_run_dFF_aligned.npy'.format(path),
                          allow_pickle=True)
-    roi_traces_dff = ipf.calculate_dFF(roi_traces)  # dFF
-    tot_roi = roi_traces_dff.shape[0]
-    tot_frame = roi_traces_dff.shape[1]
-    
-    behav = behaviour.loc[recname]
-    
+    aligned_rew_dff = np.load(r'{}_roi_extract/suite2pROI_rew_dFF_aligned.npy'.format(path),
+                         allow_pickle=True)
+    tot_roi, tot_trial, tot_frame = aligned_run_dff.shape
+        
     # calculate mean trace for each grid 
     run_trace_means = []
     rew_trace_means = []

@@ -36,7 +36,7 @@ pathHPC = rec_list.pathHPCLCopt
 #%% main 
 # We only need the firing rate profiles from my Python pipeline (HPC all train)
 # and the classification results from the MATLAB preprocessing pipeline
-for pathname in pathHPC[:2]:
+for pathname in pathHPC[:3]:
     recname = pathname[-17:]
     print(recname)
     
@@ -60,16 +60,16 @@ for pathname in pathHPC[:2]:
     spike = mat73.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess1_Run0.mat'.format(pathname, recname))
     alignedRun = spike['filteredSpikeDistArrayRun']  # load alignedRun spike data
     
-    profile_cont_dist = np.zeros((tot_pc, 1800))
-    profile_stim_dist = np.zeros((tot_pc, 1800))
+    profile_cont_dist = np.zeros((tot_pc, 1500))
+    profile_stim_dist = np.zeros((tot_pc, 1500))
     for i, cell in enumerate(place_cells): 
         # take average 
-        temp_cont = np.zeros((len(cont_trials), 1800))
-        temp_stim = np.zeros((len(stim_trials), 1800))
+        temp_cont = np.zeros((len(cont_trials), 1500))
+        temp_stim = np.zeros((len(stim_trials), 1500))
         for ind, trial in enumerate(cont_trials):
-            temp_cont[ind, :] = alignedRun[cell-1][trial,100:1900]  # -1 for matlab indexing
+            temp_cont[ind, :] = alignedRun[cell-1][trial,300:1800]  # -1 for matlab indexing
         for ind, trial in enumerate(stim_trials):
-            temp_stim[ind, :] = alignedRun[cell-1][trial,100:1900]
+            temp_stim[ind, :] = alignedRun[cell-1][trial,300:1800]
         
         profile_cont_dist[i,:] = normalise(np.mean(temp_cont, axis=0))
         profile_stim_dist[i,:] = normalise(np.mean(temp_stim, axis=0))
@@ -82,17 +82,17 @@ for pathname in pathHPC[:2]:
         return max_pt[x]
     ord_ind = sorted(np.arange(tot_pc), key=helper)
     
-    im_mat_cont = np.zeros((tot_pc, 1800))
-    im_mat_stim = np.zeros((tot_pc, 1800))
+    im_mat_cont = np.zeros((tot_pc, 1500))
+    im_mat_stim = np.zeros((tot_pc, 1500))
     for i, ind in enumerate(ord_ind): 
         im_mat_cont[i,:] = profile_cont_dist[ind,:]
         im_mat_stim[i,:] = profile_stim_dist[ind,:]
        
     # stimcont sequence 
-    fig, ax = plt.subplots(figsize=(4.5,3))
+    fig, ax = plt.subplots(figsize=(3,2))
     image_cont = ax.imshow(im_mat_cont, 
                            aspect='auto', cmap='Greys', interpolation='none',
-                           extent=(-1, 4, 0, tot_pc))
+                           extent=(30, 180, 0, tot_pc))
     plt.colorbar(image_cont, shrink=.5)
     yticks = range(1, tot_pc+1, 5)
     ax.set(yticks=yticks,
@@ -110,16 +110,16 @@ for pathname in pathHPC[:2]:
     
     # plt.close(fig)
     
-    # # stim sequence ordered by stimcont
-    # fig, ax = plt.subplots(figsize=(4.5,3))
-    # image_stim = ax.imshow(im_mat_stim, 
-    #                        aspect='auto', cmap='Greys', interpolation='none',
-    #                        extent=(-1, 4, 0, tot_pc))
-    # plt.colorbar(image_stim, shrink=.5)
-    # yticks = range(1, tot_pc+1, 5)
-    # ax.set(yticks=yticks,
-    #        ylabel='cell #', xlabel='time (s)',
-    #        title='{} stim'.format(recname))
+    # stim sequence ordered by stimcont
+    fig, ax = plt.subplots(figsize=(3,2))
+    image_stim = ax.imshow(im_mat_stim, 
+                           aspect='auto', cmap='Greys', interpolation='none',
+                           extent=(30, 180, 0, tot_pc))
+    plt.colorbar(image_stim, shrink=.5)
+    yticks = range(1, tot_pc+1, 5)
+    ax.set(yticks=yticks,
+            ylabel='cell #', xlabel='time (s)',
+            title='{} stim'.format(recname))
     
     # plt.show()
     

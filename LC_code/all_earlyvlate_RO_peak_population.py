@@ -19,8 +19,8 @@ from scipy.stats import wilcoxon, ttest_rel, sem
 #%% load data 
 cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 
-rasters = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters_simp_name.npy',
-                  allow_pickle=True).item()
+all_train = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
+                    allow_pickle=True).item()
 
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -91,7 +91,7 @@ for sessname in sess_list:
     early_sum = 0; late_sum = 0
     for cluname in tag_rop_list:
         if cluname[:17]==sessname:
-            raster = rasters[cluname]
+            train = all_train[cluname]
             
             filename = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
             alignRun = sio.loadmat(filename)
@@ -133,11 +133,11 @@ for sessname in sess_list:
                     break
             
             for trial in early_trials:
-                curr_raster = raster[trial]
-                early_sum += sum(curr_raster[window[0]:window[1]])
+                curr_train = train[trial]
+                early_sum += np.mean(curr_train[window[0]:window[1]])
             for trial in late_trials:
-                curr_raster = raster[trial]
-                late_sum += sum(curr_raster[window[0]:window[1]])
+                curr_train = train[trial]
+                late_sum += np.mean(curr_train[window[0]:window[1]])
             early_sess.append(early_sum)
             late_sess.append(late_sum)
     
@@ -150,7 +150,7 @@ for sessname in sess_list:
     early_sum = 0; late_sum = 0
     for cluname in put_rop_list:
         if cluname[:17]==sessname:
-            raster = rasters[cluname]
+            train = all_train[cluname]
             
             filename = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
             alignRun = sio.loadmat(filename)
@@ -192,11 +192,11 @@ for sessname in sess_list:
                     break
             
             for trial in early_trials:
-                curr_raster = raster[trial]
-                early_sum += sum(curr_raster[window[0]:window[1]])
+                curr_train = train[trial]
+                early_sum += np.mean(curr_train[window[0]:window[1]])
             for trial in late_trials:
-                curr_raster = raster[trial]
-                late_sum += sum(curr_raster[window[0]:window[1]])
+                curr_train = train[trial]
+                late_sum += sum(curr_train[window[0]:window[1]])
             early_sess.append(early_sum)
             late_sess.append(late_sum)
     
@@ -210,7 +210,7 @@ for sessname in sess_list:
     pooled_list = put_rop_list + tag_rop_list
     for cluname in pooled_list:
         if cluname[:17]==sessname:
-            raster = rasters[cluname]
+            train = all_train[cluname]
             
             filename = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
             alignRun = sio.loadmat(filename)
@@ -252,11 +252,11 @@ for sessname in sess_list:
                     break
             
             for trial in early_trials:
-                curr_raster = raster[trial]
-                early_sum += sum(curr_raster[window[0]:window[1]])
+                curr_train = train[trial]
+                early_sum += np.mean(curr_train[window[0]:window[1]])
             for trial in late_trials:
-                curr_raster = raster[trial]
-                late_sum += sum(curr_raster[window[0]:window[1]])
+                curr_train = train[trial]
+                late_sum += np.mean(curr_train[window[0]:window[1]])
             early_sess.append(early_sum)
             late_sess.append(late_sum)
     
@@ -273,109 +273,74 @@ for sess in range(len(sess_list)):  # get rid of sessions with fewer than 2 tagg
     if len(early_all_pooled[sess])<2:
         del_pooled.append(sess)
 
-early_all_tagged = [s for i, s in enumerate(early_all_tagged) if i not in del_tagged]
-late_all_tagged = [s for i, s in enumerate(late_all_tagged) if i not in del_tagged]
-early_all_putative = [s for i, s in enumerate(early_all_putative) if i not in del_putative]
-late_all_putative = [s for i, s in enumerate(late_all_putative) if i not in del_putative]
-early_all_pooled = [s for i, s in enumerate(early_all_pooled) if i not in del_pooled]
-late_all_pooled = [s for i, s in enumerate(late_all_pooled) if i not in del_pooled]
+early_all_tagged = [s*1250 for i, s in enumerate(early_all_tagged) if i not in del_tagged]
+late_all_tagged = [s*1250 for i, s in enumerate(late_all_tagged) if i not in del_tagged]
+early_all_putative = [s*1250 for i, s in enumerate(early_all_putative) if i not in del_putative]
+late_all_putative = [s*1250 for i, s in enumerate(late_all_putative) if i not in del_putative]
+early_all_pooled = [s*1250 for i, s in enumerate(early_all_pooled) if i not in del_pooled]
+late_all_pooled = [s*1250 for i, s in enumerate(late_all_pooled) if i not in del_pooled]
 
-early_all_tagged_mean = [np.nanmean(ls)/10 for ls in early_all_tagged]  # average for each session 
-late_all_tagged_mean = [np.nanmean(ls)/10 for ls in late_all_tagged]  # same as above 
-
-early_all_putative_mean = [np.nanmean(ls)/10 for ls in early_all_putative]  # average for each session 
-late_all_putative_mean = [np.nanmean(ls)/10 for ls in late_all_putative]  # same as above 
-
-early_all_pooled_mean = [np.nanmean(ls)/10 for ls in early_all_pooled]  # average for each session 
-late_all_pooled_mean = [np.nanmean(ls)/10 for ls in late_all_pooled]  # same as above 
-    
-
-#%% plot 
-fig, ax = plt.subplots(figsize=(4,4))
-
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-ax.set_xticklabels(['early', 'late'], minor=False)
-
-pval = wilcoxon(early_all_tagged_mean, late_all_tagged_mean)[1]
-ax.set(ylabel='population spike rate (Hz)',
-       title='early v late lick trials p={}'.format(round(pval, 3)))
-
-bp = ax.boxplot([early_all_tagged_mean, late_all_tagged_mean],
-           positions=[.5, 1],
-           patch_artist=True,
-           notch='True')
-colors = ['coral', 'darkcyan']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-bp['fliers'][0].set(marker ='v',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-for median in bp['medians']:
-    median.set(color='darkred',
-               linewidth=1)
-    
-ax.scatter([[.5]*len(early_all_tagged), [1]*len(early_all_tagged)], [early_all_tagged_mean, late_all_tagged_mean], zorder=2,
-           s=15, color='grey', edgecolor='k', alpha=.5)
-ax.plot([[.5]*len(early_all_tagged), [1]*len(early_all_tagged)], [early_all_tagged_mean, late_all_tagged_mean], zorder=2,
-        color='grey', alpha=.5)
-
-fig.tight_layout()
-plt.show()
-
-# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_ROpeak_population_earlyvlate_tagged.png',
-#             dpi=500,
-#             bbox_inches='tight')
-
-plt.close(fig)
-
-
-#%% plot putative
-fig, ax = plt.subplots(figsize=(4,4))
-
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-ax.set_xticks([1, 2])
-ax.set_xticklabels(['early', 'late'], minor=False)
-
-pval = wilcoxon(early_all_putative_mean, late_all_putative_mean)[1]
-ax.set(ylabel='population spike rate (Hz)',
-       title='early v late lick trials p={}'.format(round(pval, 3)))
-
-bp = ax.bar([1, 2], [np.mean(early_all_putative_mean), np.mean(late_all_putative_mean)], width=.15)
-    
-ax.scatter([[1.25]*len(early_all_putative), [1.75]*len(early_all_putative)], [early_all_putative_mean, late_all_putative_mean], zorder=2,
-           s=15, color='grey', edgecolor='k', alpha=.5)
-ax.plot([[1.25]*len(early_all_putative), [1.75]*len(early_all_putative)], [early_all_putative_mean, late_all_putative_mean], zorder=2,
-        color='grey', alpha=.5)
-
-ax.set(xlim=(0.75, 2.25))
-
-fig.tight_layout()
-plt.show()
-
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_putative_ROpeak_population_earlyvlate_putative.png',
-            dpi=500,
-            bbox_inches='tight')
-
-plt.close(fig)
+early_all_tagged_mean = [np.nanmean(ls) for ls in early_all_tagged]  # average for each session 
+late_all_tagged_mean = [np.nanmean(ls) for ls in late_all_tagged]  # same as above 
+early_all_putative_mean = [np.nanmean(ls) for ls in early_all_putative]
+late_all_putative_mean = [np.nanmean(ls) for ls in late_all_putative]
+early_all_pooled_mean = [np.nanmean(ls) for ls in early_all_pooled]
+late_all_pooled_mean = [np.nanmean(ls) for ls in late_all_pooled]
 
 
 #%% statistics
-pval = wilcoxon(early_all_pooled_mean, late_all_pooled_mean)[1]
+wilc_stat, wilc_p = wilcoxon(early_all_pooled_mean, late_all_pooled_mean)
+ttest_stat, ttest_p = ttest_rel(early_all_pooled_mean, late_all_pooled_mean)
 
 
-#%% plot all (logged)
-# log everything 
+#%% plot all
+early_colour = (.804,.267,.267); late_colour = (.545,0,0)
+
 fig, ax = plt.subplots(figsize=(2,3))
 
 vp = ax.violinplot([early_all_pooled_mean, late_all_pooled_mean],
+                   positions=[1,2],
                    showmeans=True, showextrema=False)
+
+vp['bodies'][0].set_color(early_colour)
+vp['bodies'][1].set_color(late_colour)
+for i in [0,1]:
+    vp['bodies'][i].set_edgecolor('none')
+    vp['bodies'][i].set_alpha(.75)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
+
+ax.scatter([1.1]*len(early_all_pooled_mean), 
+           early_all_pooled_mean, 
+           s=10, c=early_colour, ec='none', lw=.5, alpha=.05)
+ax.scatter([1.9]*len(late_all_pooled_mean), 
+           late_all_pooled_mean, 
+           s=10, c=late_colour, ec='none', lw=.5, alpha=.05)
+ax.plot([[1.1]*len(early_all_pooled_mean), [1.9]*len(late_all_pooled_mean)], 
+        [early_all_pooled_mean, late_all_pooled_mean], 
+        color='grey', alpha=.05, linewidth=1)
+
+ax.plot([1.1, 1.9], [np.mean(early_all_pooled_mean), np.mean(late_all_pooled_mean)],
+        color='grey', linewidth=2)
+ax.scatter(1.1, np.mean(early_all_pooled_mean), 
+           s=30, c=early_colour, ec='none', alpha=.75, lw=.5, zorder=2)
+ax.scatter(1.9, np.mean(late_all_pooled_mean), 
+           s=30, c=late_colour, ec='none', lw=.5, zorder=2)
+ymin = min(min(late_all_pooled_mean), min(early_all_pooled_mean))-.5
+ymax = max(max(late_all_pooled_mean), max(early_all_pooled_mean))+.5
+ax.set(xlim=(.5,2.5), ylim=(-.1,4.5),
+       ylabel='spike rate (Hz)',
+       title='early v late\npopulation spike rate\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 10), round(ttest_p, 10)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['early\n1st-lick', 'late\n1st-lick'])
+for p in ['top', 'right', 'bottom']:
+    ax.spines[p].set_visible(False)
+
 vp['bodies'][0].set_color('darkred')
 vp['bodies'][1].set_color('darkred')
 for i in [0,1]:
@@ -394,77 +359,18 @@ ax.spines['left'].set_linewidth(1)
 
 ax.set(xlim=(0.5, 2.5),
        xticks=[1,2], xticklabels=['early', 'late'],
-       yticks=[5,10,15,20],
        ylabel='log pop. spike rate (Hz)',
        title='early v late lick trials\n wilcp={}'.format(round(pval, 6)))
 
 fig.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.png',
-            bbox_inches='tight',
-            dpi=500)
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:/Dinghao/paper/figures/figure_2_early_v_late_pop_spike_rate.pdf',
-            bbox_inches='tight')
-
-plt.close(fig)
-
-
-#%% plot all (normalised to early)
-diff_pooled = []
-for i in range(len(early_all_pooled_mean)):
-    diff_pooled.append(late_all_pooled_mean[i]-early_all_pooled_mean[i])
-
-fig, ax = plt.subplots(figsize=(3,4))
-
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-ax.spines['left'].set_linewidth(1)
-ax.set_xticks([1, 2])
-# ax.set_yticks([1, 2, 3])
-ax.set_xticklabels(['early', 'late'], minor=False)
-
-# statistics
-pval = wilcoxon(early_all_pooled_mean, late_all_pooled_mean)[1]
-ax.set(ylabel='Δ pop. spike rate (Hz)',
-       title='early v late lick trials p={}'.format(round(pval, 3)))
-
-# bar = ax.bar([1, 2], [0, np.mean(diff_pooled)], yerr=[0, sem(diff_pooled)], capsize=5,
-#             color=['gainsboro', 'dimgrey'], edgecolor=['k','k'], width=.35)
-bp = ax.boxplot([[0]*len(early_all_pooled), diff_pooled],
-           positions=[1, 2],
-           patch_artist=True)
-colors = ['gainsboro', 'dimgrey']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-for median in bp['medians']:
-    median.set(color='darkred',
-               linewidth=1)
-    
-ax.scatter([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [[0]*len(early_all_pooled), diff_pooled], zorder=2,
-           s=15, color='grey', edgecolor='k', alpha=.5)
-ax.plot([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [[0]*len(early_all_pooled), diff_pooled], zorder=2,
-        color='grey', alpha=.5)
-
-ax.set(xlim=(0.5, 2.5))
-
-fig.tight_layout()
-plt.show()
-
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate_delta.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate_delta.png',
-            bbox_inches='tight',
-            dpi=500)
+# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.png',
+#             bbox_inches='tight',
+#             dpi=500)
+# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
+#             bbox_inches='tight')
+# fig.savefig(r'Z:/Dinghao/paper/figures/figure_2_early_v_late_pop_spike_rate.pdf',
+#             bbox_inches='tight')
 
 plt.close(fig)

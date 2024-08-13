@@ -142,7 +142,7 @@ for i, key in enumerate(keys):
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(4, 3.6))
+fig, ax = plt.subplots(figsize=(2.6,2.3))
 ax.set(xlabel='time (s)',
        ylabel='cell #')
 fig.suptitle('Dbh+ cells')
