@@ -370,7 +370,7 @@ plt.close(fig)
 pval = wilcoxon(early_all_pooled_mean, late_all_pooled_mean)[1]
 
 
-#%% plot all (logged)
+#%% plot all
 # log everything 
 fig, ax = plt.subplots(figsize=(2,3))
 

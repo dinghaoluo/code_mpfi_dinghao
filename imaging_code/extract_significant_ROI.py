@@ -77,7 +77,7 @@ for rec_path in pathGRABNE:
     rew_aligned_neu = np.load(ext_path+r'\suite2pROI_rew_dFF_aligned_neu.npy', allow_pickle=True)
     
     tot_roi, tot_trial_run, tot_time = run_aligned.shape
-    tot_trial_rew = run_aligned.shape[1]
+    tot_trial_rew = rew_aligned.shape[1]
     
     signif_act_roi_run = []
     signif_act_roi_rew = []

@@ -38,6 +38,17 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **HPC_LC_plot_sequence.py** and **HPC_LCterm_plot_sequence.py** plot temporal cell sequences for single sessions
 - **HPC_LC_plot_sequence_dist.py** and **HPC_LCterm_plot_sequence_dist.py** plot distance cell sequences for single sessions
 ### stim_stimcont
+- **all_HPCLC_HPCLCterm_stim_stimcont_int_only_sig.py** summarises the percentages of interneurones that are up-/down-regulated by LC stimulation (both somatic and terminal)
+- **all_HPCLC_HPCLCterm_stim_stimcont_pyr_only_sig.py** is similar to above but for pyramidal cells
+- **all_mod_depth_comp.py** compares the depth profiles of modulated cells
+- **HPCLC_all_stim_stimcont_int_only.py** compares the spike rate profiles between stim and ctrl for LC-somatic stimulation for interneurones only
+- **HPCLC_all_stim_stimcont_py_only.py** is similar to above but for pyr cells
+- **HPCLC_all_stim_stimcont_pyr_only_ordered.py** plots all cells ordered based on argmax of average spike rate in ctrl trials for LC-somatic stimulation, for pyr cells only
+- **HPCLC_all_stim_stimcont_pyr_only_PCA.py** analyses with PCA the trajectories of stim and ctrl trials (for LC-somatic stimulation) for pyramidal cells only
+- **HPCLC_all_stim_stimcont_pyr_only_rasters.py** plots the rasters for LC-somatic stimulation of stim and ctrl trials for pyramidal cells only
+- **HPCLC_all_stim_stimcont_pyr_only_rasters_blowup.py** is simlar to above but blown up to 0-2 seconds after run-onset
+- **HPCLC_all_stim_stimcont_pyr_only_sig_MI.py** main function, based on modulation index looks at all sorts of variables for pyramidal cells only in stim and ctrl trials for LC-somatic stimulation 
+- **HPCLC_all_stim_stimcont_pyr_only_spatial_info.py** looks at spatial information for pyramidal cells only in ctrl and stim trials for LC-somatic stimulation
 ### 
 
 ## LC_code 
@@ -111,6 +122,11 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **paramC.py** lists parameters (e.g. sampling frequency)
 - **RO_peak_detection.py** provides functions for shuffle-based peak-detection
 - **single_unit.py** provides basic functions for single-unit analyses
+
+## utils 
+- **behaviour_functions.py** stores functions behaviour processing
+- **plotting_functions.py** stores functions for plotting
+- **txt_processing_function.py** stores functions for processing behavioural txt files 
 
 ## other_code
 currently includes 2 Python scripts to log and plot temperature and humidility recorded from a custom-built ESP8266 circuit; for monitoring lab/2-photon rig temperature and humidity

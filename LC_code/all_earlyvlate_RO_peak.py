@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 import sys 
 import scipy.io as sio
-from scipy.stats import wilcoxon, ttest_rel
+from scipy.stats import wilcoxon, ttest_rel, sem
 
 
 #%% plotting parameters 
@@ -27,8 +27,6 @@ matplotlib.rcParams['ps.fonttype'] = 42
 #%% load data 
 cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 
-rasters = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters_simp_name.npy',
-                  allow_pickle=True).item()
 trains = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_info.npy',
                  allow_pickle=True).item()
 
@@ -55,11 +53,12 @@ for clu in cell_prop.index:
         put_list.append(clu)
     
     if rop: 
-        rop_list.append(clu)
         if tg:
             tag_rop_list.append(clu)
+            rop_list.append(clu)
         if pt:
             put_rop_list.append(clu)
+            rop_list.append(clu)
 
 
 #%% parameters for processing 
@@ -75,7 +74,6 @@ late_prof = []
 for cluname in rop_list:
     print(cluname)
     train = trains[cluname]
-    raster = rasters[cluname]
 
     filename = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
     alignRun = sio.loadmat(filename)
@@ -118,27 +116,18 @@ for cluname in rop_list:
             break
     
     for trial in early_trials:
-        curr_raster = raster[trial]
         curr_train = train[trial]
-        early.append(sum(curr_raster[window[0]:window[1]]))
-        early_prof.append(curr_train[2500:5000])
+        early.append(np.mean(curr_train[window[0]:window[1]])*1250)
+        early_prof.append(curr_train[2500:5000]*1250)
     for trial in late_trials:
-        curr_raster = raster[trial]
         curr_train = train[trial]
-        late.append(sum(curr_raster[window[0]:window[1]]))
-        late_prof.append(curr_train[2500:5000])
+        late.append(np.mean(curr_train[window[0]:window[1]])*1250)
+        late_prof.append(curr_train[2500:5000]*1250)
             
 
 #%% statistics 
 wilc_res, wilc_p = wilcoxon(early, late)
 ttest_res, ttest_p = ttest_rel(early, late)
-    
-early_log = np.log(early)
-late_log = np.log(late)
-
-from numpy import inf 
-early_log[early_log==-inf] = 0
-late_log[late_log==-inf] = 0
 
 
 #%% plotting 
@@ -146,10 +135,11 @@ early_colour = (.804,.267,.267); late_colour = (.545,0,0)
 
 fig, ax = plt.subplots(figsize=(2,3))
 
-vp = ax.violinplot([early_log, late_log],
+vp = ax.violinplot([early, late],
                    positions=[1, 2],
-                   showextrema=False)
+                   showextrema=False, showmeans=True)
 
+vp['cmeans'].set_color('k')
 vp['bodies'][0].set_color(early_colour)
 vp['bodies'][1].set_color(late_colour)
 for i in [0,1]:
@@ -165,23 +155,23 @@ for i in [0,1]:
         b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
 ax.scatter([1.1]*len(early), 
-           early_log, 
+           early, 
            s=10, c=early_colour, ec='none', lw=.5, alpha=.05)
 ax.scatter([1.9]*len(late), 
-           late_log, 
+           late, 
            s=10, c=late_colour, ec='none', lw=.5, alpha=.05)
-ax.plot([[1.1]*len(early), [1.9]*len(late)], [early_log, late_log], 
+ax.plot([[1.1]*len(early), [1.9]*len(late)], [early, late], 
         color='grey', alpha=.05, linewidth=1)
 
-ax.plot([1.1, 1.9], [np.mean(early_log), np.mean(late_log)],
-        color='grey', linewidth=2)
-ax.scatter(1.1, np.mean(early_log), 
+ax.plot([1.1, 1.9], [np.mean(early), np.mean(late)],
+        color='k', linewidth=2)
+ax.scatter(1.1, np.mean(early), 
            s=30, c=early_colour, ec='none', alpha=.75, lw=.5, zorder=2)
-ax.scatter(1.9, np.mean(late_log), 
+ax.scatter(1.9, np.mean(late), 
            s=30, c=late_colour, ec='none', lw=.5, zorder=2)
-ymin = min(min(late_log), min(early_log))-.5
-ymax = max(max(late_log), max(early_log))+.5
-ax.set(xlim=(.5,2.5), ylim=(-.1,4.5),
+ymin = min(min(late), min(early))-.5
+ymax = max(max(late), max(early))+.5
+ax.set(xlim=(.5,2.5),
        ylabel='spike rate (Hz)',
        title='early v late\nsingle-cell spike rate\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 10), round(ttest_p, 10)))
 ax.set_xticks([1, 2]); ax.set_xticklabels(['early\n1st-lick', 'late\n1st-lick'])
@@ -197,4 +187,44 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_single_cell_earlyvl
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_single_cell_earlyvlate.pdf',
             bbox_inches='tight')
 
-# plt.close()
+plt.close()
+
+
+#%% plot profiles 
+early_mean = np.mean(early_prof, axis=0)
+late_mean = np.mean(late_prof, axis=0)
+early_sem = sem(early_prof, axis=0)
+late_sem = sem(late_prof, axis=0)
+
+xaxis = np.arange(2500)/1250-1
+
+fig, ax = plt.subplots(figsize=(2.8,2.3))
+
+el, = ax.plot(xaxis, early_mean, c=early_colour)
+ax.fill_between(xaxis, early_mean+early_sem,
+                       early_mean-early_sem,
+                       color=early_colour, edgecolor='none', alpha=.25)
+ll, = ax.plot(xaxis, late_mean, c=late_colour)
+ax.fill_between(xaxis, late_mean+late_sem,
+                       late_mean-late_sem,
+                       color=late_colour, edgecolor='none', alpha=.25)
+
+plt.legend([el, ll], ['early 1st-lick', 'late 1st-lick'], frameon=False, fontsize=8, loc='lower right')
+
+ax.set(xlabel='time (s)', xticks=[-1,0,1],
+       ylabel='spike rate (Hz)', ylim=(1.6, 4.4),
+       title='early v late spike rate')
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+    
+fig.tight_layout()
+plt.show()
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_single_cell_earlyvlate_prof.png',
+            dpi=500,
+            bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_single_cell_earlyvlate_prof.pdf',
+            bbox_inches='tight')
+
+plt.close()

@@ -134,12 +134,12 @@ for sessname in sess_list:
             
             for trial in early_trials:
                 curr_train = train[trial]
-                early_sum += np.mean(curr_train[window[0]:window[1]])
+                early_sum += np.mean(curr_train[window[0]:window[1]])*1250
             for trial in late_trials:
                 curr_train = train[trial]
-                late_sum += np.mean(curr_train[window[0]:window[1]])
-            early_sess.append(early_sum)
-            late_sess.append(late_sum)
+                late_sum += np.mean(curr_train[window[0]:window[1]])*1250
+            early_sess.append(early_sum/len(early_trials))
+            late_sess.append(late_sum/len(late_trials))
     
     # early sess and late sess now have all rop cells in this session
     early_all_tagged.append(early_sess)  # list of lists  
@@ -193,12 +193,13 @@ for sessname in sess_list:
             
             for trial in early_trials:
                 curr_train = train[trial]
-                early_sum += np.mean(curr_train[window[0]:window[1]])
+                early_sum += np.mean(curr_train[window[0]:window[1]])*1250
             for trial in late_trials:
                 curr_train = train[trial]
-                late_sum += sum(curr_train[window[0]:window[1]])
-            early_sess.append(early_sum)
-            late_sess.append(late_sum)
+                late_sum += sum(curr_train[window[0]:window[1]])*1250
+            early_sess.append(early_sum/len(early_trials))
+            late_sess.append(late_sum/len(late_trials))
+            
     
     # early sess and late sess now have all rop cells in this session
     early_all_putative.append(early_sess)  # list of lists  
@@ -253,12 +254,12 @@ for sessname in sess_list:
             
             for trial in early_trials:
                 curr_train = train[trial]
-                early_sum += np.mean(curr_train[window[0]:window[1]])
+                early_sum += np.mean(curr_train[window[0]:window[1]])*1250
             for trial in late_trials:
                 curr_train = train[trial]
-                late_sum += np.mean(curr_train[window[0]:window[1]])
-            early_sess.append(early_sum)
-            late_sess.append(late_sum)
+                late_sum += np.mean(curr_train[window[0]:window[1]])*1250
+            early_sess.append(early_sum/len(early_trials))
+            late_sess.append(late_sum/len(late_trials))
     
     # early sess and late sess now have all rop cells in this session
     early_all_pooled.append(early_sess)  # list of lists  
@@ -273,12 +274,12 @@ for sess in range(len(sess_list)):  # get rid of sessions with fewer than 2 tagg
     if len(early_all_pooled[sess])<2:
         del_pooled.append(sess)
 
-early_all_tagged = [s*1250 for i, s in enumerate(early_all_tagged) if i not in del_tagged]
-late_all_tagged = [s*1250 for i, s in enumerate(late_all_tagged) if i not in del_tagged]
-early_all_putative = [s*1250 for i, s in enumerate(early_all_putative) if i not in del_putative]
-late_all_putative = [s*1250 for i, s in enumerate(late_all_putative) if i not in del_putative]
-early_all_pooled = [s*1250 for i, s in enumerate(early_all_pooled) if i not in del_pooled]
-late_all_pooled = [s*1250 for i, s in enumerate(late_all_pooled) if i not in del_pooled]
+early_all_tagged = [s for i, s in enumerate(early_all_tagged) if i not in del_tagged]
+late_all_tagged = [s for i, s in enumerate(late_all_tagged) if i not in del_tagged]
+early_all_putative = [s for i, s in enumerate(early_all_putative) if i not in del_putative]
+late_all_putative = [s for i, s in enumerate(late_all_putative) if i not in del_putative]
+early_all_pooled = [s for i, s in enumerate(early_all_pooled) if i not in del_pooled]
+late_all_pooled = [s for i, s in enumerate(late_all_pooled) if i not in del_pooled]
 
 early_all_tagged_mean = [np.nanmean(ls) for ls in early_all_tagged]  # average for each session 
 late_all_tagged_mean = [np.nanmean(ls) for ls in late_all_tagged]  # same as above 
@@ -304,6 +305,7 @@ vp = ax.violinplot([early_all_pooled_mean, late_all_pooled_mean],
 
 vp['bodies'][0].set_color(early_colour)
 vp['bodies'][1].set_color(late_colour)
+vp['cmeans'].set_color('k')
 for i in [0,1]:
     vp['bodies'][i].set_edgecolor('none')
     vp['bodies'][i].set_alpha(.75)
@@ -327,50 +329,29 @@ ax.plot([[1.1]*len(early_all_pooled_mean), [1.9]*len(late_all_pooled_mean)],
         color='grey', alpha=.05, linewidth=1)
 
 ax.plot([1.1, 1.9], [np.mean(early_all_pooled_mean), np.mean(late_all_pooled_mean)],
-        color='grey', linewidth=2)
+        color='k', linewidth=2)
 ax.scatter(1.1, np.mean(early_all_pooled_mean), 
            s=30, c=early_colour, ec='none', alpha=.75, lw=.5, zorder=2)
 ax.scatter(1.9, np.mean(late_all_pooled_mean), 
            s=30, c=late_colour, ec='none', lw=.5, zorder=2)
 ymin = min(min(late_all_pooled_mean), min(early_all_pooled_mean))-.5
 ymax = max(max(late_all_pooled_mean), max(early_all_pooled_mean))+.5
-ax.set(xlim=(.5,2.5), ylim=(-.1,4.5),
-       ylabel='spike rate (Hz)',
+ax.set(xlim=(.5,2.5),
+       ylabel='population spike rate (Hz)',
        title='early v late\npopulation spike rate\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 10), round(ttest_p, 10)))
 ax.set_xticks([1, 2]); ax.set_xticklabels(['early\n1st-lick', 'late\n1st-lick'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
 
-vp['bodies'][0].set_color('darkred')
-vp['bodies'][1].set_color('darkred')
-for i in [0,1]:
-    vp['bodies'][i].set_edgecolor('k')
-    vp['bodies'][i].set_alpha(i*0.2+0.4)
-vp['cmeans'].set(color='darkred')
-    
-ax.scatter([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [early_all_pooled_mean, late_all_pooled_mean], zorder=2,
-           s=3, color='grey', edgecolor='none', alpha=1)
-ax.plot([[1]*len(early_all_pooled), [2]*len(early_all_pooled)], [early_all_pooled_mean, late_all_pooled_mean], lw=1, zorder=2,
-        color='grey', alpha=.5)
-
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-ax.spines['left'].set_linewidth(1)
-
-ax.set(xlim=(0.5, 2.5),
-       xticks=[1,2], xticklabels=['early', 'late'],
-       ylabel='log pop. spike rate (Hz)',
-       title='early v late lick trials\n wilcp={}'.format(round(pval, 6)))
-
 fig.tight_layout()
 plt.show()
 
-# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.png',
-#             bbox_inches='tight',
-#             dpi=500)
-# fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
-#             bbox_inches='tight')
-# fig.savefig(r'Z:/Dinghao/paper/figures/figure_2_early_v_late_pop_spike_rate.pdf',
-#             bbox_inches='tight')
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.png',
+            bbox_inches='tight',
+            dpi=500)
+fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate.pdf',
+            bbox_inches='tight')
+fig.savefig(r'Z:/Dinghao/paper/figures/figure_2_early_v_late_pop_spike_rate.pdf',
+            bbox_inches='tight')
 
 plt.close(fig)

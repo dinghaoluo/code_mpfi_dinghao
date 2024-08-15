@@ -39,6 +39,7 @@ def process_txt(txtfile):
     current_pulse_command = []
     
     trial_statements = []
+    reward_omissions = [] #Jingyu, 8/14/2024
     
     while line[0].find('$') == 0:
         if line[0] == '$TR' and len(speed_times)>0: # need to update motor_times here - but ignore motors before first trial started. 
@@ -67,6 +68,8 @@ def process_txt(txtfile):
             speed_times.append(wt_trial)
             pulse_times.append(pc_trial)
             pulse_command_list.append(current_pulse_command)
+            if len(line) == 5: # $NT line has reward omission label, Jingyu, 8/14/2024
+                reward_omissions.append(line[-1]) #Jingyu, 8/14/2024
             lt_trial = []
             mv_trial = []
             pt_trial = []
@@ -85,7 +88,7 @@ def process_txt(txtfile):
     curr_logfile['frame_times'] = frame_times
     curr_logfile['trial_statements'] = trial_statements
     curr_logfile['pulse_descriptions'] = pulse_command_list
-    
+    curr_logfile['reward_omissions'] = reward_omissions #Jingyu, 8/14/2024
     return curr_logfile
     
 

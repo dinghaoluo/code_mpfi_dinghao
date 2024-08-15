@@ -36,7 +36,7 @@ pathHPC = rec_list.pathHPCLCopt
 #%% main 
 # We only need the firing rate profiles from my Python pipeline (HPC all train)
 # and the classification results from the MATLAB preprocessing pipeline
-for pathname in pathHPC[:3]:
+for pathname in pathHPC[:2]:
     recname = pathname[-17:]
     print(recname)
     
@@ -114,7 +114,7 @@ for pathname in pathHPC[:3]:
     fig, ax = plt.subplots(figsize=(3,2))
     image_stim = ax.imshow(im_mat_stim, 
                            aspect='auto', cmap='Greys', interpolation='none',
-                           extent=(30, 180, 0, tot_pc))
+                            extent=(30, 180, 0, tot_pc))
     plt.colorbar(image_stim, shrink=.5)
     yticks = range(1, tot_pc+1, 5)
     ax.set(yticks=yticks,
