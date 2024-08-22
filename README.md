@@ -1,6 +1,8 @@
 # code_dinghao_mpfi
 my scripts at MPFI; unless otherwise specified, I am the author of all the scripts in this repo
 
+- **process_behaviour.py** processes behaviour files and stores the info in the text files into dataframes; WIP--store data from each path-list into separate dataframes
+
 ## caiman_code
 *not in use*\
 includes a working CaImAn analysis pipeline modified to work on Wang Lab data, mostly by [Nico Spiller](https://github.com/nspiller).

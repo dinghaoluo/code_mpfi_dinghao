@@ -196,7 +196,7 @@ def correct_overflow(data, label):
                 curr_trial = data[t]
                 curr_length = len(curr_trial)
                 for s in range(curr_length):
-                    if curr_trial[s][0]<of_constant:
+                    if curr_trial[s][0]-curr_time>=0: #Jingyu 8/18/24
                         new_trial.append(curr_trial[s])
                     else:
                         new_trial.append([curr_trial[s][0]+of_constant, curr_trial[s][1]])
