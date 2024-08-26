@@ -29,6 +29,8 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **all_acg.py** gets ACGs of all the cells throughout entire recording sessions and save them as an .npy file
 - **all_acg_baseline.py** is similar to the above script, but gets only ACGs throughout the baseline (pre-stim.) condition, since stimulation may change the ACGs of cells affected by stimulations
 - **HPC_all_1st_lick_ordered.py** 
+- **HPC_population_v_licks.py** correlates the proportion of activated/inhibited pyramidal cells at run-onsets with the delay to first-licks
+- **HPC_population_v_licks_poisson.py** correlates the spiking pattern deviation of the pyramidal population at run-onsets with the delay to first-licks
 - **HPCLC_all_rasters.py** and **HPCLCterm_all_rasters.py** read spiketime data from behaviour-aligned spiketime files and produce exactly one 1-0 raster array for every recording session
 - **HPCLC_all_train.py** and **HPCLCterm_all_train.py** read spiketime data similarly to ...rasters.py, but then convolve the spike train with a 100-ms-sigma Gaussian kernel and produce exactly one spike train array for every recording session
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing

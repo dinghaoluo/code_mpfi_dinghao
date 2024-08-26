@@ -264,9 +264,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             ax.imshow(curr_grid_map, aspect='auto', extent=[-bef,aft,1,tot_run], cmap='Greys')
         fig.suptitle('run_aligned')
         fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_run_aligned.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
+        if 'Dinghao' in rec_path:
+            fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\RO_aligned_grids_{}\{}_RO_aligned_grids_{}.png'.format(stride, recname, stride),
+                        dpi=120,
+                        bbox_inches='tight')
+        else:
+            fig.savefig('{}/grid_traces_{}_run_aligned.png'.format(extract_path, stride),
+                        dpi=120,
+                        bbox_inches='tight')
         plt.show()
         plt.close(fig)
         
@@ -283,9 +288,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             ax.imshow(curr_grid_map_ch2, aspect='auto', extent=[-bef,aft,1,tot_run], cmap='Greys')
         fig.suptitle('run_aligned_ch2')
         fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_run_aligned_ch2.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
+        if 'Dinghao' in rec_path:
+            fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\RO_aligned_grids_{}\{}_RO_aligned_grids_{}_ch2.png'.format(stride, recname, stride),
+                        dpi=120,
+                        bbox_inches='tight')
+        else:
+            fig.savefig('{}/grid_traces_{}_run_aligned_ch2.png'.format(extract_path, stride),
+                        dpi=120,
+                        bbox_inches='tight')
         plt.show()
         plt.close(fig)
         
@@ -316,9 +326,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
                              color='red', edgecolor='none', alpha=.1, zorder=1)
             ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
         fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_avg_run_aligned.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
+        if 'Dinghao' in rec_path:
+            fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_avgs\RO_aligned_grids_{}\{}_RO_aligned_grids_{}.png'.format(stride, recname, stride),
+                        dpi=120,
+                        bbox_inches='tight')
+        else:
+            fig.savefig('{}/grid_traces_{}_avg_run_aligned.png'.format(extract_path, stride),
+                        dpi=120,
+                        bbox_inches='tight')
         plt.show()
         plt.close(fig)
         
@@ -337,9 +352,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
                             color='limegreen', edgecolor='none', alpha=.2, zorder=10)
             ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
         fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_avg_run_aligned_ch1_only.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
+        if 'Dinghao' in rec_path:
+            fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_avgs\RO_aligned_grids_{}\{}_RO_aligned_grids_{}_ch1_only.png'.format(stride, recname, stride),
+                        dpi=120,
+                        bbox_inches='tight')
+        else:
+            fig.savefig('{}/grid_traces_{}_avg_run_aligned_ch1_only.png'.format(extract_path, stride),
+                        dpi=120,
+                        bbox_inches='tight')
         plt.show()
         plt.close(fig)
     
@@ -385,9 +405,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     
         fig.suptitle('reward_aligned')
         fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_rew_aligned.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
+        if 'Dinghao' in rec_path:
+            fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\rew_aligned_grids_{}\{}_rew_aligned_grids_{}.png'.format(stride, recname, stride),
+                        dpi=120,
+                        bbox_inches='tight')
+        else:
+            fig.savefig('{}/grid_traces_{}_rew_aligned.png'.format(extract_path, stride),
+                        dpi=120,
+                        bbox_inches='tight')
         plt.show()
         plt.close(fig)
             
@@ -405,9 +430,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     
         fig.suptitle('reward_aligned_ch2')
         fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_rew_aligned_ch2.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
+        if 'Dinghao' in rec_path:
+            fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\rew_aligned_grids_{}\{}_rew_aligned_grids_{}_ch2.png'.format(stride, recname, stride),
+                        dpi=120,
+                        bbox_inches='tight')
+        else:
+            fig.savefig('{}/grid_traces_{}_rew_aligned_ch2.png'.format(extract_path, stride),
+                        dpi=120,
+                        bbox_inches='tight')
         plt.show()
         plt.close(fig)
         
@@ -439,9 +469,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
         fig.suptitle('rew_aligned_ch2')
         fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_avg_rew_aligned.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
+        if 'Dinghao' in rec_path:
+            fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_avgs\rew_aligned_grids_{}\{}_rew_aligned_grids_{}.png'.format(stride, recname, stride),
+                        dpi=120,
+                        bbox_inches='tight')
+        else:
+            fig.savefig('{}/grid_traces_{}_avg_rew_aligned.png'.format(extract_path, stride),
+                        dpi=120,
+                        bbox_inches='tight')
         plt.show()
         plt.close(fig)
             
@@ -691,12 +726,12 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
                 ax.imshow(curr_roi_map, aspect='auto', extent=[-bef,aft,1,tot_run], cmap='Greys')
             # fig.suptitle('run_aligned')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_run_dFF_aligned.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\RO_aligned_roi\{}_RO_aligned_suite2p_roi.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:
-                fig.savefig('{}/suite2pROI_run_aligned.png'.format(extract_path),
+                fig.savefig('{}/suite2pROI_run_dFF_aligned.png'.format(extract_path),
                             dpi=120,
                             bbox_inches='tight')
             plt.show()
@@ -715,12 +750,12 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
                 ax.imshow(curr_roi_map_ch2, aspect='auto', extent=[-bef,aft,1,tot_run], cmap='Greys')
             # fig.suptitle('run_aligned')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_run_dFF_aligned_ch2.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\RO_aligned_roi\{}_RO_aligned_suite2p_roi_ch2.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:
-                fig.savefig('{}/suite2pROI_run_aligned_ch2.png'.format(extract_path),
+                fig.savefig('{}/suite2pROI_run_dFF_aligned_ch2.png'.format(extract_path),
                             dpi=120,
                             bbox_inches='tight')
             plt.show()
@@ -738,12 +773,12 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
                 ax.imshow(curr_roi_map_neu, aspect='auto', extent=[-bef,aft,1,tot_run], cmap='Greys')
             # fig.suptitle('run_aligned')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_run_dFF_aligned_neu.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\RO_aligned_roi\{}_RO_aligned_suite2p_roi_neu.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:
-                fig.savefig('{}/suite2pROI_run_aligned_neu.png'.format(extract_path),
+                fig.savefig('{}/suite2pROI_run_dFF_aligned_neu.png'.format(extract_path),
                             dpi=120,
                             bbox_inches='tight')
             plt.show()
@@ -785,8 +820,8 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
                 ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
             # fig.suptitle('run_aligned_ch2')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_avgdFF_run_aligned.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_avgs\RO_aligned_roi\{}_RO_aligned_suite2p_roi.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:
@@ -844,12 +879,12 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
         
             # fig.suptitle('reward_aligned')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_rew_dFF_aligned.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\rew_aligned_roi\{}_rew_aligned_suite2p_roi.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:
-                fig.savefig('{}/suite2pROI_rew_aligned.png'.format(extract_path),
+                fig.savefig('{}/suite2pROI_rew_dFF_aligned.png'.format(extract_path),
                             dpi=120,
                             bbox_inches='tight')
             plt.show()
@@ -869,12 +904,12 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
         
             # fig.suptitle('reward_aligned_ch2')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_rew_dFF_aligned_ch2.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\rew_aligned_roi\{}_rew_aligned_suite2p_roi_ch2.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:
-                fig.savefig('{}/suite2pROI_rew_aligned_ch2.png'.format(extract_path),
+                fig.savefig('{}/suite2pROI_rew_dFF_aligned_ch2.png'.format(extract_path),
                             dpi=120,
                             bbox_inches='tight')
             plt.show()
@@ -894,12 +929,12 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
         
             # fig.suptitle('reward_aligned_neu')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_rew_dFF_aligned_neu.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\rew_aligned_roi\{}_rew_aligned_suite2p_roi_neu.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:
-                fig.savefig('{}/suite2pROI_rew_aligned_neu.png'.format(extract_path),
+                fig.savefig('{}/suite2pROI_rew_dFF_aligned_neu.png'.format(extract_path),
                             dpi=120,
                             bbox_inches='tight')
             plt.show()
@@ -941,8 +976,8 @@ def run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
                 ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
             # fig.suptitle('run_aligned_ch2')
             fig.tight_layout()
-            if dFF:
-                fig.savefig('{}/suite2pROI_avgdFF_rew_aligned.png'.format(extract_path),
+            if 'Dinghao' in rec_path:
+                fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_avgs\rew_aligned_roi\{}_rew_aligned_suite2p_roi.png'.format(recname),
                             dpi=120,
                             bbox_inches='tight')
             else:

@@ -120,9 +120,9 @@ for path in pathGRABNE[-2:]:
     fig.tight_layout()
     plt.show(fig)
     
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_RO_aligned_grids\{}.png'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_RO_aligned_grids_31s\{}.png'.format(recname),
                 dpi=500, bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_RO_aligned_grids\{}.pdf'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_RO_aligned_grids_31\{}.pdf'.format(recname),
                 bbox_inches='tight')
     
     plt.close(fig)
@@ -143,9 +143,9 @@ for path in pathGRABNE[-2:]:
     fig.tight_layout()
     plt.show(fig)
     
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_rew_aligned_grids\{}.png'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_rew_aligned_grids_31\{}.png'.format(recname),
                 dpi=120, bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_rew_aligned_grids\{}.pdf'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_rew_aligned_grids_31\{}.pdf'.format(recname),
                 bbox_inches='tight')
     
 

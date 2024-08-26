@@ -104,7 +104,7 @@ print(printout)
 
 
 #%% run
-for rec_path in pathGRABNE[30:31]:
+for rec_path in pathGRABNE:
     if 'Dinghao' in rec_path:
         reg_path = rec_path+r'\processed\suite2p\plane0'
         recname = rec_path[-17:]

@@ -110,9 +110,9 @@ for path in pathGRABNE:  # start from the first good recording animal (A093i)
     fig.tight_layout()
     plt.show(fig)
     
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_RO_aligned_rois\{}.png'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_RO_aligned_rois\{}.png'.format(recname),
                 dpi=500, bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_RO_aligned_rois\{}.pdf'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_RO_aligned_rois\{}.pdf'.format(recname),
                 bbox_inches='tight')
     
     plt.close(fig)
@@ -133,9 +133,9 @@ for path in pathGRABNE:  # start from the first good recording animal (A093i)
     fig.tight_layout()
     plt.show(fig)
     
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_rew_aligned_rois\{}.png'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_rew_aligned_rois\{}.png'.format(recname),
                 dpi=120, bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps_rew_aligned_rois\{}.pdf'.format(recname),
+    fig.savefig('Z:\Dinghao\code_dinghao\GRABNE\single_session_heatmaps\sorted_heatmaps_rew_aligned_rois\{}.pdf'.format(recname),
                 bbox_inches='tight')
     
     

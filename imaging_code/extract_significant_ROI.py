@@ -54,11 +54,11 @@ profiles = {'sig_act_roi_run': [],
             'sig_act_roi_rew': []
             }
 
-df = pd.DataFrame(profiles)
+df = pd.DataFrame(profiles, dtype=object)
 
 
 #%% main 
-for rec_path in pathGRABNE:
+for rec_path in pathGRABNE[17:]:
     recname = rec_path[-17:]
     
     # if processed, skip
@@ -151,7 +151,11 @@ for rec_path in pathGRABNE:
             
     if plot_trace:
         n_row = int(tot_sig_roi_run/5)
-        n_col = int(np.ceil(tot_sig_roi_run/n_row))
+        if n_row==0:
+            n_col = tot_sig_roi_rew
+            n_row = 1
+        else:
+            n_col = int(np.ceil(tot_sig_roi_run/n_row))
         xaxis = (np.arange(5*30)-30)/30
         fig = plt.figure(1, figsize=(n_col*3, n_row*2.1))
         for p, r in enumerate(signif_act_roi_run):
@@ -174,8 +178,12 @@ for rec_path in pathGRABNE:
                     bbox_inches='tight')
         plt.close(fig)
         
-        n_row = int(tot_sig_roi_run/5)  # recalculate due to how rew and run aligned trial numbers do not match, Dinghao, 13 Aug
-        n_col = int(np.ceil(tot_sig_roi_run/n_row))
+        n_row = int(tot_sig_roi_rew/5)  # recalculate due to how rew and run aligned trial numbers do not match, Dinghao, 13 Aug
+        if n_row==0:
+            n_col = tot_sig_roi_rew
+            n_row = 1
+        else:
+            n_col = int(np.ceil(tot_sig_roi_rew/n_row))
         fig = plt.figure(1, figsize=(n_col*3, n_row*2.1))
         for p, r in enumerate(signif_act_roi_rew):
             ax = fig.add_subplot(n_row, n_col, p+1)
@@ -197,10 +205,8 @@ for rec_path in pathGRABNE:
                     bbox_inches='tight')
         plt.close(fig)
     
-    df.loc[recname] = np.array([signif_act_roi_run, 
-                                signif_act_roi_rew],
-                               dtype='object')
-
+    df.loc[recname] = np.array([signif_act_roi_run, signif_act_roi_rew], dtype='object')
+    
 
 #%% save dataframe 
 df.to_csv(r'Z:\Dinghao\code_dinghao\GRABNE\significant_activity_roi.csv')
