@@ -58,13 +58,13 @@ df = pd.DataFrame(profiles, dtype=object)
 
 
 #%% main 
-for rec_path in pathGRABNE[17:]:
+for rec_path in pathGRABNE:
     recname = rec_path[-17:]
     
     # if processed, skip
     if recname in processed_recs: 
-        print(recname+' already processed')
-        # pass
+        print(recname+' already processed; skipped')
+        continue
     else:
         print(recname)
     
@@ -205,7 +205,8 @@ for rec_path in pathGRABNE[17:]:
                     bbox_inches='tight')
         plt.close(fig)
     
-    df.loc[recname] = np.array([signif_act_roi_run, signif_act_roi_rew], dtype='object')
+    df.loc[recname] = pd.Series([signif_act_roi_run, signif_act_roi_rew],
+                                index=['sig_act_roi_run', 'sig_act_roi_rew'])
     
 
 #%% save dataframe 

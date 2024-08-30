@@ -26,7 +26,7 @@ import imaging_pipeline_functions as ipf
 
 if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao\common')
-from common import smooth_convolve
+from common import smooth_convolve, normalise
 
 if r'Z:\Dinghao\code_dinghao' not in sys.path:
     sys.path.append('Z:\Dinghao\code_dinghao')
@@ -56,22 +56,12 @@ for path in pathGRABNE:  # start from the first good recording animal (A093i)
     run_trace_means = []
     rew_trace_means = []
     for g in range(tot_roi):
-        curr_trace = roi_traces_dff[g,:] 
-        
-        # run-onset aligned
-        run_traces = []
-        rfs = behav['run_onset_frames']
-        for f in rfs:
-            if f!=-1 and f-30>=0 and f+4*30<=tot_frame:  # -1 means the run-onset is out of range for the frames
-                run_traces.append(smooth_convolve(curr_trace[f-30:f+4*30]))  # 5 seconds in total 
+        # run aligned
+        run_traces = aligned_run_dff[g,:,:] 
         run_trace_means.append(np.mean(run_traces, axis=0))
         
         # rew aligned
-        rew_traces = []
-        rewfs = behav['pump_frames']
-        for f in rewfs:
-            if f!=-1 and f-30>=0 and f+4*30<=tot_frame:  # -1 means the run-onset is out of range for the frames
-                rew_traces.append(smooth_convolve(curr_trace[f-30:f+4*30]))  # 5 seconds in total 
+        rew_traces = aligned_rew_dff[g,:,:] 
         rew_trace_means.append(np.mean(rew_traces, axis=0))
         
     run_curr_max_pt = {}  # argmax for all mean trace 

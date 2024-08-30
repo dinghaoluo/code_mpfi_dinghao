@@ -12,9 +12,22 @@ population deviation poisson
 import sys
 import scipy.io as sio 
 import numpy as np 
+import pandas as pd
 import matplotlib.pyplot as plt 
 from math import log 
-from scipy.stats import poisson, zscore
+from scipy.stats import poisson, zscore, sem, ttest_rel, wilcoxon
+
+if (r'Z:\Dinghao\code_mpfi_dinghao\iutils' in sys.path) == False:
+    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+import plotting_functions as pf
+
+
+#%% binning parameter
+tot_bins = 16
+
+
+#%% pre-post ratio dataframe 
+df = pd.read_pickle('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_pyr_only.pkl') 
 
 
 #%% run HPC-LC or HPC-LCterm
@@ -31,6 +44,11 @@ elif not HPC_LC:
 
 
 #%% main (single-trial act./inh. proportions)
+all_pyract_ctrl_pop_dev_z = {}
+all_pyract_stim_pop_dev_z = {}
+all_pyract_ctrl_prof = []
+all_pyract_stim_prof = []
+
 for pathname in pathHPC:
     recname = pathname[-17:]
     print(recname)
@@ -43,51 +61,135 @@ for pathname in pathHPC:
     rec_info = info['rec'][0][0]
     spike_rate = rec_info['firingRate'][0]
     intern_id = rec_info['isIntern'][0]
-    pyr_id = [not(clu) for clu in intern_id]
+    pyr_id = [i for i, intern in enumerate(intern_id) if not intern]
     tot_pyr = sum(pyr_id)
+    
+    # classify act./inh. neurones 
+    pyr_act_ctrl = []; pyr_inh_ctrl = []
+    pyr_act_stim = []; pyr_inh_stim = []
+    for cluname, row in df.iterrows():
+        if cluname.split(' ')[0]==recname:
+            clu_ID = int(cluname.split(' ')[1][3:])
+            if row['ctrl_pre_post']>=1.25:
+                pyr_inh_ctrl.append(clu_ID-2)
+            if row['ctrl_pre_post']<=.8:
+                pyr_act_ctrl.append(clu_ID-2)  # HPCLC_all_train.py adds 2 to the ID, so we subtracts 2 here 
+            if row['stim_pre_post']>=1.25:
+                pyr_inh_stim.append(clu_ID-2)
+            if row['stim_pre_post']<=.8:
+                pyr_act_stim.append(clu_ID-2) 
     
     # behaviour parameters
     info = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(pathname, recname))
     beh_info = info['beh'][0][0]
     behPar = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(pathname, recname))
     stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-    stim_trials = np.where(stimOn!=0)[0]+1
+    stim_trials = np.where(stimOn!=0)[0]-1
     ctrl_trials = stim_trials+2
     tot_trial = len(stimOn)
 
     # for each trial we quantify deviation from Poisson
-    fig, ax = plt.subplots(figsize=(3,2.5)); xaxis = np.arange(-3,5)
-    pop_deviation_ctrl = []; pop_deviation_stim = []
+    fig, ax = plt.subplots(figsize=(3,2.5)); xaxis = np.linspace(-3,5,tot_bins+1)[:-1]
+    pop_dev_ctrl = []; pop_dev_stim = []
     for trial in ctrl_trials:
-        single_deviation = np.zeros((tot_pyr, 8))
+        single_dev = np.zeros((len(pyr_act_ctrl), tot_bins))
         cell_counter = 0
-        for i, if_pyr in enumerate(pyr_id):
-            if if_pyr:
-                curr_raster = rasters[i][trial]
-                for t in range(8):  # 3 seconds before, 5 seconds after 
-                    curr_bin = sum(curr_raster[t*1250:(t+1)*1250])
-                    single_deviation[cell_counter, t] = -log(poisson.pmf(curr_bin, spike_rate[i]))
-                cell_counter+=1
-        pop_deviation_ctrl.append(np.sum(single_deviation, axis=0))
-        ax.plot(xaxis, np.sum(single_deviation, axis=0), lw=1, alpha=.1, c='grey')
+        for pyr in pyr_act_ctrl:
+            curr_raster = rasters[pyr][trial]
+            for tbin, t in enumerate(np.linspace(0,8,tot_bins+1)[:-1]):  # 3 seconds before, 5 seconds after 
+                curr_bin = sum(curr_raster[int(t*1250):int((t+1)*1250)])
+                single_dev[cell_counter, tbin] = -log(poisson.pmf(curr_bin, spike_rate[pyr]))
+            cell_counter+=1
+        pop_dev_ctrl.append(np.mean(single_dev, axis=0))
+        # ax.plot(xaxis, np.sum(single_dev, axis=0), lw=1, alpha=.1, c='grey')
     for trial in stim_trials:
-        single_deviation = np.zeros((tot_pyr, 8))
+        single_dev = np.zeros((len(pyr_act_stim), tot_bins))
         cell_counter = 0
-        for i, if_pyr in enumerate(pyr_id):
-            if if_pyr:
-                curr_raster = rasters[i][trial]
-                for t in range(8):  # 3 seconds before, 5 seconds after 
-                    curr_bin = sum(curr_raster[t*1250:(t+1)*1250])
-                    single_deviation[cell_counter, t] = -log(poisson.pmf(curr_bin, spike_rate[i]))
-                cell_counter+=1
-        pop_deviation_stim.append(np.sum(single_deviation, axis=0))
-        ax.plot(xaxis, np.sum(single_deviation, axis=0), lw=1, alpha=.1, c='steelblue')
-    pop_deviation_ctrl = np.asarray(pop_deviation_ctrl)
-    pop_deviation_stim = np.asarray(pop_deviation_stim)
-    ax.plot(xaxis, np.mean(pop_deviation_ctrl, axis=0), lw=2, c='k')
-    ax.plot(xaxis, np.mean(pop_deviation_stim, axis=0), lw=2, c='royalblue')
+        for pyr in pyr_act_stim:
+            curr_raster = rasters[pyr][trial]
+            for tbin, t in enumerate(np.linspace(0,8,tot_bins+1)[:-1]):  # 3 seconds before, 5 seconds after 
+                curr_bin = sum(curr_raster[int(t*1250):int((t+1)*1250)])
+                single_dev[cell_counter, tbin] = -log(poisson.pmf(curr_bin, spike_rate[pyr]))
+            cell_counter+=1
+        pop_dev_stim.append(np.mean(single_dev, axis=0))
+        # ax.plot(xaxis, np.sum(single_dev, axis=0), lw=1, alpha=.1, c='steelblue')
+        
+    pop_dev_ctrl = np.asarray(pop_dev_ctrl)
+    pop_dev_stim = np.asarray(pop_dev_stim)
+    mean_pop_dev_ctrl = np.mean(pop_dev_ctrl, axis=0)
+    sem_pop_dev_ctrl = sem(pop_dev_ctrl, axis=0)
+    mean_pop_dev_stim = np.mean(pop_dev_stim, axis=0)
+    sem_pop_dev_stim = sem(pop_dev_stim, axis=0)
+    
+    scale_min_ctrl, scale_max_ctrl = pf.scale_min_max(mean_pop_dev_ctrl, sem_pop_dev_ctrl)
+    scale_min_stim, scale_max_stim = pf.scale_min_max(mean_pop_dev_stim, sem_pop_dev_stim)
+    
+    ax.plot(xaxis, mean_pop_dev_ctrl, lw=2, c='grey')
+    ax.fill_between(xaxis, mean_pop_dev_ctrl+sem_pop_dev_ctrl,
+                           mean_pop_dev_ctrl-sem_pop_dev_ctrl,
+                    color='grey', edgecolor='none', alpha=.1)
+    ax.plot(xaxis, mean_pop_dev_stim, lw=2, c='royalblue')
+    ax.fill_between(xaxis, mean_pop_dev_stim+sem_pop_dev_stim,
+                           mean_pop_dev_stim-sem_pop_dev_stim,
+                    color='royalblue', edgecolor='none', alpha=.1)
+    
     ax.set(title=recname,
            xlabel='time (s)',
-           ylabel='pop. deviation')
+           ylabel='pop. deviation', ylim=(min(scale_min_stim, scale_min_ctrl), max(scale_max_stim, scale_max_ctrl)))
     for s in ['top','right']: ax.spines[s].set_visible(False)
     fig.tight_layout()
+    
+    fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\pyract_only_ctrl_v_stim\{}'.format(recname))
+    
+    plt.close(fig)
+    
+    
+    
+    pop_dev_stack_z = zscore(np.vstack((pop_dev_ctrl, pop_dev_stim)))  # zscore the 2 profiles together
+    pop_dev_ctrl_z = pop_dev_stack_z[:len(ctrl_trials)]
+    pop_dev_stim_z = pop_dev_stack_z[len(ctrl_trials):]
+    all_pyract_ctrl_pop_dev_z[recname] = np.sum(pop_dev_ctrl_z[:, 6:10], axis=1)
+    all_pyract_stim_pop_dev_z[recname] = np.sum(pop_dev_stim_z[:, 6:10], axis=1)
+    
+    pf.plot_violin_with_scatter(np.sum(pop_dev_ctrl_z[:, 6:10], axis=1), 
+                                np.sum(pop_dev_stim_z[:, 6:10], axis=1), 
+                                'grey', 'royalblue',
+                                xticklabels=['ctrl', 'stim'], 
+                                ylabel='pop. dev. (std.)',
+                                title=recname,
+                                save=True, 
+                                savepath=r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\pyract_only_ctrl_v_stim\{}_ctrl_stim.png'.format(recname))
+
+
+#%% filtering out sessions without apparent peaks in deviation 
+sess_filter = ['A069r-20230905-02',
+               'A069r-20230908-02',
+               'A069r-20230909-01',
+               'A069r-20230912-01',
+               'A069r-20230915-02',
+               'A071r-20230921-02',
+               'A071r-20230923-01']
+
+
+for key in sess_filter:
+    del all_pyract_ctrl_pop_dev_z[key]
+    del all_pyract_stim_pop_dev_z[key]
+
+
+#%% statistics 
+recs = list(all_pyract_ctrl_pop_dev_z.keys())
+
+slopes = []
+all_ctrl_devs = []
+all_stim_devs = []
+all_ctrl_devs_avg = []
+all_stim_devs_avg = []
+for key in recs:
+    all_ctrl_devs.extend(all_pyract_ctrl_pop_dev_z[key][:30])
+    all_stim_devs.extend(all_pyract_stim_pop_dev_z[key][:30])
+    # all_ctrl_devs.append(np.mean(all_pyract_ctrl_pop_dev_z[key]))
+    # all_stim_devs.append(np.mean(all_pyract_stim_pop_dev_z[key]))
+
+pf.plot_violin_with_scatter(all_ctrl_devs, all_stim_devs, 'grey', 'royalblue',
+                            xticklabels=['ctrl', 'stim'], ylabel='pop. dev. (std.)',
+                            save=True, savepath=r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\pyract_only_ctrl_v_stim\summary.png')

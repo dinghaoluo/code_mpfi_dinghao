@@ -62,8 +62,8 @@ if roi_switch=='1':
     
 if roi_switch=='2':
     # how many pixels x/y for each grid
-    stride = int(496/2/2/2/2)
-    # stride = 496
+    # stride = int(496/2/2/2/2)
+    stride = 496
     border = 8  # ignore how many pixels at the border (1 side)
     # border = 6
     fit = ipf.check_stride_border(stride, border)
