@@ -130,7 +130,7 @@ for pathname in pathHPC:
     plt.colorbar(image_all, shrink=.5)
     # fig.suptitle('HPC_LC')
     fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_profiles\RO_act_inh\{}_all.png'.format(recname),
-                dpi=150, bbox_inches='tight')
+                dpi=300, bbox_inches='tight')
         
     
     fig, ax = plt.subplots(figsize=(2.5,2.2))
@@ -141,4 +141,4 @@ for pathname in pathHPC:
     plt.colorbar(image_baseline, shrink=.5)
     # fig.suptitle('HPC_LC')
     fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_profiles\RO_act_inh\{}_baseline.png'.format(recname),
-                dpi=150, bbox_inches='tight')
+                dpi=300, bbox_inches='tight')

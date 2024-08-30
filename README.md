@@ -36,6 +36,7 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing
 - **HPCLC_place_cell_profiles.py** summarises the place cell indices and number of place cells for each recording session
 - **HPCLC_pyract_profiles.py** plots both the single-cell spike rate profile and the Poisson deviation profile for each run-onset activated pyramidal cell
+- **HPCLC_sess_pyr_profiles.py** plots population profiles, ordered by argmax, for each session
 - **HPC_session_PCA_traj.py** performs PCA on averaged all trials, averaged stim or control trials, and calculate and plot the distances between points on the trajectories
 ### behaviour
 ### figure_code

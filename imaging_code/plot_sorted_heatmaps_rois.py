@@ -58,11 +58,11 @@ for path in pathGRABNE:  # start from the first good recording animal (A093i)
     for g in range(tot_roi):
         # run aligned
         run_traces = aligned_run_dff[g,:,:] 
-        run_trace_means.append(np.mean(run_traces, axis=0))
+        run_trace_means.append(normalise(np.mean(run_traces, axis=0)))
         
         # rew aligned
         rew_traces = aligned_rew_dff[g,:,:] 
-        rew_trace_means.append(np.mean(rew_traces, axis=0))
+        rew_trace_means.append(normalise(np.mean(rew_traces, axis=0)))
         
     run_curr_max_pt = {}  # argmax for all mean trace 
     for g in range(tot_roi):

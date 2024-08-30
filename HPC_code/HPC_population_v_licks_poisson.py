@@ -127,7 +127,7 @@ for pathname in pathHPC:
         for s in ['top','right']: axs[i].spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\all\{}_single_trial.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close(fig)
     
     pop_dev = np.asarray(pop_dev)
@@ -166,7 +166,7 @@ for pathname in pathHPC:
     for s in ['top','right']: axs[1].spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\all\{}.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close(fig)
     
     # behaviour
@@ -225,7 +225,7 @@ for pathname in pathHPC:
     for s in ['top','right']: ax.spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\all\{}_v_1st_licks.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close()
 
     results = linregress(np.sum(pop_dev_baseline_z[:, 6:10],axis=1), first_licks_baseline)
@@ -244,7 +244,7 @@ for pathname in pathHPC:
     for s in ['top','right']: ax.spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\all\{}_v_1st_licks_baseline.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close()
     
     
@@ -317,7 +317,7 @@ for pathname in pathHPC:
     for s in ['top','right']: axs[1].spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\pyract_only\{}.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close(fig)
     
     # filtering 
@@ -348,7 +348,7 @@ for pathname in pathHPC:
     for s in ['top','right']: ax.spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\pyract_only\{}_v_1st_licks.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close()
 
 
@@ -368,7 +368,7 @@ for pathname in pathHPC:
     for s in ['top','right']: ax.spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\pyract_only\{}_v_1st_licks_baseline.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close()
     
     
