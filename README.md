@@ -35,7 +35,7 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **HPCLC_all_train.py** and **HPCLCterm_all_train.py** read spiketime data similarly to ...rasters.py, but then convolve the spike train with a 100-ms-sigma Gaussian kernel and produce exactly one spike train array for every recording session
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing
 - **HPCLC_place_cell_profiles.py** summarises the place cell indices and number of place cells for each recording session
-- **HPCLC_pyract_profiles.py** plots both the single-cell spike rate profile and the Poisson deviation profile for each run-onset activated pyramidal cell
+- **HPCLC_pyract_single_cell_profiles.py** plots both the single-cell spike rate profile and the Poisson deviation profile for each run-onset activated pyramidal cell
 - **HPCLC_sess_pyr_profiles.py** plots population profiles, ordered by argmax, for each session
 - **HPC_session_PCA_traj.py** performs PCA on averaged all trials, averaged stim or control trials, and calculate and plot the distances between points on the trajectories
 ### behaviour
@@ -43,18 +43,19 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 ### sequence 
 - **HPC_LC_plot_sequence.py** and **HPC_LCterm_plot_sequence.py** plot temporal cell sequences for single sessions
 - **HPC_LC_plot_sequence_dist.py** and **HPC_LCterm_plot_sequence_dist.py** plot distance cell sequences for single sessions
-### stim_stimcont
-- **all_HPCLC_HPCLCterm_stim_stimcont_int_only_sig.py** summarises the percentages of interneurones that are up-/down-regulated by LC stimulation (both somatic and terminal)
-- **all_HPCLC_HPCLCterm_stim_stimcont_pyr_only_sig.py** is similar to above but for pyramidal cells
-- **all_mod_depth_comp.py** compares the depth profiles of modulated cells
-- **HPCLC_all_stim_stimcont_int_only.py** compares the spike rate profiles between stim and ctrl for LC-somatic stimulation for interneurones only
-- **HPCLC_all_stim_stimcont_py_only.py** is similar to above but for pyr cells
-- **HPCLC_all_stim_stimcont_pyr_only_ordered.py** plots all cells ordered based on argmax of average spike rate in ctrl trials for LC-somatic stimulation, for pyr cells only
-- **HPCLC_all_stim_stimcont_pyr_only_PCA.py** analyses with PCA the trajectories of stim and ctrl trials (for LC-somatic stimulation) for pyramidal cells only
-- **HPCLC_all_stim_stimcont_pyr_only_rasters.py** plots the rasters for LC-somatic stimulation of stim and ctrl trials for pyramidal cells only
-- **HPCLC_all_stim_stimcont_pyr_only_rasters_blowup.py** is simlar to above but blown up to 0-2 seconds after run-onset
-- **HPCLC_all_stim_stimcont_pyr_only_sig_MI.py** main function, based on modulation index looks at all sorts of variables for pyramidal cells only in stim and ctrl trials for LC-somatic stimulation 
-- **HPCLC_all_stim_stimcont_pyr_only_spatial_info.py** looks at spatial information for pyramidal cells only in ctrl and stim trials for LC-somatic stimulation
+### stim_ctrl
+- **all_HPCLC_HPCLCterm_stim_ctrl_int_only_sig.py** summarises the percentages of interneurones that are up-/down-regulated by LC stimulation (both somatic and terminal)
+- **all_HPCLC_HPCLCterm_stim_ctrl_pyr_only_sig.py** is similar to above but for pyramidal cells
+- **all_HPCLC_HPCLCterm_stim_ctrl_mod_depth_comp.py** compares the depth profiles of modulated cells
+- **HPCLC_all_stim_ctrl_population_deviation_poisson.py** compares the population deviation profile between stim and ctrl trials
+- **HPCLC_all_stim_ctrl_int_only.py** compares the spike rate profiles between stim and ctrl for LC-somatic stimulation for interneurones only
+- **HPCLC_all_stim_ctrl_py_only.py** is similar to above but for pyr cells
+- **HPCLC_all_stim_ctrl_pyr_only_ordered.py** plots all cells ordered based on argmax of average spike rate in ctrl trials for LC-somatic stimulation, for pyr cells only
+- **HPCLC_all_stim_ctrl_pyr_only_PCA.py** analyses with PCA the trajectories of stim and ctrl trials (for LC-somatic stimulation) for pyramidal cells only
+- **HPCLC_all_stim_ctrl_pyr_only_rasters.py** plots the rasters for LC-somatic stimulation of stim and ctrl trials for pyramidal cells only
+- **HPCLC_all_stim_ctrl_pyr_only_rasters_blowup.py** is simlar to above but blown up to 0-2 seconds after run-onset
+- **HPCLC_all_stim_ctrl_pyr_only_sig_MI.py** main function, based on modulation index looks at all sorts of variables for pyramidal cells only in stim and ctrl trials for LC-somatic stimulation 
+- **HPCLC_all_stim_ctrl_pyr_only_spatial_info.py** looks at spatial information for pyramidal cells only in ctrl and stim trials for LC-somatic stimulation
 ### 
 
 ## LC_code 

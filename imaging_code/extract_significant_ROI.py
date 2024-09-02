@@ -64,7 +64,7 @@ for rec_path in pathGRABNE:
     # if processed, skip
     if recname in processed_recs: 
         print(recname+' already processed; skipped')
-        continue
+        # continue
     else:
         print(recname)
     
@@ -173,7 +173,7 @@ for rec_path in pathGRABNE:
             ax.axvspan(0, 0, color='burlywood', alpha=.5, linestyle='dashed', linewidth=1)
         fig.suptitle('run_aligned_sig_act_only')
         fig.tight_layout()
-        fig.savefig('{}/suite2pROI_avgdFF_run_aligned_sig_roi_only.png'.format(ext_path),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_avgs\RO_aligned_roi_sig_only/{}.png'.format(recname),
                     dpi=120,
                     bbox_inches='tight')
         plt.close(fig)
@@ -200,7 +200,7 @@ for rec_path in pathGRABNE:
             ax.axvspan(0, 0, color='burlywood', alpha=.5, linestyle='dashed', linewidth=1)
         fig.suptitle('rew_aligned_sig_act_only')
         fig.tight_layout()
-        fig.savefig('{}/suite2pROI_avgdFF_rew_aligned_sig_roi_only.png'.format(ext_path),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\GRABNE\single_session_avgs\rew_aligned_roi_sig_only/{}.png'.format(recname),
                     dpi=120,
                     bbox_inches='tight')
         plt.close(fig)

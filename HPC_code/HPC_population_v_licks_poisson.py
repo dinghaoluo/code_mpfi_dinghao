@@ -278,7 +278,7 @@ for pathname in pathHPC:
         for s in ['top','right']: axs[i].spines[s].set_visible(False)
     fig.tight_layout()
     plt.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_deviation\pyract_only\{}_single_trial.png'.format(recname),
-                dpi=120)
+                dpi=300)
     plt.close(fig)
     
     pyract_pop_dev = np.asarray(pyract_pop_dev)
