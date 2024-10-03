@@ -90,6 +90,7 @@ for cluname in clu_list[334:335]:
     behPar = sio.loadmat(behParf)
     stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
     stimOn_ind = np.where(stimOn!=0)[0]+1
+    bad_beh_ind = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
     
     first_licks = []
     for trial in range(tot_trial):
@@ -107,7 +108,7 @@ for cluname in clu_list[334:335]:
         tot_trial = len(temp_ordered)  # reset tot_trial if noStim
 
     # plotting
-    fig, axs = plt.subplot_mosaic('AAAABBCC',figsize=(7.1,3))
+    fig, axs = plt.subplot_mosaic('AAAABBCC',figsize=(6.4,2.2))
     axs['A'].set(xlabel='time (s)', ylabel='trial # by first licks',
                  xlim=(-1, 7))
     for p in ['top', 'right']:
@@ -116,8 +117,11 @@ for cluname in clu_list[334:335]:
     pre_rate = []; post_rate = []
     pre_rate_shuf = []; post_rate_shuf = []
     ratio = []; ratio_shuf = []
-    # rge = np.arange(5, tot_trial-40)-4
-    for trial in range(tot_trial-20):
+
+    line_counter = 0  # for counting scatter plot lines 
+    for trial in range(tot_trial):
+        if temp_ordered[trial] in bad_beh_ind:
+            continue
         curr_raster = raster[temp_ordered[trial]]
         curr_train = train[temp_ordered[trial]]
         window = [licks_ordered[trial]+3750-625, licks_ordered[trial]+3750, licks_ordered[trial]+3750+625]
@@ -139,25 +143,27 @@ for cluname in clu_list[334:335]:
         
         c = 'grey'
         calpha = 0.7
-        dotsize = 0.35
+        dotsize = 1
         if (noStim=='N' or noStim=='n') and stimOn[temp_ordered[trial]]==1:
             c = 'royalblue'
             calpha = 1.0
-            dotsize = 0.55
+            dotsize = 2
         
-        axs['A'].scatter(curr_trial, [trial+1]*len(curr_trial),
+        axs['A'].scatter(curr_trial, [line_counter+1]*len(curr_trial),
                          color=c, alpha=calpha, s=dotsize)
         axs['A'].plot([licks_ordered[trial]/1250, licks_ordered[trial]/1250],
-                      [trial, trial+1],
+                      [line_counter, line_counter+1],
                       linewidth=2, color='orchid')
         # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
         #               [trial, trial+1],
         #               linewidth=2, color='darkgreen')
+        
+        line_counter+=1
      
     fl, = axs['A'].plot([],[],color='orchid',label='1st licks')
     # pp, = axs['A'].plot([],[],color='darkgreen',alpha=.35,label='rew.')
     # axs['A'].legend(handles=[fl, pp], frameon=False, fontsize=8)
-    axs['A'].set(yticks=[1, 50, 100, 150], xticks=[0, 2, 4],
+    axs['A'].set(yticks=[1, 50, 100], xticks=[0, 2, 4],
                  xlim=(-1, 6))
     
     # t-test and pre-post comp.
@@ -228,7 +234,8 @@ for cluname in clu_list[334:335]:
         median.set(color='darkred',
                    linewidth=1)
     
-    fig.tight_layout()
+    plt.subplots_adjust(right=0.8)
+    plt.grid(False)
     plt.show()
     
     if noStim=='Y' or noStim=='y':
@@ -291,7 +298,7 @@ for p in ['top','right','left','bottom']:
     ax.spines[p].set_visible(False)
 ax.set(yticks=[]); ax.set(xticks=[])
 
-# ax.hist(density_ind, bins=24, edgecolor='k', color='royalblue', linewidth=3)
+ax.hist(density_ind, bins=24, edgecolor='k', color='royalblue', linewidth=3)
 
 sns.set_style('whitegrid')
 sns.kdeplot(density_ind, bw=0.5)

@@ -35,6 +35,10 @@ plt.rcParams['font.family'] = 'Arial'
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
+if (r'Z:\Dinghao\code_mpfi_dinghao\iutils' in sys.path) == False:
+    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+import plotting_functions as pf
+
 
 #%% MAIN 
 all_licks_non_stim = []; all_licks_stim = []
@@ -137,64 +141,7 @@ for sessname in sess_list:
   
     
 #%% summary statistics 
-wilc_p = wilcoxon(all_licks_non_stim, all_licks_stim)[1]
-ttest_p = ttest_rel(all_licks_non_stim, all_licks_stim)[1]
-
-# licks summary
-fig, ax = plt.subplots(figsize=(2,3))
-
-vp = ax.violinplot([all_licks_non_stim, all_licks_stim],
-                   positions=[1, 2],
-                   showextrema=False)
-
-vp['bodies'][0].set_color('grey')
-vp['bodies'][1].set_color('royalblue')
-for i in [0,1]:
-    vp['bodies'][i].set_edgecolor('none')
-    vp['bodies'][i].set_alpha(.75)
-    b = vp['bodies'][i]
-    # get the centre 
-    m = np.mean(b.get_paths()[0].vertices[:,0])
-    # make paths not go further right/left than the centre 
-    if i==0:
-        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
-    if i==1:
-        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
-
-ax.scatter([1.1]*len(all_licks_non_stim), 
-           all_licks_non_stim, 
-           s=10, c='grey', ec='none', lw=.5, alpha=.2)
-ax.scatter([1.9]*len(all_licks_stim), 
-           all_licks_stim, 
-           s=10, c='royalblue', ec='none', lw=.5, alpha=.2)
-ax.plot([[1.1]*len(all_licks_stim), [1.9]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
-        color='grey', alpha=.2, linewidth=1)
-
-ax.plot([1.1, 1.9], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
-        color='grey', linewidth=2)
-ax.scatter(1.1, np.median(all_licks_non_stim), 
-           s=30, c='grey', ec='none', lw=.5, zorder=2)
-ax.scatter(1.9, np.median(all_licks_stim), 
-           s=30, c='royalblue', ec='none', lw=.5, zorder=2)
-ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.5
-ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.5
-ax.set(xlim=(.5,2.5), ylim=(115,185),
-       yticks=[120, 150, 180],
-       ylabel='dist. 1st licks (cm)',
-       title='dist. 1st licks ctrl v stim\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 5), round(ttest_p, 5)))
-ax.set_xticks([1, 2]); ax.set_xticklabels(['ctrl.', 'stim.'])
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-
-if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary.png',
-                dpi=500,
-                bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary.pdf',
-                bbox_inches='tight')
-elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary.png',
-                dpi=500,
-                bbox_inches='tight')
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020_stim_cont\summary.pdf',
-                bbox_inches='tight')
+pf.plot_violin_with_scatter(all_licks_non_stim, all_licks_stim, 'grey', 'royalblue', 
+                            paired=True,
+                            xticklabels=['ctrl.', 'stim.'], ylabel='distance 1st-licks (cm)',
+                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary', dpi=300)

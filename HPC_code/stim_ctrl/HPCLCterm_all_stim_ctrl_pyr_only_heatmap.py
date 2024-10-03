@@ -29,7 +29,7 @@ import plotting_functions as pf
 if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
     sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
-pathHPC = rec_list.pathHPCLCopt
+pathHPC = rec_list.pathHPCLCtermopt
 
 
 #%% main 
@@ -91,7 +91,7 @@ for pathname in pathHPC:
         fig.tight_layout()
         plt.show()
         
-        fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\single_place_cell_heatmaps\HPCLC\{}_clu{}.png'.format(recname, pc),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\single_place_cell_heatmaps\HPCLCterm\{}_clu{}.png'.format(recname, pc),
                     dpi=300,
                     bbox_inches='tight')
         

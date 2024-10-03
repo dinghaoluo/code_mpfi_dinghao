@@ -184,11 +184,11 @@ for pathname in pathHPC:
             contln, = axs['A'].plot(xaxis, mean_prof_cont[1250:], color='grey')
             axs['A'].fill_between(xaxis, mean_prof_cont[1250:]+sem_prof_cont[1250:],
                                          mean_prof_cont[1250:]-sem_prof_cont[1250:],
-                                  alpha=.25, color='grey')
+                                  alpha=.25, color='grey', edgecolor='none')
             stimln, = axs['A'].plot(xaxis, mean_prof_stim[1250:], color='royalblue')
             axs['A'].fill_between(xaxis, mean_prof_stim[1250:]+sem_prof_stim[1250:],
                                          mean_prof_stim[1250:]-sem_prof_stim[1250:],
-                                  alpha=.25, color='royalblue')
+                                  alpha=.25, color='royalblue', edgecolor='none')
             
             axs['A'].legend([contln, stimln], ['ctrl', 'stim'], 
                             frameon=False, fontsize=8)
@@ -212,7 +212,7 @@ for pathname in pathHPC:
                 p_curr = ttest_rel(a=cont_rate[:,i], b=stim_rate[:,i])[1]
                 if p_curr<0.05:
                     sig_bins.append(i/1250)
-            axs['A'].scatter(sig_bins, [bar_y]*len(sig_bins), s=3, c='r')
+            # axs['A'].scatter(sig_bins, [bar_y]*len(sig_bins), s=3, c='r')
             
             cont_rate_mean = np.mean(temp_cont[:, 3125:4375], axis=1)*1250  # 0.5-1.5 s mean 
             stim_rate_mean = np.mean(temp_stim[:, 3125:4375], axis=1)*1250

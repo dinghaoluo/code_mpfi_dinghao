@@ -47,9 +47,9 @@ for path in pathGRABNE:  # start from the first good recording animal (A093i)
     print(recname)
     
     aligned_run_dff = np.load(r'{}_roi_extract/suite2pROI_run_dFF_aligned.npy'.format(path),
-                         allow_pickle=True)
+                              allow_pickle=True)
     aligned_rew_dff = np.load(r'{}_roi_extract/suite2pROI_rew_dFF_aligned.npy'.format(path),
-                         allow_pickle=True)
+                              allow_pickle=True)
     tot_roi, tot_trial, tot_frame = aligned_run_dff.shape
         
     # calculate mean trace for each grid 
@@ -57,11 +57,15 @@ for path in pathGRABNE:  # start from the first good recording animal (A093i)
     rew_trace_means = []
     for g in range(tot_roi):
         # run aligned
-        run_traces = aligned_run_dff[g,:,:] 
+        run_traces = np.zeros(aligned_run_dff.shape[1:])
+        for trial in range(aligned_run_dff.shape[1]):
+            run_traces[trial, :] = smooth_convolve(aligned_run_dff[g, trial, :])
         run_trace_means.append(normalise(np.mean(run_traces, axis=0)))
         
         # rew aligned
-        rew_traces = aligned_rew_dff[g,:,:] 
+        rew_traces = np.zeros(aligned_rew_dff.shape[1:])
+        for trial in range(aligned_rew_dff.shape[1]):
+            rew_traces[trial, :] = smooth_convolve(aligned_rew_dff[g, trial, :])
         rew_trace_means.append(normalise(np.mean(rew_traces, axis=0)))
         
     run_curr_max_pt = {}  # argmax for all mean trace 

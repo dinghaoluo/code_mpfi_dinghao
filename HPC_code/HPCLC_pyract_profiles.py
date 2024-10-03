@@ -12,8 +12,7 @@ Run-onset activated cell single cell profile
 import pandas as pd  
 import numpy as np 
 import scipy.io as sio 
-from math import log 
-from scipy.stats import sem, poisson
+from scipy.stats import sem
 import matplotlib.pyplot as plt 
 import sys
 
@@ -56,9 +55,6 @@ for pathname in pathHPC:
                           allow_pickle=True).item().values())
     tot_trial = len(trains[0])
     
-    rasters = list(np.load('Z:\Dinghao\code_dinghao\HPC_all\HPC_all_rasters_npy_simp\{}.npy'.format(recname), 
-                           allow_pickle=True).item().values())
-    
     # determine if each cell is pyramidal or intern 
     info = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(pathname, recname))
     rec_info = info['rec'][0][0]
@@ -92,68 +88,22 @@ for pathname in pathHPC:
         mean_sr = spike_rate[pyr]
         
         fig, ax = plt.subplots(figsize=(2,1.9)); xaxis=np.arange(1250*8)/1250-3
-        lnprof, = ax.plot(xaxis, mean_prof, c='royalblue', lw=1)
+        ax.plot(xaxis, mean_prof, c='royalblue', lw=1)
         ax.fill_between(xaxis, mean_prof+sem_prof,
                                mean_prof-sem_prof,
                         alpha=.1, edgecolor='none', color='royalblue')
-        ax.axhline(y=mean_sr, color='grey', alpha=.5, label='mean', linestyle='dashed')
+        ax.axhline(y=mean_sr, color='grey', alpha=.5, linestyle='dashed', label='mean')
         ax.legend(fontsize=8, frameon=False, loc='upper right')
+        
         scale_min, scale_max = pf.scale_min_max(mean_prof[2500:8750], sem_prof[2500:8750])
         ax.set(xlabel='time (s)', xlim=(-1,4), xticks=[0,2,4],
                ylabel='spike rate (Hz)', ylim=(scale_min, scale_max), 
                title='{} clu{}'.format(recname, pyr))
         for s in ['top', 'right']: ax.spines[s].set_visible(False)
+        
         fig.tight_layout()
         plt.show(fig)
-        fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_pyract_profiles\{}_clu{}.png'.format(recname, pyr),
-                    dpi=300,
-                    bbox_inches='tight')
-        plt.close(fig)
-        
-        # example Poisson probability plot if needed
-        xaxis = np.arange(mean_sr*5)
-        y = []
-        for x in xaxis:
-            y.append(poisson.pmf(x, mean_sr))
-        fig, ax = plt.subplots(figsize=(2.8,2))
-        ax.stem(xaxis,y,
-                linefmt='black', markerfmt='k.', basefmt=' ')
-        ax.set(xlabel='spikes',
-               ylabel='probability',
-               title=cluname)
-        for s in ['top', 'right']: ax.spines[s].set_visible(False)
-        fig.tight_layout()
-        plt.show(fig)
-        fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_pyract_profiles\{}_clu{}_poisson.png'.format(recname, pyr),
-                    dpi=300,
-                    bbox_inches='tight')
-        plt.close(fig)
-        # example ends 
-        
-        deviation = np.zeros((tot_trial, 16))
-        for trial in range(tot_trial):
-            curr_raster = rasters[pyr][trial]
-            for tbin, t in enumerate(np.linspace(0,8,16+1)[:-1]):  # 3 seconds before, 5 seconds after 
-                curr_bin = sum(curr_raster[int(t*1250):int((t+1)*1250)])
-                coeff=1
-                if curr_bin<mean_sr: coeff=-1
-                deviation[trial, tbin] = -log(poisson.pmf(curr_bin, mean_sr))*coeff  # polarity achieved with coeff
-        
-        mean_dev = np.mean(deviation, axis=0)
-        sem_dev = sem(deviation, axis=0)
-        fig, ax = plt.subplots(figsize=(2,1.9)); xaxis=np.linspace(-2.5,5.5,16+1)[:-1]
-        ax.plot(xaxis, mean_dev, c='royalblue', lw=1)
-        ax.fill_between(xaxis, mean_dev+sem_dev,
-                               mean_dev-sem_dev,
-                        color='royalblue', edgecolor='none', alpha=.1)
-        scale_min, scale_max = pf.scale_min_max(mean_dev[3:14], sem_dev[3:14])
-        ax.set(xlabel='time (s)', xticks=[0,2,4], xlim=(-1,4),
-               ylabel='Poisson dev.', ylim=(scale_min, scale_max),
-               title='{} clu{}'.format(recname, pyr))
-        for s in ['top', 'right']: ax.spines[s].set_visible(False)
-        fig.tight_layout()
-        plt.show(fig)
-        fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_pyract_profiles\{}_clu{}_Poisson_deviation.png'.format(recname, pyr),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\HPC_pyract_profiles\{}_clu{}'.format(recname, pyr),
                     dpi=300,
                     bbox_inches='tight')
         plt.close(fig)

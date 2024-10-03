@@ -29,8 +29,8 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **all_acg.py** gets ACGs of all the cells throughout entire recording sessions and save them as an .npy file
 - **all_acg_baseline.py** is similar to the above script, but gets only ACGs throughout the baseline (pre-stim.) condition, since stimulation may change the ACGs of cells affected by stimulations
 - **HPC_all_1st_lick_ordered.py** 
-- **HPC_population_v_licks.py** correlates the proportion of activated/inhibited pyramidal cells at run-onsets with the delay to first-licks
-- **HPC_population_v_licks_poisson.py** correlates the spiking pattern deviation of the pyramidal population at run-onsets with the delay to first-licks
+- **HPC_population_v_licks.py** correlates the run-onset peak spike rate of HPC pyramidal cells with first-lick delays
+- **HPC_population_v_licks_poisson.py** correlates the spiking pattern deviation of the pyramidal population at run-onsets with the delay to first-licks; **HPC_population_v_licks_poisson_example_session.py** plots an example session with colour-coded single-trial traces
 - **HPCLC_all_rasters.py** and **HPCLCterm_all_rasters.py** read spiketime data from behaviour-aligned spiketime files and produce exactly one 1-0 raster array for every recording session
 - **HPCLC_all_train.py** and **HPCLCterm_all_train.py** read spiketime data similarly to ...rasters.py, but then convolve the spike train with a 100-ms-sigma Gaussian kernel and produce exactly one spike train array for every recording session
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing
@@ -56,6 +56,9 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **HPCLC_all_stim_ctrl_pyr_only_rasters_blowup.py** is simlar to above but blown up to 0-2 seconds after run-onset
 - **HPCLC_all_stim_ctrl_pyr_only_sig_MI.py** main function, based on modulation index looks at all sorts of variables for pyramidal cells only in stim and ctrl trials for LC-somatic stimulation 
 - **HPCLC_all_stim_ctrl_pyr_only_spatial_info.py** looks at spatial information for pyramidal cells only in ctrl and stim trials for LC-somatic stimulation
+- **HPCLC_stim_ctrl_all_int_profiles.py** plots and saves the spike rate profiles for each interneurone in the HPCLC recordings
+- **HPCLC_stim_ctrl_all_pyr_profiles.py** plots and saves the spike rate profiles for each pyramidal cell in the HPCLC recordings
+- **HPCLC_stim_ctrl_all_pyr_profiles_single_sess.py** proportions the run-onset-activated and -inhibited cells in each session and calculates the statistics
 ### 
 
 ## LC_code 
@@ -118,10 +121,13 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **plot_eg_tagged_cell_wf.py** plots waveforms of one example tagged cell
 - **plot_example_train.py** plots example rasters for one example tagged cell 
 - **plot_heatmap_argmax.py** plots superpopulation plot for LC cells, ordered by their run-onset-to-peak latencies
-- **plot_heatmap_argmax.py** is similar to the above function but only plots the run-onset peaking cells
+- **plot_heatmap_ROpeaking.py** is similar to the above function but only plots the run-onset peaking cells
 - **plot_proportion_bar_graph.py** plots the percentage of tagged cells that are RO-peaking and non-RO-peaking as a bar graph 
-- **plot_single_cell_property.py** plots single-cell property (ACG, run-onset-aligned raster, waveform) plots for each recorded unit into \single_cell_property_plots; **plot_single_cell_property_tagged.py** is similar but for tagged cells
+- **plot_single_cell_ACG.py** plots ACGs of single cells and save them as separate plots
+- **plot_single_cell_property.py** plots single-cell property (ACG, run-onset-aligned raster, waveform) plots for each recorded unit into \single_cell_property_plots
+- **plot_single_cell_property_tagged.py** is similar but for tagged cells
 - **plot_single_cell_raster_compare.py** plots single-cell rasters aligned to run-onsets, rewards and cues
+- **plot_single_cell_waveform.py** plots waveforms of single cells and save them as separate plots
 - **plot_tagged_responses.py** plots single-cell responses to the tagging pulses
 - **putative_example_cell.py** plots rasters of example putative *Dbh*+ cells, whereas **tagged_example_cell.py** plots those of example tagged cells 
 - **tagged_example_goodvbad_raster.py** plots good versus bad trial rasters for an example cell

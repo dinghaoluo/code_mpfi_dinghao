@@ -5,7 +5,11 @@ Created on Fri 12 July 17:38:13 2024
 functions for processing behaviour log .txt files
 
 @author: Dinghao Luo
+@modifiers: Jingyu Cao
 """
+
+#%% imports 
+import numpy as np
 
 
 #%% constants 
@@ -153,23 +157,23 @@ def correct_overflow(data, label):
                 new_data.append(new_trial)
     if label=='pulse':
         try:
-            first_trial_with_pulse = next(x for x in data if len(x)!=0)  # in case the first trial has no licks, Dinghao, 20240626
-            curr_time = first_trial_with_pulse[0][0]
+            first_trial_with_pulse = next(x for x in data if len(x)!=0)  # first trial with pulse, Jingyu, 20240926
+            curr_time = first_trial_with_pulse[0]
             for t in range(tot_trial):
-                if len(data[t])==0:  # if there is no lick, append an empty list
+                if len(data[t])==0:  # if there is no pulse, append an empty list
                     new_data.append([])
-                elif data[t][-1][0]-curr_time>=0:  # if the last lick cell is within overflow, then simply append
+                elif data[t][-1]-curr_time>=0:  # if the last pulse cell is within overflow, then simply append
                     new_data.append(data[t])
-                    curr_time = data[t][-1][0]
+                    curr_time = data[t][-1]
                 else:  # once overflow is detected, do not update curr_time
                     new_trial = []
                     curr_trial = data[t]
                     curr_length = len(curr_trial)
                     for s in range(curr_length):
-                        if curr_trial[s][0]-curr_time>0:
+                        if curr_trial[s]-curr_time>0:
                             new_trial.append(curr_trial[s])
                         else:
-                            new_trial.append([curr_trial[s][0]+of_constant, curr_trial[s][1]])
+                            new_trial.append(curr_trial[s]+of_constant)
                     new_data.append(new_trial)
         except StopIteration:  # if no pulses in this session 
             new_data = data
@@ -235,6 +239,49 @@ def get_onset(uni_speeds, uni_times, threshold=0.3):  # 0.3 seconds
         index = -1  # cannot find clear run-onsets
     return index
 
+
+# def get_ITI_info(onset_pts, movie_times, speed_times):  # Jingyu, 9/27/2024
+#     speeds = []
+#     times = []
+#     for t in speed_times: # concatenate speeds of all trials in a session
+#         speeds.extend([p[1] for p in t])
+#         times.extend([p[0] for p in t])
+#     uni_time = list(np.linspace(times[0], times[-1], int((times[-1] - times[0]))))  
+#     uni_speed = np.interp(uni_time,times,speeds)  # interpolation for speed
+#     uni_time = list(uni_time)
+    
+#     # from onset_pts, trace back to define nonStop and nonFullStop trials and find run-onsets
+#     run_onsets = [-1]  # exclude the first trial since there is no rew for (0-1) trial
+#     ITI_nonStop = np.zeros(len(onset_pts))
+#     ITI_nonFullStop = np.zeros(len(onset_pts))
+#     curr_rew = [] 
+#     for t in movie_times:
+#         curr_rew.append(t[2][0])
+    
+#     for trial in range(1, len(onset_pts)):
+#         if onset_pts[trial] == -1:  # inherit no good run-onset from onset_pts; problem is this doesn't consider run-onsets begin within ITI
+#             run_onsets.append(-1)
+#         else:
+#             ITI_start_index = find_nearest(int(curr_rew[trial-1]), uni_time)
+#             ITI_end_index = find_nearest(int(onset_pts[trial]+1), uni_time)
+#             trial_end_index = find_nearest(int(curr_rew[trial]), uni_time)
+#             ITI_spd = uni_speed[ITI_start_index:ITI_end_index]  # speed between last reward and the next tentative run-onset; +1 to read the tentative run-onset value as well
+#             if (ITI_spd>10).all():  # nonStop trials: ITI speed always > 10 cm/s
+#                 ITI_nonStop[trial] = 1
+#                 run_onsets.append(curr_rew[trial-1]+np.argmin(ITI_spd))  # use min speed during ITI as run onset
+#             else:
+#                 if min(ITI_spd) > 4:  # nonFullStop trials: ITI speed always > 4 cm/s
+#                     ITI_nonFullStop[trial] = 1
+#                     run_onsets.append(curr_rew[trial-1]+np.argmin(ITI_spd))  # use min speed during ITI as run onset
+#                 else:
+#                     # concatenate ITI and current trial; find run-onset using concatenated speeds and times 
+#                     curr_all_spd = np.concatenate((ITI_spd, uni_speed[ITI_end_index:trial_end_index]))
+#                     curr_all_times = np.linspace(ITI_start_index, trial_end_index, int(trial_end_index - ITI_start_index))
+#                     run_onsets.append(get_onset(curr_all_spd, curr_all_times)+uni_time[ITI_start_index])
+    
+#     return run_onsets, ITI_nonStop, ITI_nonFullStop
+
+
 def fast_in_a_row(speed_value, count, threshold):
     if speed_value > threshold:
         count-=-1
@@ -242,8 +289,8 @@ def fast_in_a_row(speed_value, count, threshold):
         count=0
     return count
 
-def find_nearest(value, arr):
+def find_nearest(value, lst):
     # return value and index of nearest value in arr to input value
-    nearest_value = min(arr, key=lambda x: abs(x-value))
-    nearest_value_index = arr.index(nearest_value)
+    nearest_value = min(lst, key=lambda x: abs(x-value))
+    nearest_value_index = lst.index(nearest_value)
     return nearest_value_index

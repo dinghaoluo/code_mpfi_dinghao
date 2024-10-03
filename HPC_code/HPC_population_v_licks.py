@@ -31,11 +31,19 @@ elif not HPC_LC:
     pathHPC = rec_list.pathHPCLCtermopt
 
 
-#%% main (single-trial act./inh. proportions)
-all_act_props_zscore = []; all_act_props_baseline_zscore = []
-all_licks_zscore = []; all_licks_baseline_zscore = []
+#%% pre-post ratio dataframe 
+df = pd.read_pickle('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_pyr_only.pkl') 
+
+
+#%% main
+all_pop_peak_z = {}
+all_pop_peak_baseline_z = {}
+all_first_licks_z = {}
+all_first_licks_baseline_z = {}
+
 for pathname in pathHPC:
     recname = pathname[-17:]
+    
     if recname=='A063r-20230708-02' or recname=='A063r-20230708-01':    # lick detection problems 
         continue
     print(recname)
@@ -47,9 +55,21 @@ for pathname in pathHPC:
     # determine if each cell is pyramidal or intern 
     info = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(pathname, recname))
     rec_info = info['rec'][0][0]
+    spike_rate = rec_info['firingRate'][0]
     intern_id = rec_info['isIntern'][0]
     pyr_id = [not(clu) for clu in intern_id]
+    tot_clu = len(pyr_id)
     tot_pyr = sum(pyr_id)
+    
+    # classify act./inh. neurones 
+    pyract = []; pyrinh = []
+    for cluname, row in df.iterrows():
+        if cluname.split(' ')[0]==recname:
+            clu_ID = int(cluname.split(' ')[1][3:])
+            if row['ctrl_pre_post']>=1.25:
+                pyrinh.append(clu_ID-2)
+            if row['ctrl_pre_post']<=.8:
+                pyract.append(clu_ID-2)  # HPCLC_all_train.py adds 2 to the ID, so we subtracts 2 here 
     
     # behaviour parameters
     info = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(pathname, recname))
@@ -61,21 +81,31 @@ for pathname in pathHPC:
     tot_trial = len(stimOn)
     tot_baseline = stim_trials[0]
 
-    # for each trial we get act. and inh. proportions
-    act_props = []; inh_props = []
+    fig, ax = plt.subplots(figsize=(3,2.5)); xaxis = np.arange(1250*5)/1250-1
+    pyract_peak = []
+    pyract_peak_baseline = []
     for trial in range(tot_trial):
-        trial_act = 0; trial_inh = 0
-        for i, if_pyr in enumerate(pyr_id):
-            if if_pyr:
-                # calculate pre/post ratio
-                pp = trains[i][trial][1875:3125].mean()/trains[i][trial][4375:5625].mean()
-                if pp>=1.25:
-                    trial_inh+=1
-                elif pp<=.8:
-                    trial_act+=1
-        act_props.append(trial_act/tot_pyr); inh_props.append(trial_inh/tot_pyr)
-    act_props_baseline = act_props[:stim_trials[0]]
-    inh_props_baseline = inh_props[:stim_trials[0]]
+        curr_pop_peak = []
+        curr_pop_prof = []
+        for pyr in pyract:
+            curr_train = trains[pyr][trial]
+            if len(curr_train)>3750+1250*1:
+                curr_peak = np.nanmean(trains[pyr][trial][3750:3750+1250*1])*1250 - spike_rate[pyr]
+            else:
+                curr_peak = np.nanmean(trains[pyr][trial][3750:])*1250 - spike_rate[pyr]
+            if len(curr_train)>3750+4*1250:  # plotting 
+                curr_pop_prof.append(curr_train[2500:2500+5*1250])
+            curr_pop_peak.append(curr_peak)
+        if len(curr_train)>3750+4*1250:
+            ax.plot(xaxis, np.mean(curr_pop_prof, axis=0), lw=1, alpha=.1)
+        pyract_peak.append(np.nanmean(curr_pop_peak))
+        if trial<stim_trials[0]:
+            pyract_peak_baseline.append(np.nanmean(curr_pop_peak))
+    fig.tight_layout()
+    plt.show(fig)
+    fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_all\population_v_1st_licks\{}_single_trial.png'.format(recname),
+                dpi=150,
+                bbox_inches='tight')
     
     # behaviour
     lickfilename = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(recname[1:5], recname[:14], recname[:17], recname[:17])
@@ -98,57 +128,57 @@ for pathname in pathHPC:
     # filtering
     delete = []
     for trial in range(tot_trial):
-        if first_licks[trial]==0 or first_licks[trial]>=8:
+        if first_licks[trial]>10 or first_licks[trial]<=1.5:
             delete.append(trial)
     first_licks = [v for i, v in enumerate(first_licks) if i not in delete]
     first_licks_baseline = [v for i, v in enumerate(first_licks_baseline) if i not in delete]
-    act_props = [v for i, v in enumerate(act_props) if i not in delete]
-    act_props_baseline = [v for i, v in enumerate(act_props_baseline) if i not in delete]
+    pyract_peak = [v for i, v in enumerate(pyract_peak) if i not in delete]
+    pyract_peak_baseline = [v for i, v in enumerate(pyract_peak_baseline) if i not in delete]
     
     # statistics 
-    results = linregress(act_props, first_licks)
+    results = linregress(pyract_peak, first_licks)
     pval = results[3]
     slope = results[0]; intercept = results[1]; rvalue = results[2]
-    xmin = min(act_props); xmax = max(act_props)
+    xmin = min(pyract_peak); xmax = max(pyract_peak)
     ymin = min(first_licks); ymax = max(first_licks)
     
     # plotting 
     fig, ax = plt.subplots(figsize=(3,3))
-    ax.scatter(act_props, first_licks, s=2, c='grey')
-    ax.plot([xmin-.1, xmax+.1], [intercept+(xmin-.1)*slope, intercept+(xmax+.1)*slope], 
+    ax.scatter(pyract_peak, first_licks, s=2, c='grey')
+    ax.plot([xmin, xmax], [intercept+(xmin-.1)*slope, intercept+(xmax+.1)*slope], 
             color='k', lw=1)
     ax.set(title='r={}\p={}'.format(round(slope, 5), round(pval, 5)),
-           xlabel='prop. act.',
+           xlabel='run-onset activation',
            ylabel='delay to 1st-licks (s)')
     for s in ['top', 'right']: ax.spines[s].set_visible(False)
     fig.tight_layout()
-    plt.savefig('Z:\Dinghao\code_dinghao\HPC_all\population_v_1st_licks\{}_all_triasl_prop_act.png'.format(recname),
-                dpi=120)
+    plt.savefig('Z:\Dinghao\code_dinghao\HPC_all\population_v_1st_licks\{}_all_trias.png'.format(recname),
+                dpi=300)
     plt.close()
     
     
     # statistics (baseline)
-    results_baseline = linregress(act_props_baseline, first_licks_baseline)
+    results_baseline = linregress(pyract_peak_baseline, first_licks_baseline)
     pval_baseline = results_baseline[3]
     slope_baseline = results_baseline[0]; intercept_baseline = results_baseline[1]; rvalue_baseline = results_baseline[2]
-    xmin = min(act_props_baseline); xmax = max(act_props_baseline)
+    xmin = min(pyract_peak_baseline); xmax = max(pyract_peak_baseline)
     ymin = min(first_licks_baseline); ymax = max(first_licks_baseline)
     
     # plotting (baseline)
     fig, ax = plt.subplots(figsize=(3,3))
-    ax.scatter(act_props_baseline, first_licks_baseline, s=2, c='grey')
-    ax.plot([xmin-.1, xmax+.1], [intercept_baseline+(xmin-.1)*slope_baseline, intercept_baseline+(xmax+.1)*slope_baseline], 
+    ax.scatter(pyract_peak_baseline, first_licks_baseline, s=2, c='grey')
+    ax.plot([xmin, xmax], [intercept_baseline+(xmin-.1)*slope_baseline, intercept_baseline+(xmax+.1)*slope_baseline], 
             color='k', lw=1)
     ax.set(title='r={}\p={}'.format(round(slope_baseline, 5), round(pval_baseline, 5)),
-           xlabel='prop. act.',
+           xlabel='run-onset activation',
            ylabel='delay to 1st-licks (s)')
     for s in ['top', 'right']: ax.spines[s].set_visible(False)
     fig.tight_layout()
-    plt.savefig('Z:\Dinghao\code_dinghao\HPC_all\population_v_1st_licks\{}_baseline_prop_act.png'.format(recname),
-                dpi=120)
+    plt.savefig('Z:\Dinghao\code_dinghao\HPC_all\population_v_1st_licks\{}_baseline.png'.format(recname),
+                dpi=300)
     plt.close()
     
-    all_licks_zscore.extend(zscore(first_licks))
-    all_licks_baseline_zscore.extend(zscore(first_licks_baseline))
-    all_act_props_zscore.extend(zscore(act_props))
-    all_act_props_baseline_zscore.extend(zscore(act_props_baseline))
+    all_pop_peak_z[recname] = zscore(first_licks)
+    all_pop_peak_baseline_z[recname] = zscore(first_licks_baseline)
+    all_first_licks_z[recname] = zscore(first_licks)
+    all_first_licks_baseline_z[recname] = zscore(first_licks_baseline)

@@ -88,7 +88,6 @@ for pathname in pathHPC:
                 pyr_act.append(clu_ID-2)  # HPCLC_all_train.py adds 2 to the ID, so we subtracts 2 here 
     
     # behaviour parameters
-    info = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(pathname, recname))
     beh_info = info['beh'][0][0]
     behPar = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(pathname, recname))
     stimOn = behPar['behPar']['stimOn'][0][0][0][1:]

@@ -5,6 +5,7 @@ Created on Wed Jul 17 17:13:00 2024
 functions for processing behaviour 
 
 @author: Dinghao Luo
+@modifiers: Dinghao Luo, Jingyu Cao
 """
 
 
@@ -84,3 +85,5 @@ def lick_index(lick_lists):
             lick_index.append(sum_post/(sum_pre+sum_post))
     
     return np.nanmean(lick_index, axis=0)
+
+    

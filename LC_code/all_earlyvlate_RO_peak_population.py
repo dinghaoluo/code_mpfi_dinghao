@@ -16,6 +16,17 @@ import scipy.io as sio
 from scipy.stats import wilcoxon, ttest_rel, sem
 
 
+#%% plotting 
+import matplotlib
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+if (r'Z:\Dinghao\code_mpfi_dinghao\iutils' in sys.path) == False:
+    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+import plotting_functions as pf
+
+
 #%% load data 
 cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 
@@ -296,12 +307,16 @@ ttest_stat, ttest_p = ttest_rel(early_all_pooled_mean, late_all_pooled_mean)
 
 #%% plot all
 early_colour = (.804,.267,.267); late_colour = (.545,0,0)
+# pf.plot_violin_with_scatter(early_all_pooled_mean, late_all_pooled_mean, early_colour, late_colour, 
+#                             paired=True, showmeans=True, showmedians=False,
+#                             xticklabels=['early\n1st-lick', 'late\n1st-lick'], ylabel='pop. spike rate (Hz)',
+#                             save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_population_earlyvlate', dpi=300)
 
-fig, ax = plt.subplots(figsize=(2,3))
+fig, ax = plt.subplots(figsize=(1.8,2.4))
 
 vp = ax.violinplot([early_all_pooled_mean, late_all_pooled_mean],
-                   positions=[1,2],
-                   showmeans=True, showextrema=False)
+                    positions=[1,2],
+                    showmeans=True, showextrema=False)
 
 vp['bodies'][0].set_color(early_colour)
 vp['bodies'][1].set_color(late_colour)
@@ -319,11 +334,11 @@ for i in [0,1]:
         b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
 ax.scatter([1.1]*len(early_all_pooled_mean), 
-           early_all_pooled_mean, 
-           s=10, c=early_colour, ec='none', lw=.5, alpha=.05)
+            early_all_pooled_mean, 
+            s=10, c=early_colour, ec='none', lw=.5, alpha=.05)
 ax.scatter([1.9]*len(late_all_pooled_mean), 
-           late_all_pooled_mean, 
-           s=10, c=late_colour, ec='none', lw=.5, alpha=.05)
+            late_all_pooled_mean, 
+            s=10, c=late_colour, ec='none', lw=.5, alpha=.05)
 ax.plot([[1.1]*len(early_all_pooled_mean), [1.9]*len(late_all_pooled_mean)], 
         [early_all_pooled_mean, late_all_pooled_mean], 
         color='grey', alpha=.05, linewidth=1)
@@ -331,14 +346,14 @@ ax.plot([[1.1]*len(early_all_pooled_mean), [1.9]*len(late_all_pooled_mean)],
 ax.plot([1.1, 1.9], [np.mean(early_all_pooled_mean), np.mean(late_all_pooled_mean)],
         color='k', linewidth=2)
 ax.scatter(1.1, np.mean(early_all_pooled_mean), 
-           s=30, c=early_colour, ec='none', alpha=.75, lw=.5, zorder=2)
+            s=30, c=early_colour, ec='none', alpha=.75, lw=.5, zorder=2)
 ax.scatter(1.9, np.mean(late_all_pooled_mean), 
-           s=30, c=late_colour, ec='none', lw=.5, zorder=2)
+            s=30, c=late_colour, ec='none', lw=.5, zorder=2)
 ymin = min(min(late_all_pooled_mean), min(early_all_pooled_mean))-.5
 ymax = max(max(late_all_pooled_mean), max(early_all_pooled_mean))+.5
 ax.set(xlim=(.5,2.5),
-       ylabel='population spike rate (Hz)',
-       title='early v late\npopulation spike rate\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 10), round(ttest_p, 10)))
+        ylabel='population spike rate (Hz)',
+        title='wilc_p={}\nttest_p={}'.format(round(wilc_p, 4), round(ttest_p, 4)))
 ax.set_xticks([1, 2]); ax.set_xticklabels(['early\n1st-lick', 'late\n1st-lick'])
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)

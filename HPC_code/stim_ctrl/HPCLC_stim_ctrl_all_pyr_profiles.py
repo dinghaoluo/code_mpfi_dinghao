@@ -31,7 +31,7 @@ from common import normalise, normalise_to_all
 argmax = 0
 
 # run HPC-LC or HPC-LCterm
-HPC_LC = 1
+HPC_LC = 0
 
 
 #%% load paths to recordings 
@@ -266,15 +266,15 @@ else:
     im_mat_stim_pp = np.zeros((tot_clu-buffer_count_stim, 6*1250))
     for i, ind in enumerate(stim_cont_pp_ord_ind): 
         if stim_cont_pp_ratio[i] != 100:
-            # im_mat_stim_cont_pp[line_count_stim_cont,:] = normalise(stim_cont[ind,:])
-            im_mat_stim_cont_pp[line_count_stim_cont,:] = normalise_to_all(stim_cont[ind,:], 
-                                                                           np.concatenate((stim_cont[ind,:], stim[ind,:])))
+            im_mat_stim_cont_pp[line_count_stim_cont,:] = normalise(stim_cont[ind,:])
+            # im_mat_stim_cont_pp[line_count_stim_cont,:] = normalise_to_all(stim_cont[ind,:], 
+            #                                                                np.concatenate((stim_cont[ind,:], stim[ind,:])))
             line_count_stim_cont+=1
     for i, ind in enumerate(stim_pp_ord_ind): 
         if stim_pp_ratio[i] != 100:
-            # im_mat_stim_pp[line_count_stim,:] = normalise(stim[ind,:])
-            im_mat_stim_pp[line_count_stim,:] = normalise_to_all(stim[ind,:], 
-                                                                 np.concatenate((stim_cont[ind,:], stim[ind,:])))
+            im_mat_stim_pp[line_count_stim,:] = normalise(stim[ind,:])
+            # im_mat_stim_pp[line_count_stim,:] = normalise_to_all(stim[ind,:], 
+            #                                                      np.concatenate((stim_cont[ind,:], stim[ind,:])))
             line_count_stim+=1
     
     

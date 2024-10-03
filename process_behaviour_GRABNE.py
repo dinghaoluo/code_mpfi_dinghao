@@ -5,6 +5,7 @@ Created on Fri Jul 12 17:35:35 2024
 process and save behaviour files as dataframes
 
 @author: Dinghao Luo
+@modifiers: Dinghao Luo, Jingyu Cao
 """
 
 
@@ -12,6 +13,7 @@ process and save behaviour files as dataframes
 import numpy as np 
 import matplotlib.pyplot as plt 
 import sys
+import os
 import pandas as pd
 
 # import pre-processing functions 
@@ -42,7 +44,8 @@ sess = {'run_onsets': [],
         'pulse_times': [],
         'pulse_descriptions': [],
         'trial_statements': [],
-        'frame_times': []}
+        'frame_times': [],
+        'no_full_stop':[]}  # Jingyu, 9/27/2024
 
 df = pd.DataFrame(sess)
 
@@ -78,6 +81,7 @@ for pathname in pathGRABNE:
     trial_statements = tpf.correct_overflow(trial_statements, 'trial_statement')
     frame_times = tpf.correct_overflow(frame_times, 'frame')
     first_frame = frame_times[0]; last_frame = frame_times[-1]
+    first_time = speed_times[0][0][0]; last_time = speed_times[-1][-1][0]
     
     ## **fill in dropped $FM signals
     # since the 2P system does not always successfully transmit frame signals to
@@ -90,14 +94,42 @@ for pathname in pathGRABNE:
             frame_times.insert(i+1, interp_fm)
     
     ## find run-onsets 
-    run_onsets = []
+    speeds = []
+    times = []
+    for t in speed_times: # concatenate speeds of all trials in a session
+        speeds.extend([p[1] for p in t])
+        times.extend([p[0] for p in t])
+    all_uni_time = np.linspace(first_time, last_time, int(last_time-first_time))
+    all_uni_speed = np.interp(all_uni_time, times, speeds)
+    all_uni_time = list(all_uni_time)
+    
+    run_onsets = []  # find the time point where speed continiously > 10 cm/s (after cue) first
+    no_full_stop = []  # whether there is any point at which speed is lower then 10 cm/s
+    last_rew = []  # last reward timepoint
     for trial in range(tot_trial):
-        times = [s[0] for s in speed_times[trial]]
-        speeds = [s[1] for s in speed_times[trial]]
-        uni_time = np.linspace(times[0], times[-1], int((times[-1] - times[0])))
-        uni_speed = np.interp(uni_time, times, speeds)  # interpolation for speed
-        run_onsets.append(tpf.get_onset(uni_speed, uni_time))
+        if trial==0:
+            last_rew.append(first_time)  # initiate as the beginning of trial 0
+        else:
+            last_rew.append(pump_times[trial-1]+100)  # +100 ms to exclude situations where the reward does not immediately stop the animal
+        curr_ITI_start = tpf.find_nearest(last_rew[trial], all_uni_time)
+        curr_trial_end = tpf.find_nearest(pump_times[trial], all_uni_time)
+        curr_time = all_uni_time[curr_ITI_start:curr_trial_end]
+        curr_speed = all_uni_speed[curr_ITI_start:curr_trial_end]
+        run_onsets.append(tpf.get_onset(curr_speed, curr_time))
+        no_full_stop.append((curr_speed>10).all())
         
+        # plotting for testing
+        fig, ax = plt.subplots(figsize=(2,1))
+        ax.plot([t/1000 for t in curr_time], curr_speed)
+        ax.vlines(run_onsets[trial]/1000, 0, 50, 'orange')
+        
+        filename = r'Z:\Dinghao\code_dinghao\behaviour\single_trial_run_onset_detection\{}\t{}.png'.format(recname, trial)
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        fig.savefig(filename, dpi=80, bbox_inches='tight')
+        
+        plt.close(fig)
+                         
+      
     ## determine frames for each variable     
     run_onset_frames = []
     for trial in run_onsets:
@@ -150,7 +182,8 @@ for pathname in pathGRABNE:
                                   pulse_times,
                                   pulse_descriptions,
                                   trial_statements,
-                                  frame_times
+                                  frame_times,
+                                  no_full_stop,  # Jingyu, 9/27/2024
                                       ],
                                   dtype='object')
 
