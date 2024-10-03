@@ -123,11 +123,13 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **plot_heatmap_argmax.py** plots superpopulation plot for LC cells, ordered by their run-onset-to-peak latencies
 - **plot_heatmap_ROpeaking.py** is similar to the above function but only plots the run-onset peaking cells
 - **plot_proportion_bar_graph.py** plots the percentage of tagged cells that are RO-peaking and non-RO-peaking as a bar graph 
+- **plot_RO_v_nonRO.py** plots the mean spike profiles of run-onset-peaking LC cells and non-run-onset-peaking LC cells
 - **plot_single_cell_ACG.py** plots ACGs of single cells and save them as separate plots
 - **plot_single_cell_property.py** plots single-cell property (ACG, run-onset-aligned raster, waveform) plots for each recorded unit into \single_cell_property_plots
 - **plot_single_cell_property_tagged.py** is similar but for tagged cells
 - **plot_single_cell_raster_compare.py** plots single-cell rasters aligned to run-onsets, rewards and cues
 - **plot_single_cell_waveform.py** plots waveforms of single cells and save them as separate plots
+- **plot_tagged_example_goodvbad_raster.py** plots the good and bad trial-rasters and mean spiking profiles of an example tagged cell
 - **plot_tagged_responses.py** plots single-cell responses to the tagging pulses
 - **putative_example_cell.py** plots rasters of example putative *Dbh*+ cells, whereas **tagged_example_cell.py** plots those of example tagged cells 
 - **tagged_example_goodvbad_raster.py** plots good versus bad trial rasters for an example cell

@@ -22,6 +22,7 @@ plt.rcParams['font.family'] = 'Arial'
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
+# load tagged data
 all_tagged = np.load('Z:/Dinghao/code_dinghao/LC_all_tagged/LC_all_tagged_info.npy',
                      allow_pickle=True).item()
 all_tagged_keys = list(all_tagged.keys())
@@ -29,11 +30,11 @@ all_tagged_keys = list(all_tagged.keys())
 samp_freq = 20000  # Hz
 gx_spike = np.arange(-200, 200, 1)
 sigma_spike = samp_freq/1000
-gaus_spike = [1 / (sigma_spike*np.sqrt(2*np.pi)) * 
-              np.exp(-x**2/(2*sigma_spike**2)) for x in gx_spike]
 
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
+# precompute Gaussian filter
+gaus_spike = np.exp(-gx_spike**2 / (2*sigma_spike**2)) / (sigma_spike * np.sqrt(2*np.pi))
+
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from param_to_array import param2array, get_clu
 
 
@@ -85,18 +86,14 @@ for cluname in all_tagged_keys:
     clu_n_id = np.transpose(get_clu(nth_clu, clu))
 
     arr = np.zeros([60, 1201])
-    fig, axs = plt.subplots(2, 1, figsize=(3, 6))
-    plt.subplots_adjust(hspace=.3)
+    fig, axs = plt.subplots(2, 1, figsize=(1.8, 2.7))
     for p in ['right', 'top']:
         axs[0].spines[p].set_visible(False)
         axs[1].spines[p].set_visible(False)
-    for p in ['bottom', 'left']:
-        axs[0].spines[p].set_linewidth(1)
-        axs[1].spines[p].set_linewidth(1)
         
-    axs[0].set(title=cluname, xlabel='time (ms)', ylabel='sweep number',
+    axs[0].set(title=cluname, xlabel='time (ms)', ylabel='sweep #',
                xlim=(-31, 31), ylim=(0, 61),
-               xticks=[-30, -15, 0, 15, 30])
+               xticks=[-30, 0, 30])
     axs[0].fill_between([0, 5], [0, 0], [61, 61], color='royalblue', alpha=.5, linewidth=0)
     for i in range(60):  # hard-coded
         t_bef = stim_tp[i]-600  # 30 ms before stim
@@ -109,27 +106,21 @@ for cluname in all_tagged_keys:
         
         spks_in_range = [s/20 for s in spks_in_range]
         xlen = len(spks_in_range)
-        axs[0].scatter(spks_in_range, [i+1]*xlen, s=1, color='k')
+        axs[0].scatter(spks_in_range, [i+1]*xlen, s=.25, color='k')
         
     mean_prof = np.mean(arr, axis=0)
     xaxis = np.arange(-600,601)/20
     axs[1].set(xlim=(-31, 31), 
-               xticks=[-30, -15, 0, 15, 30],
-               xlabel='time (ms)', ylabel='cumulative spikes')
+               xticks=[-30, 0, 30],
+               xlabel='time (ms)', ylabel='spikes')
     axs[1].plot(xaxis, mean_prof, color='k')
-    # axs[1].fill_between(xaxis, mean_prof+sem_prof, mean_prof-sem_prof,
-    #                     color='k', alpha=.25, linewidth=0)
-    
         
     fig.tight_layout()
     plt.show()
     
-    # fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\tagging_responses\{}.pdf'.format(cluname),
-    #             bbox_inches='tight')
-    # fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\tagging_responses\{}.png'.format(cluname),
-    #             bbox_inches='tight',
-    #             dpi=500)
-    fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_tagging_response.pdf',
-                dpi=500, bbox_inches='tight')
+    for ext in ['png', 'pdf']:
+        fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\tagging_responses\{}.{}'.format(cluname, ext),
+                    bbox_inches='tight',
+                    dpi=200)
     
     plt.close(fig)
