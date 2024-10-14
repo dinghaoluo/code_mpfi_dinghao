@@ -11,7 +11,6 @@ Quantify the relationship between first lick time and neuronal activity drop-off
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
-import sys 
 import scipy.io as sio
 from scipy.stats import wilcoxon
 import pandas as pd

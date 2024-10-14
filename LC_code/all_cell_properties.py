@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import scipy.io as sio
 import sys
+from scipy.stats import pearsonr
 
 # RO peak detection functions
 if r'Z:\Dinghao\code_mpfi_dinghao\LC_code\utils' not in sys.path:
@@ -22,10 +23,11 @@ from RO_peak_detection import RO_peak_detection, plot_RO_peak
 
 
 #%% loads
-# all rasters
 rasters = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_rasters_simp_name.npy',
                   allow_pickle=True).item()
 rasterkeys = list(rasters.keys())
+trains = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
+                  allow_pickle=True).item()
 
 
 #%% create dataframe if does not exist
@@ -82,9 +84,9 @@ for cluname in rasterkeys:
     first_stim = next((i for i, j in enumerate(stimOn) if j), None)
     
     if type(first_stim)==int:
-        [peak, avg_profile, sig_shuf] = RO_peak_detection(rasters[cluname], first_stim=first_stim)
+        [peak, avg_profile, sig_shuf] = RO_peak_detection(rasters[cluname], first_stim=first_stim, alpha=.05)
     else:
-        [peak, avg_profile, sig_shuf] = RO_peak_detection(rasters[cluname])
+        [peak, avg_profile, sig_shuf] = RO_peak_detection(rasters[cluname], alpha=.05)
     peakness.append(peak)
     plot_RO_peak(cluname, avg_profile, sig_shuf)
 
@@ -92,6 +94,59 @@ df = df.assign(peakness=pd.Series(peakness).values)
 
 df.to_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 
+
+#%% rate v speed correlation 
+rate_speed_r = []; rate_speed_p = []
+for cluname in rasterkeys:
+    print('correlation speed v. spike-rate: {}'.format(cluname))
+    
+    speed_filename = r'Z:\Dinghao\MiceExp\ANMD{}\A{}\A{}\A{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(
+        cluname[1:5], cluname[1:14], cluname[1:17], cluname[1:17])
+    speed_file = sio.loadmat(speed_filename)
+
+    samp_freq = 1250  # Hz
+    gx_speed = np.arange(-50, 50, 1)  # xaxis for Gaus
+    sigma_speed = 12.5
+
+    # speed of all trials
+    speed_time_bef = speed_file['trialsRun'][0]['speed_MMsecBef'][0][0][1:]
+    speed_time = speed_file['trialsRun'][0]['speed_MMsec'][0][0][1:]
+    gaus_speed = [1 / (sigma_speed*np.sqrt(2*np.pi)) * 
+                  np.exp(-x**2/(2*sigma_speed**2)) for x in gx_speed]
+    
+    # concatenate bef and after running onset, and convolve with gaus_speed
+    speed_time_all = np.empty(shape=speed_time.shape[0], dtype='object')
+    for i in range(speed_time.shape[0]):
+        bef = speed_time_bef[i]; aft =speed_time[i]
+        speed_time_all[i] = np.concatenate([bef, aft])
+        speed_time_all[i][speed_time_all[i]<0] = 0
+    speed_time_conv = [np.convolve(np.squeeze(single), gaus_speed)[50:-49] 
+                       for single in speed_time_all]
+    
+    speed_trunc = np.zeros((len(speed_time_conv), 5*1250))
+    train_trunc = np.zeros((len(speed_time_conv), 5*1250))
+    for i, trial in enumerate(speed_time_conv):
+        if len(trial)>2500+5*1250:
+            speed_trunc[i,:] = trial[2500:2500+5*1250]
+        else:
+            speed_trunc[i,:len(trial)-2500] = trial[2500:]
+    for i, trial in enumerate(trains[cluname]):
+        if len(trial)>2500+5*1250:
+            train_trunc[i,:] = trial[2500:2500+5*1250]
+        else:
+            train_trunc[i,:len(trial)-2500] = trial[2500:]
+    
+    rate_speed_corr = np.zeros((len(speed_time_conv), 2))
+    for trial in range(len(speed_time_conv)):
+        rate_speed_corr[trial,:] = list(pearsonr(speed_trunc[trial], train_trunc[trial]))
+    rate_speed_r.append(np.mean(rate_speed_corr[:,0]))
+    rate_speed_p.append(np.mean(rate_speed_corr[:,1]))
+
+df = df.assign(rate_speed_r=pd.Series(rate_speed_r).values)
+df = df.assign(rate_speed_p=pd.Series(rate_speed_p).values)
+    
+df.to_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+        
 
 #%% cluster labels
 # clusters = list(np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_clustered_hierarchical_centroid.npy',

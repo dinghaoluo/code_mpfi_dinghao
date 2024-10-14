@@ -45,7 +45,7 @@ for clu in cell_prop.index:
 #%% main 
 warped_dict = {}
 
-for cluname in clu_list[380:400]:
+for cluname in clu_list:
     print(cluname)
     train = all_train[cluname]
     
@@ -83,8 +83,8 @@ for cluname in clu_list[380:400]:
     licks_ordered, temp_ordered = zip(*sorted(zip(first_licks, temp)))
     
     # downsample each trial between RO and 1st lick to 1 sec (1250 samples)
-    warped_mat = np.zeros((140, 2500))
-    for i, trial in enumerate(temp_ordered[:140]):
+    warped_mat = np.zeros((tot_trial, 2500))
+    for i, trial in enumerate(temp_ordered):
         curr_1stlick = first_licks[trial]
         curr_train = train[trial]
         curr_bef_RO = curr_train[3125:3750]
@@ -100,21 +100,27 @@ for cluname in clu_list[380:400]:
     warped_dict[cluname] = mean_warped 
 
     # plotting
-    fig, axs = plt.subplot_mosaic('A;A;A;B',figsize=(3,3))
+    fig, axs = plt.subplot_mosaic('A;A;A;B',figsize=(2.2,1.9))
     
     axs['A'].imshow(warped_mat, aspect='auto', extent=[-0.5, 1.5, 1, 140], cmap='Greys')
-    axs['A'].set(xticks=[], yticks=[1, 40, 80, 120])
+    axs['A'].set(xticks=[])
     
     axs['B'].imshow(mean_warped, aspect='auto', extent=[-0.5, 1.5, 0, 1], cmap='Greys')
     axs['B'].set(yticks=[], xticks=[])
     
-    fig.suptitle(cluname)
+    suffix = ''
+    if cluname in tag_list: suffix = ' tgd'
+    if cluname in put_list: suffix = ' put'
+    title = cluname + suffix
+    
+    fig.suptitle(title)
     fig.tight_layout()
     plt.show()
     
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_warped_RO_first_licks\{}.png'.format(cluname),
-                bbox_inches='tight',
-                dpi=500)
+    for ext in ['png', 'pdf']:
+        fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_warped_RO_first_licks\{}.{}'.format(title, ext),
+                    bbox_inches='tight',
+                    dpi=200)
 
     plt.close(fig)
     

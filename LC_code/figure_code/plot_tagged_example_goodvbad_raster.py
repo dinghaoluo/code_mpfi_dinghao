@@ -69,23 +69,19 @@ ax.set_xticks([])
 
 count=0
 for trial in ind_bad_beh:
-    count+=1
-    ax.scatter([t/1250 for t in spk_all[trial]], [count]*len(spk_all[trial]),
-                s=3, color='darkgrey')
+    if trial not in [67, 53]:
+        count+=1
+        ax.scatter([t/1250 for t in spk_all[trial]], [count]*len(spk_all[trial]),
+                   s=3, color='darkgrey')
 for trial in ind_good_beh[-15:]:
     count+=1
     ax.scatter([t/1250 for t in spk_all[trial]], [count]*len(spk_all[trial]),
                s=3, color='limegreen')
 
 plt.show()
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad_-1-4.png',
-            dpi=500,
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad_-1-4.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_tagged_egcell_goodvbad_-1-4.pdf',
-            bbox_inches='tight')
-
+for ext in ['png','pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad_raster.{}'.format(ext),
+                dpi=200, bbox_inches='tight')
 plt.close(fig)
 
 
@@ -122,12 +118,7 @@ for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
 
 plt.show()
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_-1-4.png',
-            dpi=500,
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_-1_4.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_tagged_egcell_-1_4.pdf',
-            bbox_inches='tight')
-
+for ext in ['png','pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_egcell_goodvbad.{}'.format(ext),
+                dpi=200, bbox_inches='tight')
 plt.close(fig)

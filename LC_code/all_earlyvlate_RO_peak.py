@@ -123,11 +123,24 @@ for cluname in rop_list:
         curr_train = train[trial]
         late.append(np.mean(curr_train[window[0]:window[1]])*1250)
         late_prof.append(curr_train[2500:5000]*1250)
-            
+
 
 #%% statistics 
 wilc_res, wilc_p = wilcoxon(early, late)
 ttest_res, ttest_p = ttest_rel(early, late)
+
+
+#%% normalisation for plotting
+def normalise(a, b):
+    max_val = max(a, b)
+    return a / max_val, b / max_val
+
+late_norm = []; early_norm = []
+for i in range(len(early)):
+    enorm, lnorm = normalise(early[i], late[i])
+    if not np.isnan(enorm):
+        early_norm.append(enorm)
+        late_norm.append(lnorm)
 
 
 #%% plotting 
@@ -190,6 +203,64 @@ fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_single_cell_earlyvl
 plt.close()
 
 
+#%% normalised 
+early_colour = (.804,.267,.267); late_colour = (.545,0,0)
+
+fig, ax = plt.subplots(figsize=(2,3))
+
+vp = ax.violinplot([early_norm, late_norm],
+                   positions=[1, 2],
+                   showextrema=False, showmeans=True)
+
+vp['cmeans'].set_color('k')
+vp['bodies'][0].set_color(early_colour)
+vp['bodies'][1].set_color(late_colour)
+for i in [0,1]:
+    vp['bodies'][i].set_edgecolor('none')
+    vp['bodies'][i].set_alpha(.75)
+    b = vp['bodies'][i]
+    # get the centre 
+    m = np.mean(b.get_paths()[0].vertices[:,0])
+    # make paths not go further right/left than the centre 
+    if i==0:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
+    if i==1:
+        b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
+
+ax.scatter([1.1]*len(early_norm), 
+           early_norm, 
+           s=10, c=early_colour, ec='none', lw=.5, alpha=.05)
+ax.scatter([1.9]*len(late_norm), 
+           late_norm, 
+           s=10, c=late_colour, ec='none', lw=.5, alpha=.05)
+
+ax.plot([1.1, 1.9], [np.mean(early_norm), np.mean(late_norm)],
+        color='k', linewidth=2)
+ax.scatter(1.1, np.mean(early_norm), 
+           s=30, c=early_colour, ec='none', alpha=.75, lw=.5, zorder=2)
+ax.scatter(1.9, np.mean(late_norm), 
+           s=30, c=late_colour, ec='none', lw=.5, zorder=2)
+ymin = min(min(late_norm), min(early_norm))-.5
+ymax = max(max(late_norm), max(early_norm))+.5
+ax.set(xlim=(.5,2.5),
+       yticks=[0, .5, 1], ylabel='norm. spike rate',
+       title='early v late\nsingle-cell spike rate\nwilc_p={}\nttest_p={}'.format(round(wilc_p, 10), round(ttest_p, 10)))
+ax.set_xticks([1, 2]); ax.set_xticklabels(['early\n1st-lick', 'late\n1st-lick'])
+for p in ['top', 'right', 'bottom']:
+    ax.spines[p].set_visible(False)
+    
+fig.tight_layout()
+plt.show()
+
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_single_cell_earlyvlate_normalised.png',
+            dpi=500,
+            bbox_inches='tight')
+fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ROpeak_single_cell_earlyvlate_normalised.pdf',
+            bbox_inches='tight')
+
+plt.close()
+
+
 #%% plot profiles 
 early_mean = np.mean(early_prof, axis=0)
 late_mean = np.mean(late_prof, axis=0)
@@ -209,10 +280,10 @@ ax.fill_between(xaxis, late_mean+late_sem,
                        late_mean-late_sem,
                        color=late_colour, edgecolor='none', alpha=.25)
 
-plt.legend([el, ll], ['early 1st-lick', 'late 1st-lick'], frameon=False, fontsize=8, loc='lower right')
+plt.legend([el, ll], ['early\n1st-lick', 'late\n1st-lick'], frameon=False, fontsize=8, loc='upper right')
 
 ax.set(xlabel='time (s)', xticks=[-1,0,1],
-       ylabel='spike rate (Hz)', ylim=(1.6, 4.4),
+       ylabel='spike rate (Hz)', ylim=(2, 8),
        title='early v late spike rate')
 
 for s in ['top', 'right']:

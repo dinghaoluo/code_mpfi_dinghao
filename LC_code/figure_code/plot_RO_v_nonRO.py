@@ -12,6 +12,7 @@ plot the mean spiking profiles RO and non-RO LC cells
 import numpy as np 
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.stats import sem
 
 # plotting parameters 
 import matplotlib
@@ -58,3 +59,43 @@ for i, cluname in enumerate(nonRO_list):
         else:
             profile_trunc[j,:len(trial)-2500] = profile[j][2500:]
     nonRO[i,:] = np.nanmean(profile_trunc, axis=0)
+    
+RO_mean = np.nanmean(RO, axis=0)*1250
+RO_sem = sem(RO, axis=0)*1250
+nonRO_mean = np.nanmean(nonRO, axis=0)*1250
+nonRO_sem = sem(nonRO, axis=0)*1250
+
+
+#%% plotting
+xaxis = np.arange(-1250, 1250*4)/1250
+
+fig, ax = plt.subplots(figsize=(2,1.2))
+
+ax.plot(xaxis, RO_mean, color='k')
+ax.fill_between(xaxis, RO_mean-RO_sem,
+                       RO_mean+RO_sem,
+                color='k', edgecolor='none', alpha=.25)
+ax.set(xlabel='time from run-onset (s)',
+       ylabel='spike rate (Hz)',
+       title='RO-peaking Dbh+')
+for s in ['top','right']: ax.spines[s].set_visible(False)
+
+for ext in ['png', 'pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\RO_peaking_mean_prof.{}'.format(ext),
+                dpi=200, bbox_inches='tight')
+
+
+fig, ax = plt.subplots(figsize=(2,1.2))
+
+ax.plot(xaxis, nonRO_mean, color='grey')
+ax.fill_between(xaxis, nonRO_mean-nonRO_sem,
+                       nonRO_mean+nonRO_sem,
+                color='grey', edgecolor='none', alpha=.25)
+ax.set(xlabel='time from run-onset (s)',
+       ylabel='spike rate (Hz)',
+       title='non-RO-peaking Dbh+')
+for s in ['top','right']: ax.spines[s].set_visible(False)
+
+for ext in ['png', 'pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\non_RO_peaking_mean_prof.{}'.format(ext),
+                dpi=200, bbox_inches='tight')

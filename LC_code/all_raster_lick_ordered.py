@@ -68,7 +68,7 @@ noStim = input('Get rid of stim trials? (Y/N) (for plotting purposes... etc. etc
 lick_sensitive = []
 lick_sensitive_type = []
 
-for cluname in clu_list[334:335]:
+for cluname in clu_list:
     print(cluname)
     raster = rasters[cluname]
     train = all_train[cluname]
@@ -167,11 +167,11 @@ for cluname in clu_list[334:335]:
                  xlim=(-1, 6))
     
     # t-test and pre-post comp.
-    t_res = ttest_rel(a=pre_rate, b=post_rate)
+    t, tpval = ttest_rel(pre_rate, post_rate)
+    w, wpval = wilcoxon(pre_rate, post_rate)
     t_ratio_res = ranksums(ratio, ratio_shuf)
-    pval = t_res[1]
     pval_ratio = t_ratio_res[1]
-    if pval<0.05:
+    if tpval<.01 and wpval<.01:
         lick_sensitive.append(True)
         if np.median(pre_rate)>np.median(post_rate):
             lick_sensitive_type.append('inhibition')
@@ -188,7 +188,7 @@ for cluname in clu_list[334:335]:
         axs['B'].spines[p].set_visible(False)
     axs['B'].set_xticklabels(['pre', 'post'], minor=False)
     axs['B'].set(ylabel='spike rate (Hz)',
-                 title='p[pre-post]={}'.format(round(pval,4)))
+                 title='tpval={} wpval={}'.format(round(tpval,4), round(wpval, 4)))
 
     bp = axs['B'].boxplot([pre_rate, post_rate],
                           positions=[.5, 1],
