@@ -188,7 +188,7 @@ for cluname in clu_list:
         axs['B'].spines[p].set_visible(False)
     axs['B'].set_xticklabels(['pre', 'post'], minor=False)
     axs['B'].set(ylabel='spike rate (Hz)',
-                 title='tpval={} wpval={}'.format(round(tpval,4), round(wpval, 4)))
+                 title='tpval={}\nwpval={}'.format(round(tpval,4), round(wpval, 4)))
 
     bp = axs['B'].boxplot([pre_rate, post_rate],
                           positions=[.5, 1],

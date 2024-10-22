@@ -1,0 +1,2 @@
+2024-10-21 17:21:04,234 - INFO - parameters: {'num. shuf. for each trial': 500, 'sigma for Gaussian filter': '0.33333333333333337 s', 'GPU acceleration': 'True, NVIDIA GeForce RTX 3090', 'run time': '16339.52334690094 s'}
+2024-10-21 17:21:04,235 - INFO - script run completed.
