@@ -10,13 +10,15 @@ modified to be used on axon-GCaMP recordings
 """
 
 
+
+
 #%% imports 
-import numpy as np 
-import matplotlib.pyplot as plt 
+import numpy as np
+import matplotlib.pyplot as plt
 import sys
 import os
 import pandas as pd
-from time import time 
+from time import time
 from datetime import timedelta
 
 # import pre-processing functions 
@@ -35,8 +37,8 @@ pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
 fname = r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCGCaMP_sessions.pkl'
 if os.path.exists(fname):
     df = pd.read_pickle(fname)
-    print('df loaded from {}'.format(fname))
-    processed_sess = df.index.tolist() 
+    print(f'df loaded from {fname}')
+    processed_sess = df.index.tolist()
 else:
     processed_sess = []
     sess = {'run_onsets': [],
@@ -55,23 +57,23 @@ else:
             'frame_times': [],
             'no_full_stop':[]}  # Jingyu, 9/27/2024
     df = pd.DataFrame(sess)
-    
 
-#%% main 
+
+#%% main
 for pathname in pathHPCLCGCaMP:    
     recname = pathname[-17:]
     if recname not in processed_sess:
         print(recname)
     else:
-        print('{} has already been processed...\n'.format(recname))
+        print(f'{recname} has already been processed...\n')
         continue
-    
+
     start = time()
-    
+
     txt_path = r'Z:\Dinghao\MiceExp\ANMD{}\{}{}T.txt'.format(recname[1:4], recname[:4], recname[5:])
 
     txt = tpf.process_txt(txt_path)
-    
+
     ## timestamps
     pump_times = txt['pump_times']  # pumps 
     speed_times = txt['speed_times']  # speeds 
@@ -81,10 +83,10 @@ for pathname in pathHPCLCGCaMP:
     pulse_descriptions = txt['pulse_descriptions']
     trial_statements = txt['trial_statements']
     frame_times = txt['frame_times']  # frames 
-    
+
     tot_trial = len(speed_times)
     tot_frame = len(frame_times)
-    
+
     ## correct overflow
     pump_times = tpf.correct_overflow(pump_times, 'pump')
     speed_times = tpf.correct_overflow(speed_times, 'speed')
@@ -93,9 +95,11 @@ for pathname in pathHPCLCGCaMP:
     pulse_times = tpf.correct_overflow(pulse_times, 'pulse')
     trial_statements = tpf.correct_overflow(trial_statements, 'trial_statement')
     frame_times = tpf.correct_overflow(frame_times, 'frame')
-    first_frame = frame_times[0]; last_frame = frame_times[-1]
-    first_time = speed_times[0][0][0]; last_time = speed_times[-1][-1][0]
-    
+    first_frame = frame_times[0]
+    last_frame = frame_times[-1]
+    first_time = speed_times[0][0][0]
+    last_time = speed_times[-1][-1][0]
+
     ## **fill in dropped $FM signals
     # since the 2P system does not always successfully transmit frame signals to
     # the behavioural recording system every time it acquires a frame, one needs to
@@ -105,7 +109,7 @@ for pathname in pathHPCLCGCaMP:
         if frame_times[i+1]-frame_times[i]>50:
             interp_fm = (frame_times[i+1]+frame_times[i])/2
             frame_times.insert(i+1, interp_fm)
-    
+
     ## find run-onsets; this part is easier with CPU since moving data gives so much overhead
     speeds = []
     times = []
@@ -115,7 +119,7 @@ for pathname in pathHPCLCGCaMP:
     all_uni_time = np.linspace(first_time, last_time, int(last_time-first_time))
     all_uni_speed = np.interp(all_uni_time, times, speeds)
     all_uni_time = list(all_uni_time)
-    
+
     print('trial truncation starts ({})'.format(str(timedelta(seconds=int(time()-start)))))
     run_onsets = []  # find the time point where speed continiously > 10 cm/s (after cue) first
     no_full_stop = []  # whether there is any point at which speed is lower then 10 cm/s
@@ -131,16 +135,16 @@ for pathname in pathHPCLCGCaMP:
         curr_speed = all_uni_speed[curr_ITI_start:curr_trial_end]
         run_onsets.append(tpf.get_onset(curr_speed, curr_time, speed_threshold=8))  # speed_threshold changed to acommodate A101i's behaviour
         no_full_stop.append((curr_speed>10).all())
-        
+
         # plotting for testing
         fig, ax = plt.subplots(figsize=(2,1))
         ax.plot([t/1000 for t in curr_time], curr_speed)
         ax.vlines(run_onsets[trial]/1000, 0, 50, 'orange')
-        
+
         filename = r'Z:\Dinghao\code_dinghao\behaviour\single_trial_run_onset_detection\{}\t{}.png'.format(recname, trial)
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         fig.savefig(filename, dpi=80, bbox_inches='tight')
-        
+
         plt.close(fig)
 
     print('variable frame alignment starts ({})'.format(str(timedelta(seconds=int(time()-start)))))
@@ -157,7 +161,7 @@ for pathname in pathHPCLCGCaMP:
                 run_onset_frames.append(-1)
         else:
             run_onset_frames.append(-1)
-    pump_frames = [] 
+    pump_frames = []
     for trial in pump_times:
         if trial==0:  # Unrewarded trials, Jingyu, 20240730
             pump_frames.append(-1)
@@ -179,11 +183,11 @@ for pathname in pathHPCLCGCaMP:
                 cue_frames.append(cf)
             else:
                 cue_frames.append(-1)
-        
+
     print('get lick frames ({})'.format(str(timedelta(seconds=int(time()-start)))))
     lick_locs = bf.get_lick_locs(speed_times, lick_times)
     lick_selectivity = bf.lick_index(lick_locs)
-        
+
     df.loc[recname] = np.asarray([run_onsets, 
                                   run_onset_frames,
                                   pump_times,

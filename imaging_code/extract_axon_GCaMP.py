@@ -27,6 +27,8 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.colors import LinearSegmentedColormap
 import sys
 import os
+import psutil
+import gc  # garbage collector 
 from time import time
 from datetime import timedelta
 from scipy.stats import sem 
@@ -70,7 +72,7 @@ else:
 
 
 #%% main
-for rec_path in pathHPCLCGCaMP:
+for rec_path in pathHPCLCGCaMP[1:2]:
     recname = rec_path[-17:]
     print(recname)
     
@@ -85,6 +87,7 @@ for rec_path in pathHPCLCGCaMP:
     proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions\{}'.format(recname)
     generate_dir(proc_path)
     ref_path = proc_path+r'/ref_ch1.png'
+    ref_ch2_path = proc_path+r'/ref_ch2.png'
     
     # load files 
     stat = np.load(stat_path, allow_pickle=True)
@@ -95,9 +98,6 @@ for rec_path in pathHPCLCGCaMP:
     
     tot_rois = len(stat)
     tot_frames = ops['nframes']
-    shape = tot_frames, ops['Ly'], ops['Lx']
-    mov = np.memmap(bin_path, mode='r', dtype='int16', shape=shape)
-    mov2 = np.memmap(bin2_path, mode='r', dtype='int16', shape=shape)
     
     # behaviour file
     beh = df.loc[recname]
@@ -105,38 +105,42 @@ for rec_path in pathHPCLCGCaMP:
     pump_frames = beh['pump_frames']
     cue_frames = beh['cue_frames']
     frame_times = beh['frame_times']
-    for i in range(len(run_frames)-1, -1, -1):  # filter out the no-clear-onset trials
-        if run_frames[i]==-1:
-            del run_frames[i]
-    for i in range(len(pump_frames)-1, -1, -1):  # filter out the no-rew trials
-        if pump_frames[i]==-1:
-            del pump_frames[i]
-    
+    run_frames = [frame for frame in run_frames if frame != -1]  # filter out the no-clear-onset trials
+    pump_frames = [frame for frame in pump_frames if frame != -1]  # filter out the no-rew trials
+
     # checks $FM against tot_frame
     if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
-        print('\nWARNING:\ncheck $FM; halting processing for {}\n'.format(recname))
-        align_run=0; align_rew=0; align_cue=0  # if tot_frame is more than sync signals or fewer than syncs-3, then halt
-        
+        print('\nWARNING:\ncheck $FM for {}\n'.format(recname))
+
     
     # reference images
-    if not os.path.exists(ref_path):
+    if not os.path.exists(ref_path) or not os.path.exists(ref_ch2_path):
+        shape = tot_frames, ops['Ly'], ops['Lx']
         print('plotting reference images...')
         start = time()  # timer
+        mov = np.memmap(bin_path, mode='r', dtype='int16', shape=shape)
         ref_im = ipf.plot_reference(mov, channel=1, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
+        mov._mmap.close()
         print('ref done ({})'.format(str(timedelta(seconds=int(time()-start)))))
+        mov2 = np.memmap(bin2_path, mode='r', dtype='int16', shape=shape)
         ref_ch2_im = ipf.plot_reference(mov2, channel=2, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
+        mov2._mmap.close()
         print('ref_ch2 done ({})'.format(str(timedelta(seconds=int(time()-start)))))
     else:
         print(f'ref images already plotted; loading ref_im from {ref_path}...')
-        ref_im = np.load(ref_path[:-4]+'.npy', allow_pickle=True)
+        ref_mat_path = proc_path+r'/ref_mat_ch1.npy'
+        ref_ch2_mat_path = proc_path+r'/ref_mat_ch2.npy'
+        ref_im = np.load(ref_mat_path, allow_pickle=True)
+        ref_ch2_im = np.load(ref_ch2_mat_path, allow_pickle=True)
 
 
     # find valid ROIs
-    valid_rois = []
+    imerge_pooled = set()
     for roi in range(tot_rois):
-        # if this ROI was sorted as a 'cell' & is not merged into another ROI
-        if iscell[roi][0]==1 and stat[roi]['inmerge']<1:
-            valid_rois.append(roi)
+        imerge_pooled.update(stat[roi]['imerge'])  # update the set with unique elements
+    # if this ROI was sorted as a 'cell' & is not merged into another ROI
+    valid_rois = [roi for roi in range(tot_rois) 
+                  if roi not in imerge_pooled and iscell[roi][0]==1]
     tot_valids = len(valid_rois)
 
     
@@ -245,20 +249,24 @@ for rec_path in pathHPCLCGCaMP:
             
     
     # plot heatmap of all 
-    max_pt = {}  # argmax for average for all cells
-    for roi in range(tot_valids):
-        max_pt[roi] = np.argmax(all_mean_run[roi])
-    def sort_helper(x):
-        return max_pt[x]
-    keys = sorted(np.arange(tot_valids), key=sort_helper)
-    im_matrix = np.zeros((tot_valids, (bef+aft)*30))
-    for i, roi in enumerate(keys):
-        im_matrix[i, :] = all_mean_run[roi]
+    keys = np.argsort([np.argmax(all_mean_run[roi]) for roi in range(tot_valids)])
+    im_matrix = all_mean_run[keys, :]
+    for roi in range(tot_valids):  # normalise within-subject 
+        im_matrix[roi, :] = normalise(im_matrix[roi, :])
     
     fig, ax = plt.subplots(figsize=(3,3))
     ax.imshow(im_matrix, aspect='auto', extent=[-1,4,0,tot_rois])
     ax.set(xlabel='time from run-onset (s)',
            ylabel='ROI #')
-    fig.savefig(r'{}\run_aligned_sorted.png'.format(proc_path, recname))
+    fig.savefig(r'{}\run_aligned_sorted.png'.format(proc_path))
     plt.close(fig)
-# %%
+
+
+    # release memory
+    process = psutil.Process()
+    print(f'memory usage before collection: {process.memory_info().rss / 1024**2:.2f} mb')
+
+    del stat, iscell, ops, F, ref_im, ref_ch2_im, all_mean_run, im_matrix
+    gc.collect()  # trigger garbage collection after deletion
+
+    print(f'memory usage after collection: {process.memory_info().rss / 1024**2:.2f} mb')
