@@ -238,8 +238,10 @@ def run_grid(frame, grids, tot_grid, stride=8, GPU_AVAILABLE=False):
     return gridded
 
 def plot_reference(mov, grids=-1, stride=-1, dim=512, channel=1, outpath=r'', GPU_AVAILABLE=False): 
-    if grids!=-1: boundary_low = grids[0]; boundary_high = grids[-1]+stride
-    
+    if grids!=-1:  # if one is using grid-processing; else don't do anything
+        boundary_low = grids[0]
+        boundary_high = grids[-1]+stride
+
     # plot the mean image (Z-projection)
     if GPU_AVAILABLE:
         mov_gpu = cp.array(mov)  # move to VRAM
@@ -259,16 +261,18 @@ def plot_reference(mov, grids=-1, stride=-1, dim=512, channel=1, outpath=r'', GP
         ax.plot([grids[-1]+stride, grids[-1]+stride], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)  # last vertical line 
         ax.plot([boundary_low, boundary_high], [grids[-1]+stride, grids[-1]+stride], color='grey', linewidth=1, alpha=.5)  # last horizontal line
     ax.set(xlim=(0,dim), ylim=(0,dim))
-    
-    fig.suptitle('ref ch{}'.format(channel))
+
+    fig.suptitle(f'ref ch{channel}')
     fig.tight_layout()
     if grids!=-1:  # grid-analysis 
         fig.savefig(r'{}\ref_ch{}_{}.png'.format(outpath, channel, stride),
                     dpi=300,
                     bbox_inches='tight')
+        np.save(r'{}\ref_mat_ch{}.npy'.format(outpath, channel), ref_im)
     else:  # regular 
         fig.savefig(r'{}\ref_ch{}.png'.format(outpath, channel))
-        
+        np.save(r'{}\ref_mat_ch{}.npy'.format(outpath, channel), ref_im)
+
     return ref_im
         
     

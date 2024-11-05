@@ -6,7 +6,7 @@ process and save behaviour files as dataframes
 modified to be used on axon-GCaMP recordings
 
 @author: Dinghao Luo
-@modifiers: Dinghao Luo, Jingyu Cao
+@modifiers: Dinghao Luo
 """
 
 
