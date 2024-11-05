@@ -25,3 +25,12 @@ def smooth_convolve(data, sigma=2):  # sigma in frames
     gaussian_filter = [1 / (sigma*np.sqrt(2*np.pi)) * 
                        np.exp(-x**2/(2*sigma**2)) for x in gx]
     return np.convolve(data, gaussian_filter, mode='same')
+
+
+# calculate sem using cupy 
+def sem_gpu(arr, axis=0, ddof=1):
+    import cupy as cp 
+    n = arr.shape[axis]
+    arr_gpu = cp.array(arr)  # move to VRAM
+    s = cp.std(arr_gpu, axis=axis, ddof=ddof) / cp.sqrt(n)
+    return s.get()  # move back to VRAM

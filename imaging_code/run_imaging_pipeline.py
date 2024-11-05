@@ -12,25 +12,23 @@ This code combines grid_extract.py (Dinghao) and after_suite2p.py (Jingyu)
 
 #%% imports 
 import sys
+import pandas as pd 
 from time import time
 from datetime import timedelta
 
-if r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils' not in sys.path:
-    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_pipeline_functions as ipf
 import imaging_pipeline_main_functions as ipmf
 
 
 #%% recording lists 
-if r'Z:\Dinghao\code_dinghao' not in sys.path:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 pathGRABNE = rec_list.pathHPCGRABNE
 
-if ("Z:\Jingyu\Code\Python" in sys.path) == False:
-    sys.path.append("Z:\Jingyu\Code\Python")
-import anm_list_running
-path_dLight = anm_list_running.grid_tmp
+sys.path.append("Z:\Jingyu\Code\Python")
+# import anm_list_running
+# path_dLight = anm_list_running.grid_tmp
 
 
 #%% suite2p ROIs or grid ROIs
@@ -62,8 +60,8 @@ if roi_switch=='1':
     
 if roi_switch=='2':
     # how many pixels x/y for each grid
-    # stride = int(496/2/2/2/2)
-    stride = 496
+    stride = int(496/2/2/2/2)
+    # stride = 496
     border = 8  # ignore how many pixels at the border (1 side)
     # border = 6
     fit = ipf.check_stride_border(stride, border)
@@ -72,6 +70,28 @@ if roi_switch=='2':
     
     # do we want to save the grid_traces if extracted 
     save_grids = 1
+    
+    print('\n')
+
+
+#%% GPU acceleration
+try:
+    import cupy as cp 
+    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
+except ModuleNotFoundError:
+    print('cupy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
+    GPU_AVAILABLE = False
+except Exception as e:
+    # catch any other unexpected errors and print a general message
+    print('An error occurred: {}'.format(e))
+    GPU_AVAILABLE = False
+
+if GPU_AVAILABLE:
+    # we are assuming that there is only 1 GPU device
+    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
+    print('GPU-acceleration with {} and cupy'.format(str(name)))
+else:
+    print('GPU-acceleartion unavailable')
 
 
 #%% print out 
@@ -104,7 +124,13 @@ print(printout)
 
 
 #%% run
-for rec_path in pathGRABNE:
+print('loading behaviour dataframe...')
+try:
+    df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_GRABNE_sessions.pkl')
+except FileNotFoundError:
+    print('loading failed: no behavioural dataframe found\n')
+
+for rec_path in pathGRABNE[53:]:
     if 'Dinghao' in rec_path:
         reg_path = rec_path+r'\processed\suite2p\plane0'
         recname = rec_path[-17:]
@@ -117,6 +143,12 @@ for rec_path in pathGRABNE:
     print('\nprocessing {}'.format(recname))
     t0 = time()
     
+    try:
+        print('reading session behavioural data...')
+        beh = df.loc[recname]
+    except NameError:
+        beh = []
+    
     # main calls
     if roi_switch=='1':
         ipmf.run_suite2p_pipeline(rec_path, recname, reg_path, txt_path,
@@ -125,11 +157,12 @@ for rec_path in pathGRABNE:
                                   bef, aft,
                                   align_run, align_rew, align_cue)
     if roi_switch=='2':
-        ipmf.run_grid_pipeline(rec_path, recname, reg_path, txt_path, 
+        ipmf.run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
                                stride, border, 
                                plot_ref, 
                                smooth, dFF, save_grids, 
                                bef, aft,
-                               align_run, align_rew, align_cue)
+                               align_run, align_rew, align_cue,
+                               GPU_AVAILABLE)
         
     print('{} done ({})'.format(recname, str(timedelta(seconds=int(time()-t0)))))

@@ -3,6 +3,7 @@
 Created on Fri Jul 12 17:35:35 2024
 
 process and save behaviour files as dataframes
+modified to be used on axon-GCaMP recordings
 
 @author: Dinghao Luo
 @modifiers: Dinghao Luo, Jingyu Cao
@@ -27,16 +28,17 @@ import behaviour_functions as bf
 #%% recording list
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
-pathGRABNE = rec_list.pathHPCGRABNE
+pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
 
 
 #%% container
-fname = r'Z:\Dinghao\code_dinghao\behaviour\all_GRABNE_sessions.pkl'
+fname = r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCGCaMP_sessions.pkl'
 if os.path.exists(fname):
     df = pd.read_pickle(fname)
-    print('df loaded from {}'.format('Z:\Dinghao\code_dinghao\behaviour\all_GRABNE_sessions.pkl'))
+    print('df loaded from {}'.format(fname))
     processed_sess = df.index.tolist() 
 else:
+    processed_sess = []
     sess = {'run_onsets': [],
             'run_onset_frames': [],
             'pumps': [],
@@ -56,7 +58,7 @@ else:
     
 
 #%% main 
-for pathname in pathGRABNE:    
+for pathname in pathHPCLCGCaMP:    
     recname = pathname[-17:]
     if recname not in processed_sess:
         print(recname)
@@ -127,7 +129,7 @@ for pathname in pathGRABNE:
         curr_trial_end = tpf.find_nearest(pump_times[trial], all_uni_time)
         curr_time = all_uni_time[curr_ITI_start:curr_trial_end]
         curr_speed = all_uni_speed[curr_ITI_start:curr_trial_end]
-        run_onsets.append(tpf.get_onset(curr_speed, curr_time))
+        run_onsets.append(tpf.get_onset(curr_speed, curr_time, speed_threshold=8))  # speed_threshold changed to acommodate A101i's behaviour
         no_full_stop.append((curr_speed>10).all())
         
         # plotting for testing
@@ -140,7 +142,7 @@ for pathname in pathGRABNE:
         fig.savefig(filename, dpi=80, bbox_inches='tight')
         
         plt.close(fig)
-                  
+
     print('variable frame alignment starts ({})'.format(str(timedelta(seconds=int(time()-start)))))
     ## determine frames for each variable
     run_onset_frames = []
@@ -204,5 +206,5 @@ for pathname in pathGRABNE:
 
 
 #%% save dataframe 
-df.to_csv(r'Z:\Dinghao\code_dinghao\behaviour\all_GRABNE_sessions.csv')
-df.to_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_GRABNE_sessions.pkl')
+df.to_csv(r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCGCaMP_sessions.csv')
+df.to_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCGCaMP_sessions.pkl')

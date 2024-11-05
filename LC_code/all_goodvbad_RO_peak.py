@@ -14,6 +14,7 @@ bad trial parameters 30 Jan 2023 (in getBehParameters()):
 @author: Dinghao Luo
 """
 
+
 #%% imports
 import os 
 import sys
@@ -23,15 +24,22 @@ from scipy.stats import sem, ttest_rel, wilcoxon
 import matplotlib.pyplot as plt 
 import scipy.io as sio
 
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from logger_module import log_run
+
 import matplotlib
 plt.rcParams['font.family'] = 'Arial'
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathLC = rec_list.pathLC
+
+
+#%% timer
+from time import time 
+start = time()
 
 
 #%% load data 
@@ -43,13 +51,11 @@ cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_pr
 #%% specify RO peaking putative Dbh cells
 RO_peaking_keys = []
 for cell in cell_prop.index:
-    up = cell_prop['peakness'][cell]  # union-peakness
+    pk = cell_prop['peakness'][cell]  # union-peakness
     pt = cell_prop['putative'][cell]  # putative
     tg = cell_prop['tagged'][cell]
     
-    if up and pt:
-        RO_peaking_keys.append(cell)
-    if up and tg:  # since putative does not include tagged
+    if pk and (pt or tg):
         RO_peaking_keys.append(cell)
 
 
@@ -113,54 +119,55 @@ p_b_sem = sem(p_b_avg, axis=0)
 p_b_avg = np.mean(p_b_avg, axis=0)
 
 
-#%% plotting
-print('\nplotting avg onset-bursting good vs bad spike trains...')
-tot_plots = len(p_good)  # total number of cells
-col_plots = 5
-row_plots = tot_plots // col_plots
-if tot_plots % col_plots != 0:
-    row_plots += 1
-plot_pos = np.arange(1, tot_plots+1)
+# #%% plotting
+# print('\nplotting avg onset-bursting good vs bad spike trains...')
+# tot_plots = len(p_good)  # total number of cells
+# col_plots = 5
+# row_plots = tot_plots // col_plots
+# if tot_plots % col_plots != 0:
+#     row_plots += 1
+# plot_pos = np.arange(1, tot_plots+1)
 
-fig = plt.figure(1, figsize=[5*4, row_plots*2.5]); fig.tight_layout()
-xaxis = np.arange(-3750, 10000, 1)/1250 
+# fig = plt.figure(1, figsize=[5*4, row_plots*2.5]); fig.tight_layout()
+# xaxis = np.arange(-3750, 10000, 1)/1250 
 
-for i in range(tot_plots):
-    curr_clu_good = list(p_good.items())[i]
-    curr_clu_name = curr_clu_good[0]
-    curr_good_avg = curr_clu_good[1]
-    curr_good_sem = p_good_sem[curr_clu_name]
-    curr_bad_avg = p_bad[curr_clu_name]
-    curr_bad_sem = p_bad[curr_clu_name]
+# for i in range(tot_plots):
+#     curr_clu_good = list(p_good.items())[i]
+#     curr_clu_name = curr_clu_good[0]
+#     curr_good_avg = curr_clu_good[1]
+#     curr_good_sem = p_good_sem[curr_clu_name]
+#     curr_bad_avg = p_bad[curr_clu_name]
+#     curr_bad_sem = p_bad[curr_clu_name]
     
-    ax = fig.add_subplot(row_plots, col_plots, plot_pos[i])
-    ax.set_title(curr_clu_name[-22:], fontsize = 10)
-    ax.set(ylim=(0, np.max(curr_good_avg)*1250*1.5),
-           ylabel='spike rate (Hz)',
-           xlabel='time (s)')
-    good_avg = ax.plot(xaxis, curr_good_avg*1250, color='seagreen')
-    good_sem = ax.fill_between(xaxis, curr_good_avg*1250+curr_good_sem*1250,
-                                      curr_good_avg*1250-curr_good_sem*1250,
-                                      color='springgreen')
-    bad_avg = ax.plot(xaxis, curr_bad_avg*1250, color='firebrick', alpha=.3)
-    # bad_sem = ax.fill_between(xaxis, curr_bad_avg+curr_bad_sem,
-    #                                  curr_bad_avg-curr_bad_sem,
-    #                                  color='lightcoral')
-    ax.vlines(0, 0, 20, color='grey', alpha=.25)
+#     ax = fig.add_subplot(row_plots, col_plots, plot_pos[i])
+#     ax.set_title(curr_clu_name[-22:], fontsize = 10)
+#     ax.set(ylim=(0, np.max(curr_good_avg)*1250*1.5),
+#            ylabel='spike rate (Hz)',
+#            xlabel='time (s)')
+#     good_avg = ax.plot(xaxis, curr_good_avg*1250, color='seagreen')
+#     good_sem = ax.fill_between(xaxis, curr_good_avg*1250+curr_good_sem*1250,
+#                                       curr_good_avg*1250-curr_good_sem*1250,
+#                                       color='springgreen')
+#     bad_avg = ax.plot(xaxis, curr_bad_avg*1250, color='firebrick', alpha=.3)
+#     # bad_sem = ax.fill_between(xaxis, curr_bad_avg+curr_bad_sem,
+#     #                                  curr_bad_avg-curr_bad_sem,
+#     #                                  color='lightcoral')
+#     ax.vlines(0, 0, 20, color='grey', alpha=.25)
 
-plt.subplots_adjust(hspace = 0.5)
-plt.show()
+# plt.subplots_adjust(hspace = 0.5)
+# plt.show()
 
-out_directory = r'Z:\Dinghao\code_dinghao\LC_all'
-if not os.path.exists(out_directory):
-    os.makedirs(out_directory)
-fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_putDbh_ROpeaking.png')
+# out_directory = r'Z:\Dinghao\code_dinghao\LC_all'
+# if not os.path.exists(out_directory):
+#     os.makedirs(out_directory)
+# fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_putDbh_ROpeaking.png')
 
 
 #%% avg profile for onset-bursting clus
 print('\nplotting avg onset-bursting good vs bad averaged spike trains...')
 
-w_res = wilcoxon(pk_good, pk_bad)[1]
+pval_t = ttest_rel(pk_good, pk_bad)[1]
+pval_wil = wilcoxon(pk_good, pk_bad)[1]
 
 xaxis = np.arange(-3750, 10000, 1)/1250 
 
@@ -174,36 +181,33 @@ p_g_burst_avg = np.mean(p_g_burst_avg, axis=0)
 p_b_burst_sem = sem(p_b_burst_avg, axis=0)
 p_b_burst_avg = np.mean(p_b_burst_avg, axis=0)
 
-fig, ax = plt.subplots(figsize=(2.8,2))
+fig, ax = plt.subplots(figsize=(2,1.4))
 p_good_ln, = ax.plot(xaxis, p_g_burst_avg*1250, color='forestgreen')
 p_bad_ln, = ax.plot(xaxis, p_b_burst_avg*1250, color='grey')
 ax.fill_between(xaxis, p_g_burst_avg*1250+p_g_burst_sem*1250, 
                        p_g_burst_avg*1250-p_g_burst_sem*1250,
-                       color='mediumseagreen', alpha=.1)
+                       color='mediumseagreen', alpha=.1, edgecolor='none')
 ax.fill_between(xaxis, p_b_burst_avg*1250+p_b_burst_sem*1250, 
                        p_b_burst_avg*1250-p_b_burst_sem*1250,
-                       color='gainsboro', alpha=.1)
+                       color='gainsboro', alpha=.1, edgecolor='none')
 ax.vlines(0, 0, 10, color='grey', linestyle='dashed', alpha=.1)
 ax.set(title='good v bad trials (all Dbh+)',
-       ylim=(1.5,5),yticks=[2,4],
+       ylim=(1.8,9.6),yticks=[2,5,8],
        xlim=(-1,4),xticks=[0,2,4],
        ylabel='spike rate (Hz)',
-       xlabel='time (s)')
+       xlabel='time from run-onset (s)')
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.legend([p_good_ln, p_bad_ln], 
           ['good trial', 'bad trial'], frameon=False, fontsize=8)
 
-plt.plot([-.5,.5], [4.9,4.9], c='k', lw=.5)
-plt.text(0, 4.95, 'p={}'.format(round(w_res, 8)), ha='center', va='bottom', color='k', fontsize=5)
+plt.plot([-.5,.5], [8.7,8.7], c='k', lw=.5)
+plt.text(0, 8.7, 'pval_wil={}\npval_t={}'.format(round(pval_wil, 5), round(pval_t, 5)), ha='center', va='bottom', color='k', fontsize=5)
 
-fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_avg_ROpeaking.png',
-            dpi=300,
-            bbox_inches='tight')
-fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_avg_ROpeaking.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_goodvbad_ROpeaking.pdf',
-            bbox_inches='tight')
+for ext in ['png', 'pdf']:
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_goodvbad_(alignedRun)_avg_ROpeaking.{}'.format(ext),
+                dpi=300,
+                bbox_inches='tight')
 
 
 #%% tests and bar graph
@@ -242,8 +246,6 @@ ax.set(title='tt {}\nwilc {}'.format(t_res, w_res),
 plt.show()
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_goodvbad_avg_putDbh_ROpeaking_bivariate.png')
 fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_goodvbad_avg_putDbh_ROpeaking_bivariate.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_goodvbad_ROpeaking_bivariate.pdf',
             bbox_inches='tight')
 
 
@@ -288,3 +290,9 @@ fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_LC_goodvbad_ROpeaking_bivariate.
 # ax.hist(pt_dist, bins=bins,
 #         color='forestgreen',
 #         edgecolor='grey')
+
+
+#%% logging 
+runtime = '{} s'.format(time()-start)
+params = {'run time': runtime}
+log_run(os.path.basename(__file__), params)

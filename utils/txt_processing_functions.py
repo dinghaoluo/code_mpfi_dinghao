@@ -228,10 +228,10 @@ def correct_overflow(data, label):
     return new_data
 
 
-def get_onset(uni_speeds, uni_times, threshold=0.3):  # 0.3 seconds
+def get_onset(uni_speeds, uni_times, threshold=0.3, speed_threshold=10):
     count = 0
     for i in range(len(uni_speeds)):
-        count = fast_in_a_row(uni_speeds[i], count, 10)
+        count = fast_in_a_row(uni_speeds[i], count, speed_threshold)
         if count>threshold*1000:
             index = uni_times[i]-threshold*1000
             break

@@ -3,6 +3,7 @@
 Created on Mon Apr 15 16:50:53 2024
 
 functions for the Python imaging pipeline
+modified: added GPU acceleration using cupy, 1 Nov 2024 Dinghao 
 
 @author: Dinghao Luo
 @contributor: Jingyu Cao
@@ -10,9 +11,13 @@ functions for the Python imaging pipeline
 
 
 #%% imports 
-import numpy as np 
+import numpy as np
+try:
+    import cupy as cp
+except ModuleNotFoundError:
+    pass
 import matplotlib.pyplot as plt 
-from scipy.ndimage import gaussian_filter
+# from scipy.ndimage import gaussian_filter
 
 
 #%% constants 
@@ -34,23 +39,90 @@ def sum_mat(matrix):
     """
     return sum(map(sum, matrix))
 
+def gaussian_kernel_unity(sigma):
+    """
+    Calculates a 1D Gaussian convolution kernel that sums to unity
+    """
+    kernel_size = int(6 * sigma + 1)
+    x = np.arange(kernel_size) - (kernel_size // 2)
+    kernel = np.exp(-(x**2 / (2 * sigma**2)))
+    kernel /= kernel.sum()  # normalisation to ensure the unity sum
+    return kernel
 
-def rolling_min(arr, win):
-    length = arr.shape[1]
-    half_win = int(np.ceil(win/2))
-    array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
-    output = np.array([np.min(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
-    return output
+def convolve_gaussian_axis0(arr, sigma, GPU_AVAILABLE):
+    kernel = gaussian_kernel_unity(sigma) 
 
-def rolling_max(arr, win):
-    length = arr.shape[1]
-    half_win = int(np.ceil(win/2))
-    array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
-    output = np.array([np.max(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
-    return output
+    if GPU_AVAILABLE:
+        kernel = cp.array(kernel)  # move to VRAM
+        arr_gpu = cp.array(arr)  # move to VRAM
+        if len(arr_gpu.shape)>1:  # more than 1 ROIs
+            for roi in range(arr_gpu.shape[0]):
+                arr_gpu[roi, :] = cp.convolve(arr_gpu[roi, :], kernel, mode='same')
+        else:  # 1 ROI
+            arr_gpu = cp.convolve(arr_gpu, kernel, mode='same')
+        return arr_gpu.get()  # move back to RAM
+    else:
+        if len(arr.shape)>1:
+            for roi in range(arr.shape[0]):
+                arr[roi, :] = np.convolve(arr[roi, :], kernel, mode='same')
+        else:
+            arr = np.convolve(arr, kernel, mode='same')
+        return arr
+
+def rolling_min(arr, win, GPU_AVAILABLE):
+    if len(arr.shape)>1:  # 2D
+        length = arr.shape[1]
+    else:  # 1D
+        length = arr.shape[0]
+    
+    if GPU_AVAILABLE:
+        half_win = int(cp.ceil(win/2))
+        arr_gpu = cp.array(arr)  # move to VRAM
+        if len(arr.shape)>1:
+            array_padding = cp.hstack((arr_gpu[:,:half_win], arr_gpu, arr_gpu[:,-half_win:length]))
+            output = cp.array([cp.min(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
+        else:
+            array_padding = cp.hstack((arr_gpu[:half_win], arr_gpu, arr_gpu[-half_win:length]))
+            output = cp.array([cp.min(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
+        return output.get()  # move back to RAM
+    else:
+        half_win = int(np.ceil(win/2))
+        if len(arr.shape)>1:
+            array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
+            output = np.array([np.min(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
+        else:
+            array_padding = np.hstack((arr[:half_win], arr, arr[-half_win:length]))
+            output = np.array([np.min(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
+        return output
+
+def rolling_max(arr, win, GPU_AVAILABLE):
+    if len(arr.shape)>1:  # 2D
+        length = arr.shape[1]
+    else:  # 1D
+        length = arr.shape[0]
+    
+    if GPU_AVAILABLE:
+        half_win = int(cp.ceil(win/2))
+        arr_gpu = cp.array(arr)  # move to VRAM
+        if len(arr.shape)>1:
+            array_padding = cp.hstack((arr_gpu[:,:half_win], arr_gpu, arr_gpu[:,-half_win:length]))
+            output = cp.array([cp.max(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
+        else:
+            array_padding = cp.hstack((arr_gpu[:half_win], arr_gpu, arr_gpu[-half_win:length]))
+            output = cp.array([cp.max(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
+        return output.get()  # move back to RAM
+    else:
+        half_win = int(np.ceil(win/2))
+        if len(arr.shape)>1:
+            array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
+            output = np.array([np.max(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
+        else:
+            array_padding = np.hstack((arr[:half_win], arr, arr[-half_win:length]))
+            output = np.array([np.max(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
+        return output
 
 
-def calculate_dFF(F_array, window=1800, sigma=300):    
+def calculate_dFF(F_array, window=1800, sigma=300, GPU_AVAILABLE=False):
     """
     Parameters
     ----------
@@ -66,9 +138,10 @@ def calculate_dFF(F_array, window=1800, sigma=300):
         2D array containing the dFF for each ROI.
 
     """
-    baseline = gaussian_filter(F_array, sigma, axes=1)
-    baseline = rolling_min(baseline, window)
-    baseline = rolling_max(baseline, window)
+    # print('GPU_AVAILABLE: {}'.format(GPU_AVAILABLE))
+    baseline = convolve_gaussian_axis0(F_array, sigma, GPU_AVAILABLE)
+    baseline = rolling_min(baseline, window, GPU_AVAILABLE)
+    baseline = rolling_max(baseline, window, GPU_AVAILABLE)
     
     return (F_array-baseline)/baseline
 
@@ -126,7 +199,7 @@ def make_grid(stride=8, dim=512, border=0):
     """
     return list(np.arange(0+border, dim-border, stride))
 
-def run_grid(frame, grids, tot_grid, stride=8):
+def run_grid(frame, grids, tot_grid, stride=8, GPU_AVAILABLE=False):
     """
     Parameters
     ----------
@@ -143,42 +216,66 @@ def run_grid(frame, grids, tot_grid, stride=8):
     -------
     gridded : array
         3-dimensional array at tot_grid x stride x stride.
-    """
-    gridded = np.zeros((tot_grid, stride, stride))
-    
+    """    
+    # plot the mean image (Z-projection)
     grid_count = 0
-    for hgp in grids:
-        for vgp in grids:
-            gridded[grid_count,:,:] = frame[hgp:hgp+stride, vgp:vgp+stride]
-            grid_count+=1
+
+    if GPU_AVAILABLE:
+        frame_gpu = cp.array(frame)
+        gridded_gpu = cp.zeros((tot_grid, stride, stride))  # initialise array in VRAM
+        for hgp in grids:
+            for vgp in grids:
+                gridded_gpu[grid_count,:,:] = frame_gpu[hgp:hgp+stride, vgp:vgp+stride]
+                grid_count+=1
+        gridded = gridded_gpu.get()  # move back to RAM
+    else:
+        gridded = np.zeros((tot_grid, stride, stride))  # initialise array in RAM
+        for hgp in grids:
+            for vgp in grids:
+                gridded[grid_count,:,:] = frame[hgp:hgp+stride, vgp:vgp+stride]
+                grid_count+=1
             
     return gridded
 
-def plot_reference(mov, grids, stride, dim, channel, outpath):
-    boundary_low = grids[0]; boundary_high = grids[-1]+stride
+def plot_reference(mov, grids=-1, stride=-1, dim=512, channel=1, outpath=r'', GPU_AVAILABLE=False): 
+    if grids!=-1: boundary_low = grids[0]; boundary_high = grids[-1]+stride
+    
     # plot the mean image (Z-projection)
-    ref_im = np.mean(mov, axis=0)
+    if GPU_AVAILABLE:
+        mov_gpu = cp.array(mov)  # move to VRAM
+        ref_im_gpu = cp.mean(mov_gpu, axis=0)
+        ref_im = ref_im_gpu.get()  # move back to RAM
+    else:
+        ref_im = np.mean(mov, axis=0)
+
     ref_im = post_processing_suite2p_gui(ref_im)
     fig, ax = plt.subplots(figsize=(4,4))
     ax.imshow(ref_im, aspect='auto', cmap='gist_gray', interpolation='none',
               extent=[0, dim, dim, 0])
-    for i in range(len(grids)):  # vertical lines 
-        ax.plot([grids[i], grids[i]], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)
-        ax.plot([boundary_low, boundary_high], [grids[i], grids[i]], color='grey', linewidth=1, alpha=.5)
-    ax.plot([grids[-1]+stride, grids[-1]+stride], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)  # last vertical line 
-    ax.plot([boundary_low, boundary_high], [grids[-1]+stride, grids[-1]+stride], color='grey', linewidth=1, alpha=.5)  # last horizontal line
+    if grids!=-1:
+        for i in range(len(grids)):  # vertical lines 
+            ax.plot([grids[i], grids[i]], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)
+            ax.plot([boundary_low, boundary_high], [grids[i], grids[i]], color='grey', linewidth=1, alpha=.5)
+        ax.plot([grids[-1]+stride, grids[-1]+stride], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)  # last vertical line 
+        ax.plot([boundary_low, boundary_high], [grids[-1]+stride, grids[-1]+stride], color='grey', linewidth=1, alpha=.5)  # last horizontal line
     ax.set(xlim=(0,dim), ylim=(0,dim))
     
     fig.suptitle('ref ch{}'.format(channel))
     fig.tight_layout()
-    fig.savefig(r'{}\ref_ch{}_{}.png'.format(outpath, channel, stride),
-                dpi=300,
-                bbox_inches='tight')
+    if grids!=-1:  # grid-analysis 
+        fig.savefig(r'{}\ref_ch{}_{}.png'.format(outpath, channel, stride),
+                    dpi=300,
+                    bbox_inches='tight')
+    else:  # regular 
+        fig.savefig(r'{}\ref_ch{}.png'.format(outpath, channel))
+        
+    return ref_im
+        
     
 def post_processing_suite2p_gui(img_orig):
     '''
     no idea what this does but ok
-    apparently it does something to the image ORZ ORZ ORZ
+    apparently it does something to the image
     '''
     # normalize to 1st and 99th percentile
     perc_low, perc_high = np.percentile(img_orig, [1, 99])

@@ -3,6 +3,7 @@
 Created on Tue Jun 25 16:02:34 2024
 
 A script to host the entire suite2p and grid ROI pipeline
+modified: added GPU acceleration using cupy, 1 Nov 2024 Dinghao 
 
 @author: Dinghao Luo
 """
@@ -11,30 +12,35 @@ A script to host the entire suite2p and grid ROI pipeline
 #%% imports
 import sys
 import os
+import pandas as pd
 import numpy as np
+try:
+    import cupy as cp 
+except ModuleNotFoundError:
+    print('cupy not installed; GPU acceleration unavailable')
+from scipy.stats import sem
 import matplotlib.pyplot as plt 
 import matplotlib as plc
-from scipy.stats import sem 
 from time import time
 from datetime import timedelta
 
 # import pre-processing functions 
-if (r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils' in sys.path) == False:
-    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_pipeline_functions as ipf
 
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
-from common import normalise, smooth_convolve  # !be extra cautious when using smooth_convolve!
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from common import normalise, sem_gpu
 
 
 #%% grid pipeline function 
-def run_grid_pipeline(rec_path, recname, reg_path, txt_path, 
+def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
                       stride, border, 
                       plot_ref, 
                       smooth, dFF, save_grids, 
                       bef, aft,
-                      align_run, align_rew, align_cue):    
+                      align_run, align_rew, align_cue,
+                      GPU_AVAILABLE): 
+    
     opsfile = reg_path+r'\ops.npy'
     binfile = reg_path+r'\data.bin'
     bin2file = reg_path+r'\data_chan2.bin'
@@ -49,12 +55,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     trace_dFF_path_exists = os.path.exists(extract_path+r'\grid_traces_dFF_{}.npy'.format(stride))
     trace_dFF_path2_exists = os.path.exists(extract_path+r'\grid_traces_dFF_{}_ch2.npy'.format(stride))
     if ref_path_exists and trace_path_exists and trace_path2_exists:
-        print('session already processed; plotting...')
-    
-    # beh file
-    print('\nreading behaviour file...')
-    txt = ipf.process_txt(txt_path)
-
+        print('session already processed...')
 
     ## define gridmesh
     # parameters 
@@ -82,9 +83,9 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
             print('\ngenerating reference images...')
             
             t0 = time()  # timer
-            ipf.plot_reference(mov, grids, stride, 512, 1, extract_path)
+            ipf.plot_reference(mov, grids, stride, 512, 1, extract_path, GPU_AVAILABLE)
             print('ref done ({})'.format(str(timedelta(seconds=int(time()-t0)))))
-            ipf.plot_reference(mov2, grids, stride, 512, 2, extract_path)
+            ipf.plot_reference(mov2, grids, stride, 512, 2, extract_path, GPU_AVAILABLE)
             print('ref_ch2 done ({})'.format(str(timedelta(seconds=int(time()-t0)))))
 
 
@@ -101,7 +102,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
                 if f==int(tot_frames*p):
                     print('{} ({}%) frames done ({})'.format(f, int(p*100), str(timedelta(seconds=int(time()-t0)))))
             
-            curr_frame = ipf.run_grid(mov[f,:,:], grids, tot_grid, stride)
+            curr_frame = ipf.run_grid(mov[f,:,:], grids, tot_grid, stride, GPU_AVAILABLE)
             for g in range(tot_grid):
                 grid_traces[g, f] = ipf.sum_mat(curr_frame[g])
         print('ch1 trace extraction complete ({})'.format(str(timedelta(seconds=int(time()-t0)))))
@@ -126,7 +127,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
                 if f==int(tot_frames*p):
                     print('{} ({}%) frames done ({})'.format(f, int(p*100), str(timedelta(seconds=int(time()-t0)))))
             
-            curr_frame = ipf.run_grid(mov2[f,:,:], grids, tot_grid, stride)
+            curr_frame = ipf.run_grid(mov2[f,:,:], grids, tot_grid, stride, GPU_AVAILABLE)
             for g in range(tot_grid):
                 grid_traces_ch2[g, f] = ipf.sum_mat(curr_frame[g])
         print('ch2 trace extraction complete ({})'.format(str(timedelta(seconds=int(time()-t0)))))
@@ -139,75 +140,127 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     
         
     ## read grid traces (if exists)
-    if trace_path_exists and trace_path2_exists:
+    if trace_path_exists and trace_path2_exists and not dFF:
         grid_traces = np.load(extract_file_path, allow_pickle=True)
         grid_traces_ch2 = np.load(extract_file_path_ch2, allow_pickle=True)
         print('\ntraces read from {}'.format(extract_path))    
     
     
     ## dFF calculation 
-    if dFF and (align_run or align_rew):
+    if dFF and not trace_dFF_path_exists and (align_run or align_rew):
         print('calculating dFF...')
         t0 = time()  # timer
-        grid_traces_dFF = ipf.calculate_dFF(grid_traces)
+        grid_traces = ipf.calculate_dFF(grid_traces, GPU_AVAILABLE=GPU_AVAILABLE)
         print('ch1 dFF calculation complete ({})'.format(str(timedelta(seconds=int(time()-t0)))))
         
     extract_dFF_file_path = extract_path+r'\grid_traces_dFF_{}.npy'.format(stride)
     if not trace_dFF_path_exists and save_grids:
-        np.save(extract_dFF_file_path, grid_traces_dFF)
+        np.save(extract_dFF_file_path, grid_traces)
         print('ch1 dFF traces saved to {}\n'.format(extract_dFF_file_path))
         
     
     ## ch2 dFF calculation 
-    if dFF and (align_run or align_rew):
+    if dFF and not trace_dFF_path2_exists and (align_run or align_rew):
         print('calculating dFF...')
         t0 = time()  # timer
-        grid_traces_ch2_dFF = ipf.calculate_dFF(grid_traces_ch2)
+        grid_traces_ch2 = ipf.calculate_dFF(grid_traces_ch2, GPU_AVAILABLE=GPU_AVAILABLE)
         print('ch2 dFF calculation complete ({})'.format(str(timedelta(seconds=int(time()-t0)))))
         
     extract_dFF2_file_path = extract_path+r'\grid_traces_dFF_{}_ch2.npy'.format(stride)
-    if not trace_dFF_path_exists and save_grids:
-        np.save(extract_dFF2_file_path, grid_traces_ch2_dFF)
+    if not trace_dFF_path2_exists and save_grids:
+        np.save(extract_dFF2_file_path, grid_traces_ch2)
         print('ch2 dFF traces saved to {}\n'.format(extract_dFF2_file_path))
     
     
-    ## read grid traces (if exists)
+    ## read grid traces (if exist)
     if trace_dFF_path_exists and trace_dFF_path2_exists and dFF:
         grid_traces = np.load(extract_dFF_file_path, allow_pickle=True)
         grid_traces_ch2 = np.load(extract_dFF2_file_path, allow_pickle=True)
-        print('\ntraces read from {}'.format(extract_dFF_file_path))
+        print('traces read from {}'.format(extract_dFF_file_path))
 
 
-    ## timestamps
-    print('\ndetermining behavioural timestamps...') 
-    pump_times = txt['pump_times']  # pumps 
-    speed_times = txt['speed_times']  # speeds
-    movie_times = txt['movie_times']  # cues☻
-    frame_times = txt['frame_times']  # frames 
+    # beh file
+    if type(beh)!=pd.core.series.Series:  # if behavioural file not loaded 
+        print('reading behaviour file...')
+        txt = ipf.process_txt(txt_path)
     
-    tot_trial = len(speed_times)
-    # tot_frame = len(frame_times)
-
-    ## correct overflow
-    print('\ncorrecting overflow...')
-    pump_times = ipf.correct_overflow(pump_times, 'pump')
-    speed_times = ipf.correct_overflow(speed_times, 'speed')
-    movie_times = ipf.correct_overflow(movie_times, 'movie')
-    frame_times = ipf.correct_overflow(frame_times, 'frame')
-    first_frame = frame_times[0]; last_frame = frame_times[-1]
-
-
-    ## **fill in dropped $FM signals
-    # since the 2P system does not always successfully transmit frame signals to
-    # the behavioural recording system every time it acquires a frame, one needs to
-    # manually interpolate the frame signals in between 2 frame signals that are 
-    # further apart than 50 ms
-    print('\nfilling in dropped $FM statements...')
-    for i in range(len(frame_times)-1):
-        if frame_times[i+1]-frame_times[i]>50:
-            interp_fm = (frame_times[i+1]+frame_times[i])/2
-            frame_times.insert(i+1, interp_fm)
+        ## timestamps
+        print('determining behavioural timestamps...') 
+        pump_times = txt['pump_times']  # pumps 
+        speed_times = txt['speed_times']  # speeds
+        movie_times = txt['movie_times']  # cues☻
+        frame_times = txt['frame_times']  # frames 
+        
+        tot_trial = len(speed_times)
+    
+        ## correct overflow
+        print('correcting overflow...')
+        pump_times = ipf.correct_overflow(pump_times, 'pump')
+        speed_times = ipf.correct_overflow(speed_times, 'speed')
+        movie_times = ipf.correct_overflow(movie_times, 'movie')
+        frame_times = ipf.correct_overflow(frame_times, 'frame')
+        first_frame = frame_times[0]; last_frame = frame_times[-1]
+        
+        # find run-onset frames
+        run_onsets = []
+        for trial in range(tot_trial):
+            times = [s[0] for s in speed_times[trial]]
+            speeds = [s[1] for s in speed_times[trial]]
+            uni_time = np.linspace(times[0], times[-1], int((times[-1] - times[0])))
+            uni_speed = np.interp(uni_time, times, speeds)  # interpolation for speed
+            run_onsets.append(ipf.get_onset(uni_speed, uni_time))
+        run_onsets = [t for t in run_onsets if t>first_frame and t<last_frame]  # filter run-onsets ([first_frame, last_frame])
+        run_frames = []
+        for trial in run_onsets:
+            if trial!=-1:  # if there is a clear run-onset in this trial
+                rf = ipf.find_nearest(trial, frame_times)
+                if rf!=0:
+                    run_frames.append(rf)  # find the nearest frame
+            else:
+                run_frames.append(-1)
+        
+        # find pump frames 
+        pumps = []  # filter pumps ([first_frame, last_frame])
+        for i, p in enumerate(pump_times[:-1]):
+            if p>first_frame and p<last_frame:
+                if p!=0 and p-bef*30>0:
+                    pumps.append(p)
+                else:
+                    pumps.append([])
+        pump_frames = []
+        for trial in range(len(pumps)):
+            pump_frames.append(ipf.find_nearest(pumps[trial], frame_times))
             
+        # find cue frames 
+        cues = [t for t in movie_times if t>first_frame and t<last_frame]
+        cue_frames = []
+        for trial in range(len(cues)):
+            cue_frames.append(ipf.find_nearest(cues[trial], frame_times))
+    
+        ## **fill in dropped $FM signals
+        # since the 2P system does not always successfully transmit frame signals to
+        # the behavioural recording system every time it acquires a frame, one needs to
+        # manually interpolate the frame signals in between 2 frame signals that are 
+        # further apart than 50 ms
+        print('filling in dropped $FM statements...')
+        for i in range(len(frame_times)-1):
+            if frame_times[i+1]-frame_times[i]>50:
+                interp_fm = (frame_times[i+1]+frame_times[i])/2
+                frame_times.insert(i+1, interp_fm)
+    
+    else:  # if behaviour has been processed 
+        print('unpacking behaviour file...')
+        run_frames = beh['run_onset_frames']
+        pump_frames = beh['pump_frames']
+        cue_frames = beh['cue_frames']
+        frame_times = beh['frame_times']
+        for i in range(len(run_frames)-1, -1, -1):  # filter out the no-clear-onset trials
+            if run_frames[i]==-1:
+                del run_frames[i]
+        for i in range(len(pump_frames)-1, -1, -1):  # filter out the no-rew trials
+            if pump_frames[i]==-1:
+                del pump_frames[i]
+
     # checks $FM against tot_frame
     if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
         print('\nWARNING:\ncheck $FM; halting processing for {}\n'.format(recname))
@@ -217,36 +270,30 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     ## run-onset aligned
     if align_run==1: 
         print('\nplotting traces aligned to RUN...')
-        
-        # find run-onsets
-        run_onsets = []
-        
-        for trial in range(tot_trial):
-            times = [s[0] for s in speed_times[trial]]
-            speeds = [s[1] for s in speed_times[trial]]
-            uni_time = np.linspace(times[0], times[-1], int((times[-1] - times[0])))
-            uni_speed = np.interp(uni_time, times, speeds)  # interpolation for speed
-            
-            run_onsets.append(ipf.get_onset(uni_speed, uni_time))
-            
-        # filter run-onsets ([first_frame, last_frame])
-        run_onsets = [t for t in run_onsets if t>first_frame and t<last_frame]
-        
-        # get aligned frame numbers
-        run_frames = []
-        for trial in run_onsets:
-            if trial!=-1:  # if there is a clear run-onset in this trial
-                rf = ipf.find_nearest(trial, frame_times)
-                if rf!=0:
-                    run_frames.append(rf)  # find the nearest frame
-            else:
-                run_frames.append(-1)
                 
         # align traces to run-onsets
-        tot_run = len(run_onsets)
-        run_aligned = np.zeros((tot_grid, tot_run-2, (bef+aft)*30))  # grid x trial x frame bin
-        run_aligned_ch2 = np.zeros((tot_grid, tot_run-2, (bef+aft)*30))
-        for i, r in enumerate(run_frames[1:-1]):
+        filtered_run_frames = []  # ensures monotonity of ordered ascension
+        last_frame = float('-inf')  # initialise to negative infinity
+        for frame in run_frames:
+            if frame > last_frame:
+                filtered_run_frames.append(frame)
+                last_frame = frame   
+        tot_run = len(filtered_run_frames)
+        head = 0; tail = len(filtered_run_frames)
+        for f in range(tot_run):
+            if filtered_run_frames[f]-bef*30<0:
+                head+=1
+            else:
+                break
+        for f in range(tot_run-1,-1,-1):
+            if filtered_run_frames[f]+aft*30>tot_frames:
+                tail-=1
+            else:
+                break
+        tot_trunc = head + (len(filtered_run_frames)-tail)
+        run_aligned = np.zeros((tot_grid, tot_run-tot_trunc, (bef+aft)*30))  # grid x trial x frame bin
+        run_aligned_ch2 = np.zeros((tot_grid, tot_run-tot_trunc, (bef+aft)*30))
+        for i, r in enumerate(filtered_run_frames[head:tail]):
             run_aligned[:, i, :] = grid_traces[:, r-bef*30:r+aft*30]
             run_aligned_ch2[:, i, :] = grid_traces_ch2[:, r-bef*30:r+aft*30]
         
@@ -255,8 +302,8 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace = run_aligned[p, :, :]
-            curr_grid_map = np.zeros((tot_run-2, (bef+aft)*30))
-            for i in range(tot_run-2):
+            curr_grid_map = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
+            for i in range(tot_run-tot_trunc):
                 curr_grid_map[i, :] = normalise(curr_grid_trace[i, :])
                 
             ax = fig.add_subplot(dimension, dimension, p+1)
@@ -279,8 +326,8 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
         for p in range(tot_plot):
             curr_grid_trace_ch2 = run_aligned_ch2[p, :, :]
-            curr_grid_map_ch2 = np.zeros((tot_run-2, (bef+aft)*30))
-            for i in range(tot_run-2):
+            curr_grid_map_ch2 = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
+            for i in range(tot_run-tot_trunc):
                 curr_grid_map_ch2[i, :] = normalise(curr_grid_trace_ch2[i, :])
             
             ax = fig.add_subplot(dimension, dimension, p+1)
@@ -305,10 +352,18 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         for p in range(tot_plot):
             curr_grid_trace = run_aligned[p, :, :]
             curr_grid_trace_ch2 = run_aligned_ch2[p, :, :]
-            mean_trace = np.mean(curr_grid_trace, axis=0)
-            mean_trace_ch2 = np.mean(curr_grid_trace_ch2, axis=0)
-            sem_trace = sem(curr_grid_trace, axis=0)
-            sem_trace_ch2 = sem(curr_grid_trace_ch2, axis=0)
+            if GPU_AVAILABLE:
+                trace_gpu = cp.array(curr_grid_trace)
+                trace_gpu_ch2 = cp.array(curr_grid_trace_ch2)
+                mean_trace = cp.mean(trace_gpu, axis=0).get()
+                mean_trace_ch2 = np.mean(trace_gpu_ch2, axis=0).get()
+                sem_trace = sem_gpu(curr_grid_trace, axis=0)
+                sem_trace_ch2 = sem_gpu(curr_grid_trace_ch2, axis=0)
+            else:
+                mean_trace = np.mean(curr_grid_trace, axis=0)
+                mean_trace_ch2 = np.mean(curr_grid_trace_ch2, axis=0)
+                sem_trace = sem(curr_grid_trace, axis=0)
+                sem_trace_ch2 = sem(curr_grid_trace_ch2, axis=0)
             
             ax = fig.add_subplot(dimension, dimension, p+1)
             if dFF==0:
@@ -341,8 +396,13 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         fig = plt.figure(1, figsize=(dimension*4, dimension*3))
         for p in range(tot_plot):
             curr_grid_trace = run_aligned[p, :, :]
-            mean_trace = np.mean(curr_grid_trace, axis=0)
-            sem_trace = sem(curr_grid_trace, axis=0)
+            if GPU_AVAILABLE:
+                trace_gpu = cp.array(curr_grid_trace)
+                mean_trace = np.mean(trace_gpu, axis=0).get()
+                sem_trace = sem_gpu(curr_grid_trace, axis=0)
+            else:
+                mean_trace = np.mean(curr_grid_trace, axis=0)
+                sem_trace = sem(curr_grid_trace, axis=0)
             
             ax = fig.add_subplot(dimension, dimension, p+1)
             ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
@@ -367,29 +427,21 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
     ## pump aligned
     if align_rew==1:
         print('\nplotting traces aligned to REW...')
-        
-        # filter pumps ([first_frame, last_frame])
-        pumps = []
-        for i, p in enumerate(pump_times[:-1]):
-            if p>first_frame and p<last_frame:
-                if p!=0 and p-bef*30>0:
-                    pumps.append(p)
-                else:
-                    pumps.append([])
-        
-        # get aligned frame numbers
-        pump_frames = []
-        for trial in range(len(pumps)):
-            pump_frames.append(ipf.find_nearest(pumps[trial], frame_times))
     
         # align traces to pumps
-        tot_pump = len(pumps)
+        filtered_pump_frames = []  # ensures monotonity of ordered ascension
+        last_frame = float('-inf')  # initialise to negative infinity
+        for frame in pump_frames:
+            if frame > last_frame:
+                filtered_pump_frames.append(frame)
+                last_frame = frame   
+        tot_pump = len(filtered_pump_frames)
         pump_aligned = np.zeros((tot_grid, (tot_pump-2), (bef+aft)*30))
         pump_aligned_ch2 = np.zeros((tot_grid, (tot_pump-2), (bef+aft)*30))
-        for i, p in enumerate(pump_frames[1:-1]):
+        for i, p in enumerate(filtered_pump_frames[1:-1]):
             pump_aligned[:, i, :] = grid_traces[:, p-bef*30:p+aft*30]
             pump_aligned_ch2[:, i, :] = grid_traces_ch2[:, p-bef*30:p+aft*30]
-            
+        
         print('plotting heatmaps...')
         # heatmap ch1
         fig = plt.figure(1, figsize=(dimension*2.5, dimension*2))
@@ -447,10 +499,18 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         for p in range(tot_plot):
             curr_grid_trace = pump_aligned[p, :, :]
             curr_grid_trace_ch2 = pump_aligned_ch2[p, :, :]
-            mean_trace = np.mean(curr_grid_trace, axis=0)
-            mean_trace_ch2 = np.mean(curr_grid_trace_ch2, axis=0)
-            sem_trace = sem(curr_grid_trace, axis=0)
-            sem_trace_ch2 = sem(curr_grid_trace_ch2, axis=0)
+            if GPU_AVAILABLE:
+                trace_gpu = cp.array(curr_grid_trace)
+                trace_gpu_ch2 = cp.array(curr_grid_trace_ch2)
+                mean_trace = cp.mean(trace_gpu, axis=0).get()
+                mean_trace_ch2 = np.mean(trace_gpu_ch2, axis=0).get()
+                sem_trace = sem_gpu(curr_grid_trace, axis=0)
+                sem_trace_ch2 = sem_gpu(curr_grid_trace_ch2, axis=0)
+            else:
+                mean_trace = np.mean(curr_grid_trace, axis=0)
+                mean_trace_ch2 = np.mean(curr_grid_trace_ch2, axis=0)
+                sem_trace = sem(curr_grid_trace, axis=0)
+                sem_trace_ch2 = sem(curr_grid_trace_ch2, axis=0)
             
             ax = fig.add_subplot(dimension, dimension, p+1)
             if dFF==0:
@@ -481,101 +541,9 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path,
         plt.close(fig)
             
             
-    ## cue-onset aligned
+    ## cue-onset aligned, will modify later 
     if align_cue==1:
-        print('\nplotting traces aligned to CUE...')
-        
-        # filter cues ([first_frame, last_frame])
-        cues = [t for t in movie_times if t>first_frame and t<last_frame]
-        
-        # get aligned frame numbers
-        cue_frames = []
-        for trial in range(len(cues)):
-            cue_frames.append(ipf.find_nearest(cues[trial], frame_times))
-    
-        # align traces to cues
-        tot_cue = len(cues)
-        cue_aligned = np.zeros((tot_grid, (tot_cue-1), (bef+aft)*30))
-        cue_aligned_ch2 = np.zeros((tot_grid, (tot_cue-1), (bef+aft)*30))
-        for i, c in enumerate(cue_frames[:-1]):
-            cue_aligned[:, i, :] = grid_traces[:, c-bef*30:c+aft*30]
-            cue_aligned_ch2[:, i, :] = grid_traces_ch2[:, c-bef*30:c+aft*30]
-            
-        print('plotting heatmaps...')
-        # heatmap ch1
-        fig = plt.figure(1, figsize=(dimension*2.5, dimension*1.5))
-        for p in range(tot_plot):
-            curr_grid_trace = cue_aligned[p, :, :]
-            curr_grid_map = np.zeros((tot_cue-1, (bef+aft)*30))
-            for i in range(tot_cue-1):
-                curr_grid_map[i, :] = normalise(curr_grid_trace[i, :])
-            
-            ax = fig.add_subplot(dimension, dimension, p+1)
-            ax.set(xlabel='time (s)', ylabel='trial #', title='grid {}'.format(p))
-            ax.imshow(curr_grid_map, aspect='auto', extent=[-bef,aft,1,tot_cue], cmap='Greys')
-    
-        fig.suptitle('cue_aligned')
-        fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_cue_aligned.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
-        plt.show()
-        plt.close(fig)
-            
-        # heatmap ch2
-        fig = plt.figure(1, figsize=(dimension*2.5, dimension*1.5))
-        for p in range(tot_plot):
-            curr_grid_trace_ch2 = cue_aligned_ch2[p, :, :]
-            curr_grid_map_ch2 = np.zeros((tot_cue-1, (bef+aft)*30))
-            for i in range(tot_cue-1):
-                curr_grid_map_ch2[i, :] = normalise(curr_grid_trace[i, :])
-            
-            ax = fig.add_subplot(dimension, dimension, p+1)
-            ax.set(xlabel='time (s)', ylabel='trial #', title='grid {}'.format(p))
-            ax.imshow(curr_grid_map_ch2, aspect='auto', extent=[-bef,aft,1,tot_cue], cmap='Greys')
-    
-        fig.suptitle('cue_aligned_ch2')
-        fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_cue_aligned_ch2.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
-        plt.show()
-        plt.close(fig)
-        
-        print('plotting combined averaged traces...')
-        # average combined 
-        fig = plt.figure(1, figsize=(dimension*2.5, dimension*1.5))
-        for p in range(tot_plot):
-            curr_grid_trace = cue_aligned[p, :, :]
-            curr_grid_trace_ch2 = cue_aligned_ch2[p, :, :]
-            mean_trace = np.mean(curr_grid_trace, axis=0)
-            mean_trace_ch2 = np.mean(curr_grid_trace_ch2, axis=0)
-            sem_trace = sem(curr_grid_trace, axis=0)
-            sem_trace_ch2 = sem(curr_grid_trace_ch2, axis=0)
-            
-            ax = fig.add_subplot(dimension, dimension, p+1)
-            ax.set(xlabel='time (s)', ylabel='F', title='grid {}'.format(p))
-            ax.plot(xaxis, mean_trace, color='limegreen', linewidth=1)
-            ax.fill_between(xaxis, mean_trace+sem_trace,
-                                   mean_trace-sem_trace,
-                            color='limegreen', edgecolor='none', alpha=.2)
-            ax2 = ax.twinx()
-            ax2.plot(xaxis, mean_trace_ch2, color='red', linewidth=1)
-            ax2.fill_between(xaxis, mean_trace_ch2+sem_trace_ch2,
-                                    mean_trace_ch2-sem_trace_ch2,
-                             color='red', edgecolor='none', alpha=.2)
-            ax.axvspan(0, 0, color='grey', alpha=.5, linestyle='dashed', linewidth=1)
-        fig.suptitle('rew_aligned_ch2')
-        fig.tight_layout()
-        fig.savefig('{}/grid_traces_{}_avg_cue_aligned.png'.format(extract_path, stride),
-                    dpi=120,
-                    bbox_inches='tight')
-        plt.show()
-        plt.close(fig)
-        
-        
-    ## end statement 
-    print('processing for {} is finished\n\n\n'.format(recname))
+        pass
     
 
 #%% suite2p pipeline function

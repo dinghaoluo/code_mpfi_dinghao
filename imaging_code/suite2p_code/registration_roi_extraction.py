@@ -20,18 +20,16 @@ Created on 4 June 16:30:51 2024
 import sys
 import os
 
-if (r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils' in sys.path) == False:
-    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import suite2p_functions as s2f
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathGRABNE = rec_list.pathHPCGRABNE
 
 
 #%% run all sessions
-for path in pathGRABNE:
+for path in pathGRABNE[89:]:
     sessname = path[-17:]
     print('\n{}'.format(sessname))
     
