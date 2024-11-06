@@ -130,7 +130,7 @@ try:
 except FileNotFoundError:
     print('loading failed: no behavioural dataframe found\n')
 
-for rec_path in pathGRABNE[53:]:
+for rec_path in pathGRABNE[75:]:
     if 'Dinghao' in rec_path:
         reg_path = rec_path+r'\processed\suite2p\plane0'
         recname = rec_path[-17:]

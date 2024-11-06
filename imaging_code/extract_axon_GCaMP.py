@@ -28,6 +28,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import sys
 import os
 import psutil
+from tqdm import tqdm
 import gc  # garbage collector 
 from time import time
 from datetime import timedelta
@@ -38,6 +39,7 @@ import imaging_pipeline_functions as ipf
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import normalise, smooth_convolve, generate_dir, mpl_formatting
+mpl_formatting()
 
 # global variables 
 bef = 1
@@ -72,7 +74,7 @@ else:
 
 
 #%% main
-for rec_path in pathHPCLCGCaMP[1:2]:
+for rec_path in pathHPCLCGCaMP:
     recname = rec_path[-17:]
     print(recname)
     
@@ -175,12 +177,11 @@ for rec_path in pathHPCLCGCaMP[1:2]:
     # plotting
     F = np.load(F_path, allow_pickle=True)
     
-    run_path = r'{}\run_aligned'.format(proc_path)
+    run_path = r'{}\run_aligned_single_roi'.format(proc_path)
     generate_dir(run_path)
     
     all_mean_run = np.zeros((tot_valids, (bef+aft)*30)); counter = 0
-    for roi in valid_rois:
-        print(f'ROI {roi}')
+    for roi in tqdm(valid_rois):
         ca = F[roi]
         start = time()  # timer
         ca = ipf.calculate_dFF(ca, GPU_AVAILABLE=False)  # not using GPU is faster when we are calculating only 1 vector
@@ -255,10 +256,11 @@ for rec_path in pathHPCLCGCaMP[1:2]:
         im_matrix[roi, :] = normalise(im_matrix[roi, :])
     
     fig, ax = plt.subplots(figsize=(3,3))
-    ax.imshow(im_matrix, aspect='auto', extent=[-1,4,0,tot_rois])
+    ax.imshow(im_matrix, aspect='auto', extent=[-1,4,0,tot_valids], cmap='Greys')
     ax.set(xlabel='time from run-onset (s)',
            ylabel='ROI #')
     fig.savefig(r'{}\run_aligned_sorted.png'.format(proc_path))
+    np.save(r'{}\run_aligned_sorted_mat.npy'.format(proc_path), im_matrix)
     plt.close(fig)
 
 
@@ -270,3 +272,4 @@ for rec_path in pathHPCLCGCaMP[1:2]:
     gc.collect()  # trigger garbage collection after deletion
 
     print(f'memory usage after collection: {process.memory_info().rss / 1024**2:.2f} mb')
+# %%

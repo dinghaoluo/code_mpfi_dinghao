@@ -51,23 +51,22 @@ def gaussian_kernel_unity(sigma):
 
 def convolve_gaussian_axis0(arr, sigma, GPU_AVAILABLE):
     kernel = gaussian_kernel_unity(sigma) 
+    pad_width = len(kernel) // 2  # pad symmetrically at the edges to eliminate edge effects 
 
     if GPU_AVAILABLE:
         kernel = cp.array(kernel)  # move to VRAM
-        arr_gpu = cp.array(arr)  # move to VRAM
-        if len(arr_gpu.shape)>1:  # more than 1 ROIs
-            for roi in range(arr_gpu.shape[0]):
-                arr_gpu[roi, :] = cp.convolve(arr_gpu[roi, :], kernel, mode='same')
+        arr_gpu_padded = cp.pad(cp.array(arr), ((0, 0), (pad_width, pad_width)), mode='reflect')
+        if len(arr_gpu_padded.shape)>1:  # more than 1 ROIs
+            # apply convolution across axis 1 without explicit looping
+            return cp.apply_along_axis(lambda x: cp.convolve(x, kernel, mode='same'), axis=1, arr=arr_gpu_padded).get()
         else:  # 1 ROI
-            arr_gpu = cp.convolve(arr_gpu, kernel, mode='same')
-        return arr_gpu.get()  # move back to RAM
+            return cp.convolve(arr_gpu_padded, kernel, mode='same')[pad_width:-pad_width].get()
     else:
-        if len(arr.shape)>1:
-            for roi in range(arr.shape[0]):
-                arr[roi, :] = np.convolve(arr[roi, :], kernel, mode='same')
-        else:
-            arr = np.convolve(arr, kernel, mode='same')
-        return arr
+        arr_padded = np.pad(arr, ((0, 0), (pad_width, pad_width)), mode='reflect')
+        if len(arr_padded.shape)>1:  # more than 1 ROIs
+            return np.apply_along_axis(lambda x: cp.convolve(x, kernel, mode='same'), axis=1, arr=arr_padded)
+        else:  # 1 ROI
+            return np.convolve(arr_padded, kernel, mode='same')[pad_width:-pad_width].get()
 
 def rolling_min(arr, win, GPU_AVAILABLE):
     if len(arr.shape)>1:  # 2D

@@ -21,6 +21,7 @@ except ModuleNotFoundError:
 from scipy.stats import sem
 import matplotlib.pyplot as plt 
 import matplotlib as plc
+from tqdm import tqdm
 from time import time
 from datetime import timedelta
 
@@ -80,7 +81,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     ## plot references (optional)
     if plot_ref:
         if not ref_path_exists:
-            print('\ngenerating reference images...')
+            print('generating reference images...')
             
             t0 = time()  # timer
             ipf.plot_reference(mov, grids, stride, 512, 1, extract_path, GPU_AVAILABLE)
@@ -92,16 +93,11 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     ## extract traces (this is going to take the most time)
     extract_file_path = extract_path+r'\grid_traces_{}.npy'.format(stride)
     if not trace_path_exists:
-        print('\nch1 trace extraction starts')
+        print('ch1 trace extraction starts')
         t0 = time()  # timer
         grid_traces = np.zeros((tot_grid, tot_frames))
         
-        for f in range(tot_frames):
-            # progress report 
-            for p in [.25, .5, .75]:
-                if f==int(tot_frames*p):
-                    print('{} ({}%) frames done ({})'.format(f, int(p*100), str(timedelta(seconds=int(time()-t0)))))
-            
+        for f in tqdm(range(tot_frames)):
             curr_frame = ipf.run_grid(mov[f,:,:], grids, tot_grid, stride, GPU_AVAILABLE)
             for g in range(tot_grid):
                 grid_traces[g, f] = ipf.sum_mat(curr_frame[g])
@@ -111,7 +107,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     ## save grid traces (optional but recommended)
     if not trace_path_exists and save_grids:
         np.save(extract_file_path, grid_traces)
-        print('ch1 traces saved to {}\n'.format(extract_file_path))
+        print('ch1 traces saved to {}'.format(extract_file_path))
 
     
     ## extract traces (channel 2)
@@ -121,12 +117,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
         t0 = time()  # timee
         grid_traces_ch2 = np.zeros((tot_grid, tot_frames))
         
-        for f in range(tot_frames):
-            # progress report 
-            for p in [.25, .5, .75]:
-                if f==int(tot_frames*p):
-                    print('{} ({}%) frames done ({})'.format(f, int(p*100), str(timedelta(seconds=int(time()-t0)))))
-            
+        for f in tqdm(range(tot_frames)):
             curr_frame = ipf.run_grid(mov2[f,:,:], grids, tot_grid, stride, GPU_AVAILABLE)
             for g in range(tot_grid):
                 grid_traces_ch2[g, f] = ipf.sum_mat(curr_frame[g])
@@ -136,14 +127,14 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     ## save grid traces (channel 2)
     if not trace_path2_exists and save_grids:
         np.save(extract_file_path_ch2, grid_traces_ch2)
-        print('ch2 traces saved to {}\n'.format(extract_file_path_ch2))
+        print('ch2 traces saved to {}'.format(extract_file_path_ch2))
     
         
     ## read grid traces (if exists)
     if trace_path_exists and trace_path2_exists and not dFF:
         grid_traces = np.load(extract_file_path, allow_pickle=True)
         grid_traces_ch2 = np.load(extract_file_path_ch2, allow_pickle=True)
-        print('\ntraces read from {}'.format(extract_path))    
+        print('traces loaded from {}'.format(extract_path))    
     
     
     ## dFF calculation 
@@ -156,7 +147,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     extract_dFF_file_path = extract_path+r'\grid_traces_dFF_{}.npy'.format(stride)
     if not trace_dFF_path_exists and save_grids:
         np.save(extract_dFF_file_path, grid_traces)
-        print('ch1 dFF traces saved to {}\n'.format(extract_dFF_file_path))
+        print('ch1 dFF traces saved to {}'.format(extract_dFF_file_path))
         
     
     ## ch2 dFF calculation 
@@ -169,7 +160,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     extract_dFF2_file_path = extract_path+r'\grid_traces_dFF_{}_ch2.npy'.format(stride)
     if not trace_dFF_path2_exists and save_grids:
         np.save(extract_dFF2_file_path, grid_traces_ch2)
-        print('ch2 dFF traces saved to {}\n'.format(extract_dFF2_file_path))
+        print('ch2 dFF traces saved to {}'.format(extract_dFF2_file_path))
     
     
     ## read grid traces (if exist)
@@ -269,7 +260,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
 
     ## run-onset aligned
     if align_run==1: 
-        print('\nplotting traces aligned to RUN...')
+        print('plotting traces aligned to RUN...')
                 
         # align traces to run-onsets
         filtered_run_frames = []  # ensures monotonity of ordered ascension
@@ -426,7 +417,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     
     ## pump aligned
     if align_rew==1:
-        print('\nplotting traces aligned to REW...')
+        print('plotting traces aligned to REW...')
     
         # align traces to pumps
         filtered_pump_frames = []  # ensures monotonity of ordered ascension

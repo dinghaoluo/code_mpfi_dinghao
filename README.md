@@ -1,15 +1,284 @@
 # code_dinghao_mpfi
 my scripts at MPFI; unless otherwise specified, I am the author of all the scripts in this repo
 
-- **process_behaviour.py** processes behaviour files and stores the info in the text files into dataframes; WIP--store data from each path-list into separate dataframes
+## directory tree
+├── **HPC_code**
+│   ├── HPCLC_all_rasters.py
+│   ├── HPCLC_all_train.py
+│   ├── HPCLC_all_train_cue.py
+│   ├── HPCLC_clu_list.py
+│   ├── HPCLC_place_cell_profiles.py
+│   ├── HPCLC_pyract_profiles.py
+│   ├── HPCLC_pyract_single_cell_profiles.py
+│   ├── HPCLC_raster_first_lick_ranked.py
+│   ├── HPCLC_sess_pyr_profiles.py
+│   ├── HPCLC_theta_stim.py
+│   ├── HPCLC_waveform_all.py
+│   ├── HPCLC_waveform_proc.py
+│   ├── HPCLCterm_all_rasters.py
+│   ├── HPCLCterm_all_train.py
+│   ├── HPCLCterm_clu_list.py
+│   ├── HPCLCterm_place_cell_profiles.py
+│   ├── HPC_UMAP_single_trial_traj_interactive.ipynb
+│   ├── HPC_all_1st_lick_ordered.py
+│   ├── HPC_population_v_licks.py
+│   ├── HPC_population_v_licks_poisson.py
+│   ├── HPC_population_v_licks_poisson_example_session.py
+│   ├── HPC_session_PCA_traj.py
+│   ├── HPC_session_UMAP_traj.py
+│   ├── HPC_single_trial_UMAP_traj.py
+│   ├── all_acg.py
+│   ├── all_acg_baseline.py
+│   ├── **behaviour**
+│   │   ├── lick_dist_comp_HPC_LC_stim.py
+│   │   ├── lick_dist_comp_HPC_LCterm_stim.py
+│   │   ├── lick_time_comp_HPC_LC_stim.py
+│   │   └── lick_time_comp_HPC_LCterm_stim.py
+│   ├── **defunct_code**
+│   │   ├── def_HPCLC_all_stim_stimcont_pyr_only_sig.py
+│   │   ├── def_HPCLCterm_all_stim_stimcont_pyr_only_fw.py
+│   │   ├── def_HPCLCterm_all_stim_stimcont_pyr_only_sig.py
+│   │   ├── def_HPC_all_stim_stimcont_pyr_only_sensitivity.py
+│   │   └── def_all_pyr_rate.py
+│   ├── **figure_code**
+│   │   ├── HPCLC_plot_all_rasters.py
+│   │   ├── plot_all_pyr_heatmap_dist.py
+│   │   ├── plot_all_pyr_heatmap_time_rew.py
+│   │   ├── plot_all_pyr_heatmap_time_run.py
+│   │   ├── plot_lick_profile_to_pumps_HPCLC.py
+│   │   └── plot_lick_profile_to_pumps_HPCLCterm.py
+│   ├── lick_history_dependency.py
+│   ├── naive_bayesian_decoding_conf_matrix.py
+│   ├── naive_bayesian_decoding_proba.py
+│   ├── naive_bayesian_decoding_proba_pyract.py
+│   ├── naive_bayesian_decoding_proba_pyrinh.py
+│   ├── pc_mc_overlaps.py
+│   ├── pc_proportion_comp.py
+│   ├── **sequence**
+│   │   ├── HPCLC_plot_sequence.py
+│   │   ├── HPCLC_plot_sequence_dist.py
+│   │   ├── HPCLC_plot_super_sequence.py
+│   │   ├── HPCLCterm_plot_sequence.py
+│   │   └── HPCLCterm_plot_sequence_dist.py
+│   ├── **stim_baseline**
+│   │   ├── HPC_all_stim_baseline_int_only.py
+│   │   ├── HPC_all_stim_baseline_pyr_only.py
+│   │   └── HPC_all_stim_baseline_pyr_only_PCA.py
+│   ├── **stim_ctrl**
+│   │   ├── HPCLC_all_stim_ctrl_int_only.py
+│   │   ├── HPCLC_all_stim_ctrl_population_deviation_poisson.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_PCA.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_heatmap.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_ordered.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_rasters.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_rasters_blowup.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_rasters_signif_only.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_sig_MI.py
+│   │   ├── HPCLC_all_stim_ctrl_pyr_only_spatial_info.py
+│   │   ├── HPCLC_stim_ctrl_all_int_profiles.py
+│   │   ├── HPCLC_stim_ctrl_all_pyr_profiles.py
+│   │   ├── HPCLC_stim_ctrl_all_pyr_profiles_single_sess.py
+│   │   ├── HPCLCterm_all_stim_ctrl_int_only.py
+│   │   ├── HPCLCterm_all_stim_ctrl_pyr_only.py
+│   │   ├── HPCLCterm_all_stim_ctrl_pyr_only_heatmap.py
+│   │   ├── HPCLCterm_all_stim_ctrl_pyr_only_ordered.py
+│   │   ├── HPCLCterm_all_stim_ctrl_pyr_only_rasters.py
+│   │   ├── HPCLCterm_all_stim_ctrl_pyr_only_rasters_blowup.py
+│   │   ├── HPCLCterm_all_stim_ctrl_pyr_only_rasters_signif_only.py
+│   │   ├── HPCLCterm_all_stim_ctrl_pyr_only_sig_MI.py
+│   │   ├── HPCLCterm_stim_ctrl_all_pyr_profiles_single_sess.py
+│   │   ├── all_HPCLC_HPCLCterm_stim_ctrl_int_only_sig.py
+│   │   ├── all_HPCLC_HPCLCterm_stim_ctrl_pyr_only_sig.py
+│   │   └── all_mod_depth_comp.py
+│   └── **stim_effect**
+│       ├── HPCLC_rasters_stim_nonstim.py
+│       └── HPC_stim_aligned.py
+├── **LC_code**
+│   ├── WT_waveform_proc.py
+│   ├── all_UMAP.py
+│   ├── all_acg.py
+│   ├── all_acg_baseline.py
+│   ├── all_cell_properties.py
+│   ├── all_earlyvlate_RO_peak.py
+│   ├── all_earlyvlate_RO_peak_population.py
+│   ├── all_earlyvlate_RO_peak_population_lick2pump.py
+│   ├── all_earlyvlate_RO_peak_population_med3licks.py
+│   ├── all_earlyvlate_RO_peak_population_raster.py
+│   ├── all_earlyvlate_RO_peak_raster.py
+│   ├── all_goodvbad_RO_peak.py
+│   ├── all_goodvbad_RO_peak_bef.py
+│   ├── all_lick_sensitive_activity_1st_lick.py
+│   ├── all_lick_sensitive_summary.py
+│   ├── all_lick_sensitive_summary_shuf.py
+│   ├── all_neu_activity_v_1st_lick.py
+│   ├── all_neu_activity_v_1st_lick_shuf.py
+│   ├── all_raster_cue_rew_run_lasttocurtr.py
+│   ├── all_raster_last_rew_ordered.py
+│   ├── all_raster_lick_aligned.py
+│   ├── all_raster_lick_ordered.py
+│   ├── all_raster_lick_ordered_earlyvlate_only.py
+│   ├── all_raster_lick_ordered_raster_only.py
+│   ├── all_raster_lick_reward_sensitivity.py
+│   ├── all_raster_rew_ordered.py
+│   ├── all_raster_rew_to_run_ordered.py
+│   ├── all_rasters.py
+│   ├── all_rovrb_RO_peak.py
+│   ├── all_time_warped.py
+│   ├── all_train.py
+│   ├── all_waveform_all.py
+│   ├── all_waveform_proc.py
+│   ├── **behaviour**
+│   │   ├── 1st_lick_profile.py
+│   │   ├── egsess_lick.py
+│   │   ├── egsess_lick_passive_raphi.py
+│   │   ├── egsess_speed.py
+│   │   ├── egsess_speed_passive_raphi.py
+│   │   ├── good_perc_comp.py
+│   │   ├── lick_dist_comp.py
+│   │   ├── lick_dist_comp_HPC_LC_stim.py
+│   │   ├── lick_history_dependency.py
+│   │   ├── lick_history_dependency_comp.py
+│   │   ├── lick_properties.py
+│   │   ├── lick_time_comp.py
+│   │   ├── plot_cue_start_difference.py
+│   │   ├── plot_run_bouts.py
+│   │   └── plot_single_trial_example.py
+│   ├── **defunct_code**
+│   │   ├── def_all_acg_pca.py
+│   │   ├── def_all_ccg.py
+│   │   ├── def_all_goodvbad_clustered.py
+│   │   ├── def_all_rovrb_clustered.py
+│   │   ├── def_all_speed_score.py
+│   │   ├── def_all_stim_effects_avg.py
+│   │   ├── def_beh_eg_licks.py
+│   │   ├── def_goodvbad_RO_peak.py
+│   │   ├── def_plot_run_bouts.py
+│   │   ├── def_plot_single_cell_property_UMAP_assist.py
+│   │   ├── def_plot_single_cell_property_UMAP_interactive_image.py
+│   │   ├── def_plot_single_cell_property_tagged.py
+│   │   ├── def_session_anal.py
+│   │   ├── def_stim_trial_only.py
+│   │   ├── def_tag_waveform_example.py
+│   │   ├── def_tagged_burst_badtrial.py
+│   │   ├── def_tagged_cluster_waveform.py
+│   │   ├── def_tagged_clustering_from_all.py
+│   │   ├── def_tagged_clustering_hierarchical.py
+│   │   ├── def_tagged_clustering_rate.py
+│   │   ├── def_tagged_goodvbad.py
+│   │   ├── def_tagged_goodvbad_clustered.py
+│   │   ├── def_tagged_lickvburst.py
+│   │   ├── def_tagged_narrvbrd.py
+│   │   ├── def_tagged_rewardvburst.py
+│   │   ├── def_tagged_rovrb_clustered.py
+│   │   ├── def_tagged_rovrb_trough.py
+│   │   ├── def_tagged_single_trial_example_cue_RO_diff.py
+│   │   ├── def_waveform_anal.py
+│   │   ├── def_waveform_comp.py
+│   │   └── **hierarchical_clustering**
+│   │       ├── all_cluster_waveform.py
+│   │       └── all_clustering_hierarchical.py
+│   ├── **ephys_opto**
+│   │   ├── all_stim_rasters.py
+│   │   ├── nontagged_stim_rasters.py
+│   │   ├── stim_effect_spikes.py
+│   │   └── tagged_stim_rasters.py
+│   ├── **figure_code**
+│   │   ├── plot_RO_v_nonRO.py
+│   │   ├── plot_all_clustered_acg_heatmap.py
+│   │   ├── plot_avg_acg_tagged.py
+│   │   ├── plot_demo_tonic_phasic.py
+│   │   ├── plot_eg_tagged_cell_wf.py
+│   │   ├── plot_example_train.py
+│   │   ├── plot_heatmap_ROpeaking.py
+│   │   ├── plot_heatmap_argmax.py
+│   │   ├── plot_proportion_bar_graph.py
+│   │   ├── plot_single_cell_ACG.py
+│   │   ├── plot_single_cell_property.py
+│   │   ├── plot_single_cell_property_tagged.py
+│   │   ├── plot_single_cell_raster_RO_aligned.py
+│   │   ├── plot_single_cell_waveform.py
+│   │   ├── plot_tagged_example_goodvbad_raster.py
+│   │   ├── plot_tagged_responses.py
+│   │   ├── putative_example_cell.py
+│   │   └── tagged_example_cell.py
+│   ├── plot_trials_LC.py
+│   ├── tag_waveform_all.py
+│   ├── tag_waveform_proc.py
+│   ├── tag_waveform_proc_notnorm.py
+│   ├── tagged_acg_pca.py
+│   ├── tagged_goodvbad.py
+│   ├── tagged_goodvbad_RO_peak.py
+│   ├── tagged_lick_RO_peak_ordered.py
+│   ├── tagged_rovrb_RO_peak.py
+│   ├── tagged_speedvrate.py
+│   ├── tagged_train.py
+│   ├── tagged_train_alignedRew.py
+│   ├── tagged_waveform_classify.py
+│   ├── tagged_waveform_pca.py
+│   ├── tagging_latency.py
+│   └── **utils**
+│       ├── RO_peak_detection.py
+│       ├── paramC.py
+│       └── single_unit.py
+├── README.md
+├── **caiman_code** (not in use; mostly by [Nico Spiller](https://github.com/nspiller))
+│   ├── 2nd_channel_registration.py
+│   ├── Untitled.ipynb
+│   ├── batch_cnmf.ipynb
+│   ├── cnmf.py
+│   ├── utils.py
+│   ├── utils_mesmerize.py
+│   └── visualize.ipynb
+├── **imaging_code**
+│   ├── **defunct_code**
+│   │   ├── GRABNE_grid_roi.py
+│   │   ├── after_suite2p.py
+│   │   ├── dLight_all_heatmap.py
+│   │   ├── dLight_plot.py
+│   │   ├── deepvid_grid_roi.py
+│   │   └── grid_extract.py
+│   ├── extract_axon_GCaMP.py
+│   ├── extract_significant_ROI.py
+│   ├── **figure_code**
+│   │   ├── plot_lick_profile.py
+│   │   ├── plot_lick_profile_to_pumps.py
+│   │   └── plot_pooled_heatmap_axon_GCaMP.py
+│   ├── plot_directory_tree.py
+│   ├── plot_sorted_heatmaps_grids.py
+        *plots the heatmaps (unsorted and sorted by argmax) for each session's grid ROIs aligned to run-onsets or rewards*
+│   ├── plot_sorted_heatmaps_rois.py
+│   ├── run_imaging_pipeline.py
+│   ├── **suite2p_code**
+│   │   └── registration_roi_extraction.py
+│   ├── **tonic_activity**
+│   │   ├── tonic_fft.py
+│   │   └── whole_session_f_dff.py
+│   └── **utils**
+│       ├── imaging_pipeline_functions.py
+│       ├── imaging_pipeline_main_functions.py
+│       ├── imaging_utility_functions.py
+│       └── suite2p_functions.py
+├── **other_code**
+│   ├── log_temperature_humidity.py
+│   └── plot_temperature_humidity.py
+├── process_behaviour_GRABNE.py
+├── process_behaviour_HPCLC.py
+├── process_behaviour_HPCLCterm.py
+├── process_behaviour_LC.py
+├── process_behaviour_axon_GCaMP.py
+└── **utils**
+    ├── behaviour_functions.py
+    ├── common.py
+    ├── logger_module.py
+    ├── param_to_array.py
+    ├── plotting_functions.py
+    ├── preprocessing.py
+    ├── read_clu.py
+    └── txt_processing_functions.py
 
-## caiman_code
-*not in use*\
-includes a working CaImAn analysis pipeline modified to work on Wang Lab data, mostly by [Nico Spiller](https://github.com/nspiller).
 
-## imaging_code
-includes analysis scripts for dLight and GRABNE data
-- **extract_significant_ROI.py** determines if each ROI in a recording is significantly active, based on 2 criteria: 1. the ROI's dFF must exceed 99-percentile of trial-shuffled dFF and 2. the ROI's dFF must *NOT* significantly correlate with the neuropil dFF; it then saves the IDs of these ROIs into a dataframe
+
 - **plot_sorted_heatmaps_grids.py** plots the heatmaps (unsorted and sorted by argmax) for each session's grid ROIs aligned to run-onsets or rewards
 - **plot_sorted_heatmaps_rois.py** similar to above, but plot the Suite2p-detected ROIs
 - **run_imaging_pipeline.py** runs grid ROI or Suite2p ROI trace extraction and alignment to behaviour
@@ -17,11 +286,9 @@ includes analysis scripts for dLight and GRABNE data
 - **registration_roi_extraction.py** registers and extract ROI traces from each recording in lists of sessions listed in rec_list.py using [the Wang lab version of Suite2p](https://github.com/the-wang-lab/suite2p-wang-lab), fine-tuned by [Nico Spiller](https://github.com/nspiller) and [Jingyu Cao](https://github.com/yuxi62).
 ### tonic_activity 
 - **tonic_fft.py** uses FFT to process entire recording traces after calculating dFF (to get rid of the slow decaying of signal strength due to bleaching and evaporation) in order to look for slow periodicity in the signal
-- **whole_session_f_dff.py** plots F/dFF of entire sessions
 ### utils
 - **imaging_pipeline_functions.py** contains functions used to process imaging recordings
 - **imaging_pipeline_main_functions.py** contains grid ROI and Suite2p ROI extraction and alignment functions; these are what run_imaging_pipeline.py calls directly
-- **imaging_utility_functions.py** contains functions for basic trace analyses, such as circ_shuffle() which performs trial-based circular shuffling to provide baselines for trace significance tests
 - **suite2p_functions.py** contains customised calls to the registration and ROI extraction functions of Suite2p-Wang-Lab
 
 ## HPC_code
@@ -29,36 +296,18 @@ includes analysis scripts for behaviour and neural data collected from hippocamp
 - **all_acg.py** gets ACGs of all the cells throughout entire recording sessions and save them as an .npy file
 - **all_acg_baseline.py** is similar to the above script, but gets only ACGs throughout the baseline (pre-stim.) condition, since stimulation may change the ACGs of cells affected by stimulations
 - **HPC_all_1st_lick_ordered.py** 
-- **HPC_population_v_licks.py** correlates the run-onset peak spike rate of HPC pyramidal cells with first-lick delays
-- **HPC_population_v_licks_poisson.py** correlates the spiking pattern deviation of the pyramidal population at run-onsets with the delay to first-licks; **HPC_population_v_licks_poisson_example_session.py** plots an example session with colour-coded single-trial traces
 - **HPCLC_all_rasters.py** and **HPCLCterm_all_rasters.py** read spiketime data from behaviour-aligned spiketime files and produce exactly one 1-0 raster array for every recording session
 - **HPCLC_all_train.py** and **HPCLCterm_all_train.py** read spiketime data similarly to ...rasters.py, but then convolve the spike train with a 100-ms-sigma Gaussian kernel and produce exactly one spike train array for every recording session
 - **HPCLC_clu_list.py** and **HPCLCterm_clu_list.py** generate a list of clu name for every recording session to accelerate later processing
-- **HPCLC_place_cell_profiles.py** summarises the place cell indices and number of place cells for each recording session
-- **HPCLC_pyract_single_cell_profiles.py** plots both the single-cell spike rate profile and the Poisson deviation profile for each run-onset activated pyramidal cell
-- **HPCLC_sess_pyr_profiles.py** plots population profiles, ordered by argmax, for each session
+- **HPCLC_place_cell_profiles.py** and **HPCLCterm_place_cell_profiles.py** summarise the place cell indices and number of place cells for each recording session
 - **HPC_session_PCA_traj.py** performs PCA on averaged all trials, averaged stim or control trials, and calculate and plot the distances between points on the trajectories
 ### behaviour
 ### figure_code
 ### sequence 
 - **HPC_LC_plot_sequence.py** and **HPC_LCterm_plot_sequence.py** plot temporal cell sequences for single sessions
 - **HPC_LC_plot_sequence_dist.py** and **HPC_LCterm_plot_sequence_dist.py** plot distance cell sequences for single sessions
-### stim_ctrl
-- **all_HPCLC_HPCLCterm_stim_ctrl_int_only_sig.py** summarises the percentages of interneurones that are up-/down-regulated by LC stimulation (both somatic and terminal)
-- **all_HPCLC_HPCLCterm_stim_ctrl_pyr_only_sig.py** is similar to above but for pyramidal cells
-- **all_HPCLC_HPCLCterm_stim_ctrl_mod_depth_comp.py** compares the depth profiles of modulated cells
-- **HPCLC_all_stim_ctrl_population_deviation_poisson.py** compares the population deviation profile between stim and ctrl trials
-- **HPCLC_all_stim_ctrl_int_only.py** compares the spike rate profiles between stim and ctrl for LC-somatic stimulation for interneurones only
-- **HPCLC_all_stim_ctrl_py_only.py** is similar to above but for pyr cells
-- **HPCLC_all_stim_ctrl_pyr_only_ordered.py** plots all cells ordered based on argmax of average spike rate in ctrl trials for LC-somatic stimulation, for pyr cells only
-- **HPCLC_all_stim_ctrl_pyr_only_PCA.py** analyses with PCA the trajectories of stim and ctrl trials (for LC-somatic stimulation) for pyramidal cells only
-- **HPCLC_all_stim_ctrl_pyr_only_rasters.py** plots the rasters for LC-somatic stimulation of stim and ctrl trials for pyramidal cells only
-- **HPCLC_all_stim_ctrl_pyr_only_rasters_blowup.py** is simlar to above but blown up to 0-2 seconds after run-onset
-- **HPCLC_all_stim_ctrl_pyr_only_sig_MI.py** main function, based on modulation index looks at all sorts of variables for pyramidal cells only in stim and ctrl trials for LC-somatic stimulation 
-- **HPCLC_all_stim_ctrl_pyr_only_spatial_info.py** looks at spatial information for pyramidal cells only in ctrl and stim trials for LC-somatic stimulation
-- **HPCLC_stim_ctrl_all_int_profiles.py** plots and saves the spike rate profiles for each interneurone in the HPCLC recordings
-- **HPCLC_stim_ctrl_all_pyr_profiles.py** plots and saves the spike rate profiles for each pyramidal cell in the HPCLC recordings
-- **HPCLC_stim_ctrl_all_pyr_profiles_single_sess.py** proportions the run-onset-activated and -inhibited cells in each session and calculates the statistics
+### stim_stimcont
+**HPCLC_all_stim_stimcont_pyr_only_sig_MI.py** processes stim. vs ctrl. pyramidal profiles based on the HPC_LC_stim_stimcont_diff_profiles_pyr_only.pkl dataframe; it plots the 
 ### 
 
 ## LC_code 
@@ -66,8 +315,8 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **all_acg.py** gets ACGs of all the cells throughout entire recording sessions and save them as an .npy file
 - **all_acg_baseline.py** is similar to the above script, but gets only ACGs throughout the baseline (pre-stim.) condition, since stimulation may change the ACGs of hChR2-expressing cells 
 - **all_cell_properties.py** is a core function that collects information about each recorded unit from previously produced .npy files and puts them into one big dataframe (LC_all_single_cell_properties.pkl) that contains 'tagged', 'spike_rate' (ctrl trials only), 'peakness' (shuffle-detected, functions located in utils\RO_peak_detection.py), 'putative' (from k-means), 'lick_sensitivity', 'lick_sensitivity_type', the latter 2 of which only appear after running all_lick_sensitive.py as well
-- **all_earlyvlate_RO_peak.py** compares single-unit spike rates between early 1st-lick and late 1st-lick trials; correspondingly there is **all_earlyvlate_RO_peak_raster.py** that looks at the raster (1's and 0's) rather than the smoothed train
-- **all_earlyvlate_RO_peak_population.py** compares the population spike rates between early 1st-lick trials and late 1st-lick trials; includes tagged, putative and all LC *Dbh*+ cells; ; correspondingly there is **all_earlyvlate_RO_peak_population_raster.py** that is similar to the above function
+- **all_earlyvlate_RO_peak.py** compares single-unit spike rates between early 1st-lick and late 1st-lick trials
+- **all_earlyvlate_RO_peak_population.py** compares the population spike rates between early 1st-lick trials and late 1st-lick trials; includes tagged, putative and all LC *Dbh*+ cells
 - **all_goodvbad_RO_peak.py** compares the peak spike rate of run-onset peaking *Dbh*+ cells between good and bad trials
 - **all_goodvbad_RO_peak_bef.py** compares the slightly-before-peak spike rate of run-onset peaking *Dbh*+ cells between good and bad trials
 - **all_lick_sensitive.py** also depends on the dataframe output by all_lick_RO_peak_ordered.py and looks at the neuronal inhibition/activation around the 1st-licks; this function edits the dataframe produced by cell_properties.py to add the 'lick_sensitivity' and 'lick_sensitivity_type' 
@@ -121,15 +370,10 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **plot_eg_tagged_cell_wf.py** plots waveforms of one example tagged cell
 - **plot_example_train.py** plots example rasters for one example tagged cell 
 - **plot_heatmap_argmax.py** plots superpopulation plot for LC cells, ordered by their run-onset-to-peak latencies
-- **plot_heatmap_ROpeaking.py** is similar to the above function but only plots the run-onset peaking cells
+- **plot_heatmap_argmax.py** is similar to the above function but only plots the run-onset peaking cells
 - **plot_proportion_bar_graph.py** plots the percentage of tagged cells that are RO-peaking and non-RO-peaking as a bar graph 
-- **plot_RO_v_nonRO.py** plots the mean spike profiles of run-onset-peaking LC cells and non-run-onset-peaking LC cells
-- **plot_single_cell_ACG.py** plots ACGs of single cells and save them as separate plots
-- **plot_single_cell_property.py** plots single-cell property (ACG, run-onset-aligned raster, waveform) plots for each recorded unit into \single_cell_property_plots
-- **plot_single_cell_property_tagged.py** is similar but for tagged cells
+- **plot_single_cell_property.py** plots single-cell property (ACG, run-onset-aligned raster, waveform) plots for each recorded unit into \single_cell_property_plots; **plot_single_cell_property_tagged.py** is similar but for tagged cells
 - **plot_single_cell_raster_compare.py** plots single-cell rasters aligned to run-onsets, rewards and cues
-- **plot_single_cell_waveform.py** plots waveforms of single cells and save them as separate plots
-- **plot_tagged_example_goodvbad_raster.py** plots the good and bad trial-rasters and mean spiking profiles of an example tagged cell
 - **plot_tagged_responses.py** plots single-cell responses to the tagging pulses
 - **putative_example_cell.py** plots rasters of example putative *Dbh*+ cells, whereas **tagged_example_cell.py** plots those of example tagged cells 
 - **tagged_example_goodvbad_raster.py** plots good versus bad trial rasters for an example cell
@@ -137,11 +381,6 @@ includes analysis scripts for behaviour and neural data collected from locus coe
 - **paramC.py** lists parameters (e.g. sampling frequency)
 - **RO_peak_detection.py** provides functions for shuffle-based peak-detection
 - **single_unit.py** provides basic functions for single-unit analyses
-
-## utils 
-- **behaviour_functions.py** stores functions behaviour processing
-- **plotting_functions.py** stores functions for plotting
-- **txt_processing_function.py** stores functions for processing behavioural txt files 
 
 ## other_code
 currently includes 2 Python scripts to log and plot temperature and humidility recorded from a custom-built ESP8266 circuit; for monitoring lab/2-photon rig temperature and humidity

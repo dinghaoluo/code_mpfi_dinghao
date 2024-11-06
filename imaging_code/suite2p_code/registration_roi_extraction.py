@@ -29,7 +29,7 @@ pathGRABNE = rec_list.pathHPCGRABNE
 
 
 #%% run all sessions
-for path in pathGRABNE[91:]:
+for path in pathGRABNE:
     sessname = path[-17:]
     print('\n{}'.format(sessname))
     
