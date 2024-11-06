@@ -222,7 +222,7 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │       ├── paramC.py  
 │       └── single_unit.py  
 ├── README.md  
-├── **caiman_code**  
+├── **caiman_code** (not in use; mostly by [Nico Spiller](https://github.com/nspiller))  
 │   ├── 2nd_channel_registration.py  
 │   ├── Untitled.ipynb  
 │   ├── batch_cnmf.ipynb  
@@ -246,6 +246,7 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   └── plot_pooled_heatmap_axon_GCaMP.py  
 │   ├── plot_directory_tree.py  
 │   ├── plot_sorted_heatmaps_grids.py  
+        *plots the heatmaps (unsorted and sorted by argmax) for each session's grid ROIs aligned to run-onsets or rewards*  
 │   ├── plot_sorted_heatmaps_rois.py  
 │   ├── run_imaging_pipeline.py  
 │   ├── **suite2p_code**  
