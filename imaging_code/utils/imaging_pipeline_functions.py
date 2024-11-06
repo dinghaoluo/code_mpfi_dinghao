@@ -58,13 +58,17 @@ def convolve_gaussian_axis0(arr, sigma, GPU_AVAILABLE):
         arr_gpu_padded = cp.pad(cp.array(arr), ((0, 0), (pad_width, pad_width)), mode='reflect')
         if len(arr_gpu_padded.shape)>1:  # more than 1 ROIs
             # apply convolution across axis 1 without explicit looping
-            return cp.apply_along_axis(lambda x: cp.convolve(x, kernel, mode='same'), axis=1, arr=arr_gpu_padded).get()
+            return cp.apply_along_axis(lambda x: cp.convolve(x, kernel, mode='same'), 
+                                       axis=1, 
+                                       arr=arr_gpu_padded)[:, pad_width:-pad_width].get()
         else:  # 1 ROI
             return cp.convolve(arr_gpu_padded, kernel, mode='same')[pad_width:-pad_width].get()
     else:
         arr_padded = np.pad(arr, ((0, 0), (pad_width, pad_width)), mode='reflect')
         if len(arr_padded.shape)>1:  # more than 1 ROIs
-            return np.apply_along_axis(lambda x: np.convolve(x, kernel, mode='same'), axis=1, arr=arr_padded)
+            return np.apply_along_axis(lambda x: np.convolve(x, kernel, mode='same'), 
+                                       axis=1, 
+                                       arr=arr_padded)[:, pad_width:-pad_width]
         else:  # 1 ROI
             return np.convolve(arr_padded, kernel, mode='same')[pad_width:-pad_width].get()
 

@@ -146,7 +146,7 @@ for rec_path in pathHPCLCGCaMP:
     tot_valids = len(valid_rois)
 
     
-    # ROI plots 
+    # ROI plots
     fig, axs = plt.subplots(1,3, figsize=(6,2))
     fig.subplots_adjust(wspace=.35, top=.75)
     for i in range(3):
@@ -174,12 +174,11 @@ for rec_path in pathHPCLCGCaMP:
     plt.close(fig)
     
     
-    # plotting
     F = np.load(F_path, allow_pickle=True)
     
-    run_path = r'{}\run_aligned_single_roi'.format(proc_path)
+    # plotting: RO-aligned 
+    run_path = r'{}\RO_aligned_single_roi'.format(proc_path)
     generate_dir(run_path)
-    
     all_mean_run = np.zeros((tot_valids, (bef+aft)*30)); counter = 0
     for roi in tqdm(valid_rois):
         ca = F[roi]
@@ -206,8 +205,8 @@ for rec_path in pathHPCLCGCaMP:
             else:
                 break
         tot_trunc = head + (len(filtered_run_frames)-tail)
-        run_aligned = np.zeros((tot_run-tot_trunc, (bef+aft)*30))  # grid x trial x frame bin
-        run_aligned_im = np.zeros((tot_run-tot_trunc, (bef+aft)*30))  # grid x trial x frame bin
+        run_aligned = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
+        run_aligned_im = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
         for i, r in enumerate(filtered_run_frames[head:tail]):
             run_aligned[i, :] = ca[r-bef*30:r+aft*30]
             run_aligned_im[i, :] = normalise(smooth_convolve(ca[r-bef*30:r+aft*30]))
@@ -249,18 +248,101 @@ for rec_path in pathHPCLCGCaMP:
         counter+=1
             
     
-    # plot heatmap of all 
+    # plot heatmap of all: RO-aligned
     keys = np.argsort([np.argmax(all_mean_run[roi]) for roi in range(tot_valids)])
-    im_matrix = all_mean_run[keys, :]
-    for roi in range(tot_valids):  # normalise within-subject 
-        im_matrix[roi, :] = normalise(im_matrix[roi, :])
+    im_matrix = normalise(all_mean_run[keys, :])
     
     fig, ax = plt.subplots(figsize=(3,3))
     ax.imshow(im_matrix, aspect='auto', extent=[-1,4,0,tot_valids], cmap='Greys')
     ax.set(xlabel='time from run-onset (s)',
            ylabel='ROI #')
-    fig.savefig(r'{}\run_aligned_sorted.png'.format(proc_path))
-    np.save(r'{}\run_aligned_sorted_mat.npy'.format(proc_path), im_matrix)
+    fig.savefig(r'{}\RO_aligned_sorted.png'.format(proc_path))
+    np.save(r'{}\RO_aligned_sorted_mat.npy'.format(proc_path), im_matrix)
+    plt.close(fig)
+    
+    
+    # plotting: rew-aligned 
+    rew_path = r'{}\rew_aligned_single_roi'.format(proc_path)
+    generate_dir(rew_path)
+    all_mean_rew = np.zeros((tot_valids, (bef+aft)*30)); counter = 0
+    for roi in tqdm(valid_rois):
+        ca = F[roi]
+        start = time()  # timer
+        ca = ipf.calculate_dFF(ca, GPU_AVAILABLE=False) 
+        
+        # align to rew
+        filtered_pump_frames = []
+        last_frame = float('-inf')
+        for frame in pump_frames:
+            if frame > last_frame:
+                filtered_pump_frames.append(frame)
+                last_frame = frame   
+        tot_pump = len(filtered_pump_frames)
+        head = 0; tail = len(filtered_pump_frames)
+        for f in range(tot_pump):
+            if filtered_pump_frames[f]-bef*30<0:
+                head+=1
+            else:
+                break
+        for f in range(tot_pump-1,-1,-1):
+            if filtered_pump_frames[f]+aft*30>tot_frames:
+                tail-=1
+            else:
+                break
+        tot_trunc = head + (len(filtered_pump_frames)-tail)
+        rew_aligned = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
+        rew_aligned_im = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
+        for i, r in enumerate(filtered_pump_frames[head:tail]):
+            rew_aligned[i, :] = ca[r-bef*30:r+aft*30]
+            rew_aligned_im[i, :] = normalise(smooth_convolve(ca[r-bef*30:r+aft*30]))
+        
+        rew_aligned_mean = np.mean(rew_aligned, axis=0)
+        rew_aligned_sem = sem(rew_aligned, axis=0)
+        all_mean_rew[counter, :] = rew_aligned_mean
+            
+        fig = plt.figure(figsize=(5, 2.5))
+        gs = GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+        ax1 = fig.add_subplot(gs[:, 0]) 
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax3 = fig.add_subplot(gs[1, 1])
+        fig.subplots_adjust(wspace=.35)
+        
+        ax1.imshow(ref_im, cmap='gist_gray')
+        ax1.scatter(stat[roi]['xpix'], stat[roi]['ypix'], color='limegreen', edgecolor='none', s=.1, alpha=1)
+        ax1.plot(stat[roi]['xcirc'], stat[roi]['ycirc'], linewidth=.5, color='white')
+        ax1.set(xlim=(0,512), 
+                ylim=(0,512))
+        
+        ax2.imshow(rew_aligned_im, cmap='Greys', extent=[-1, 4, 0, tot_pump], aspect='auto')
+        ax2.set(xticks=[],
+                ylabel='trial #')
+        
+        ax3.plot(xaxis, rew_aligned_mean, c='darkgreen')
+        ax3.fill_between(xaxis, rew_aligned_mean+rew_aligned_sem,
+                                rew_aligned_mean-rew_aligned_sem,
+                            color='darkgreen', alpha=.2, edgecolor='none')
+        ax3.set(xlabel='time from reward (s)',
+                ylabel='dF/F')
+        
+        fig.suptitle('ROI {} rew-aligned'.format(roi))
+        
+        fig.savefig(r'{}\roi_{}.png'.format(rew_path, roi),
+                    dpi=300)
+        plt.close(fig)
+        
+        counter+=1
+            
+    
+    # plot heatmap of all: rew-aligned
+    keys = np.argsort([np.argmax(all_mean_rew[roi]) for roi in range(tot_valids)])
+    im_matrix = normalise(all_mean_rew[keys, :])
+    
+    fig, ax = plt.subplots(figsize=(3,3))
+    ax.imshow(im_matrix, aspect='auto', extent=[-1,4,0,tot_valids], cmap='Greys')
+    ax.set(xlabel='time from reward (s)',
+           ylabel='ROI #')
+    fig.savefig(r'{}\rew_aligned_sorted.png'.format(proc_path))
+    np.save(r'{}\rew_aligned_sorted_mat.npy'.format(proc_path), im_matrix)
     plt.close(fig)
 
 
@@ -272,4 +354,3 @@ for rec_path in pathHPCLCGCaMP:
     gc.collect()  # trigger garbage collection after deletion
 
     print(f'memory usage after collection: {process.memory_info().rss / 1024**2:.2f} mb')
-# %%

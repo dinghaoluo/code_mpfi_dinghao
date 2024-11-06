@@ -10,11 +10,12 @@ plot the heatmap of pooled ROI activity of axon-GCaMP animals
 
 #%% imports 
 import numpy as np 
-import matplotlib.pyplot 
+import matplotlib.pyplot as plt
 import sys
+from tqdm import tqdm
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import normalise, mpl_formatting
+from common import mpl_formatting, smooth_convolve, normalise
 mpl_formatting()
 
 sys.path.append('Z:\Dinghao\code_dinghao')
@@ -23,4 +24,31 @@ pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
 
 
 #%% load data 
-pooled_ROIs = np.load()
+proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions'
+pooled_ROIs = np.load(r'{}\{}\run_aligned_sorted_mat.npy'.format(proc_path, pathHPCLCGCaMP[0][-17:]),
+                      allow_pickle=True)
+for rec_path in tqdm(pathHPCLCGCaMP, desc='loading sessions'):
+    pooled_ROIs = np.vstack((pooled_ROIs, 
+                             np.load(r'{}\{}\run_aligned_sorted_mat.npy'
+                                     .format(proc_path, rec_path[-17:]),
+                                             allow_pickle=True)))
+tot_rois = pooled_ROIs.shape[0]
+pooled_ROIs = normalise(smooth_convolve(pooled_ROIs))
+
+
+#%% plotting 
+keys = np.argsort([np.argmax(pooled_ROIs[roi, :]) for roi in range(tot_rois)])
+im_matrix = pooled_ROIs[keys, :]
+
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from run-onset (s)',
+       ylabel='ROI #')
+ax.set_aspect('equal')
+fig.suptitle('LC-CA1 GCaMP')
+
+im_ordered = ax.imshow(im_matrix, cmap='viridis', aspect='auto', extent=(-1, 4, 0, tot_rois))
+plt.colorbar(im_ordered, shrink=.5, ticks=[0,1], label='norm. dF/F')
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\axon_GCaMP\pooled_ordered_heatmap_RO_aligned{}'.format(ext),
+                dpi=300)

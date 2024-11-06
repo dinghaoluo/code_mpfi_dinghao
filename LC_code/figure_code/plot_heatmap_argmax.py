@@ -15,15 +15,9 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import pandas as pd
 
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
-from common import normalise
-
-# plotting parameters 
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from common import normalise, mpl_formatting
+mpl_formatting()
 
 
 #%% load data
@@ -142,28 +136,22 @@ for i, key in enumerate(keys):
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(2.6,2.3))
-ax.set(xlabel='time (s)',
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from run-onset (s)',
        ylabel='cell #')
+ax.set_aspect('equal')
 fig.suptitle('Dbh+ cells')
 
 im_ordered = ax.imshow(im_matrix, aspect='auto',
                        extent=[-1, 4, 1, len(keys)], cmap='Greys')
 plt.colorbar(im_ordered, shrink=.5, ticks=[0,1], label='norm. spike rate')
 
-ax.set(yticks=[1, 100, 200],
-       xticks=[0,2,4])
+ax.set(yticks=[1, 100, 200])
 
-fig.tight_layout()
 plt.show()
 
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ordered_heatmap.png',
-            dpi=500, bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_orderedLC.png',
-            dpi=500, bbox_inches='tight')
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ordered_heatmap.pdf',
-            bbox_inches='tight')
-fig.savefig(r'Z:\Dinghao\paper\figures\figure_1_orderedLC.pdf',
-            bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ordered_heatmap{}'.format(ext),
+                dpi=300, bbox_inches='tight')
 
 plt.close(fig)

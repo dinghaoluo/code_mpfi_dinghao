@@ -56,9 +56,16 @@ def mpl_formatting():
 
 
 # normalise data 
-def normalise(data):  # data needs to be a 1-d vector/list
-    norm_data = (data - min(data))/(max(data) - min(data))
-    return norm_data
+def normalise(data, axis=1):
+    if data.size==0:
+        print('array size is not valid')
+        return None 
+    
+    if len(data.shape)>1:
+        return np.apply_along_axis(lambda x: (x - np.min(x))/(np.max(x) - np.min(x)), axis=axis, arr=data)
+    else:
+        return (data - np.min(data)) / (np.max(data) - np.min(data))
+    
 
 def normalise_to_all(data, alldata):  # data needs to be a 1-d vector/list
     norm_data = (data - min(alldata))/(max(alldata) - min(alldata))
@@ -73,8 +80,21 @@ def gaussian_unity(sigma=3):  # generate a Gaussian filter that sums to unity
     gaussian_filter /= np.sum(gaussian_filter)  # ensures unity
     return gaussian_filter
 
-def smooth_convolve(data, sigma=3):  # sigma in frames
-    return np.convolve(data, gaussian_unity(sigma), mode='same')
+def smooth_convolve(data, sigma=3, axis=1):  # sigma in frames
+    if data.size==0:
+        print('array size is not valid')
+        return None
+
+    kernel = gaussian_unity(sigma)
+    pad_width = len(kernel) // 2  # how long to pad on each side 
+    data_padded = np.pad(data, ((0, 0), (pad_width, pad_width)), mode='reflect')
+    
+    if len(data.shape)>1:  # more than 1 dimension
+        return np.apply_along_axis(lambda x: np.convolve(x, kernel, mode='same'), 
+                                   axis=axis, 
+                                   arr=data_padded)[:, pad_width:-pad_width]
+    else:  # vector
+        return np.convolve(data_padded, kernel, mode='same')[pad_width:-pad_width]
 
 
 # calculate sem using cupy 
