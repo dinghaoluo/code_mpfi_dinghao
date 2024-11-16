@@ -6,7 +6,7 @@ update:
     
 criterion: line 166, 0.33 and <20 Hz
 
-saves the average and tagged waveforms of all recordings in rec_list, pathLC
+saves the average and tagged waveforms of all recordings in rec_list, pathVTA
 @author: Dinghao Luo
 """
 
@@ -21,15 +21,13 @@ import matplotlib as plr
 from scipy.stats import sem
 
 
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import normalise
 from param_to_array import param2array, get_clu
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
-pathLC = rec_list.pathLC
+pathVTA = rec_list.pathVTA
 
 number_eg_spk = 100  # how many example spks to store
 
@@ -106,7 +104,7 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
 
 
 #%% MAIN
-for pathname in pathLC:    
+for pathname in pathVTA:
     file_stem = pathname
     loc_A = file_stem.rfind('A')
     file_name = file_stem + '\\' + file_stem[loc_A:loc_A+17]
@@ -140,8 +138,6 @@ for pathname in pathLC:
     
         # tagged
         stim_tp = np.zeros([60, 1])  # hard-coded for LC stim protocol
-        if file_stem=='Z:\Dinghao\MiceExp\ANMD060r\A060r-20230530\A060r-20230530-02':
-            stim_tp = np.zeros([120, 1]) 
         tag_id = 0
         for i in range(behEvents['stimPulse'][0, 0].shape[0]):
             i = int(i)
@@ -243,10 +239,10 @@ for pathname in pathLC:
         plt.subplots_adjust(hspace = 0.4)
         plt.show()
         
-        out_directory = r'Z:\Dinghao\code_dinghao\LC_tagged_by_sess'
-        fig.savefig(out_directory + '/' + file_name[42:60] + '_waveforms' + '.png')
+        out_directory = r'Z:\Dinghao\code_dinghao\VTA_all\tagged'
+        fig.savefig(out_directory + '\\' + file_name[42:60] + '_waveforms' + '.png')
         
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy', tagged_spk_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_sem.npy', tagged_sem_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_avg_spk.npy', avg_spk_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_avg_sem.npy', avg_sem_dict)
+        np.save(r'Z:\Dinghao\code_dinghao\VTA_all\tagged\{}_tagged_spk.npy'.format(file_name[42:60]), tagged_spk_dict)
+        np.save(r'Z:\Dinghao\code_dinghao\VTA_all\tagged\{}_tagged_sem.npy'.format(file_name[42:60]), tagged_sem_dict)
+        np.save(r'Z:\Dinghao\code_dinghao\VTA_all\tagged\{}_avg_spk.npy'.format(file_name[42:60]), avg_spk_dict)
+        np.save(r'Z:\Dinghao\code_dinghao\VTA_all\tagged\{}_avg_sem.npy'.format(file_name[42:60]), avg_sem_dict)

@@ -25,13 +25,16 @@ pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
 
 #%% load data 
 proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions'
-pooled_ROIs = np.load(r'{}\{}\run_aligned_sorted_mat.npy'.format(proc_path, pathHPCLCGCaMP[0][-17:]),
-                      allow_pickle=True)
+temp_dict = np.load(r'{}\{}\RO_aligned_dict.npy'.format(proc_path, pathHPCLCGCaMP[0][-17:]),
+                      allow_pickle=True).item()
+pooled_ROIs = np.row_stack([temp_dict[key] for key in temp_dict])
 for rec_path in tqdm(pathHPCLCGCaMP, desc='loading sessions'):
-    pooled_ROIs = np.vstack((pooled_ROIs, 
-                             np.load(r'{}\{}\run_aligned_sorted_mat.npy'
-                                     .format(proc_path, rec_path[-17:]),
-                                             allow_pickle=True)))
+    temp_dict = np.load(r'{}\{}\RO_aligned_dict.npy'
+                        .format(proc_path, rec_path[-17:]),
+                        allow_pickle=True).item()
+    temp_array = np.row_stack([temp_dict[key] for key in temp_dict])
+    pooled_ROIs = np.vstack((pooled_ROIs, temp_array))
+                            
 tot_rois = pooled_ROIs.shape[0]
 pooled_ROIs = normalise(smooth_convolve(pooled_ROIs))
 

@@ -17,7 +17,6 @@ try:
 except ModuleNotFoundError:
     pass
 import matplotlib.pyplot as plt 
-# from scipy.ndimage import gaussian_filter
 
 
 #%% constants 
@@ -49,28 +48,30 @@ def gaussian_kernel_unity(sigma):
     kernel /= kernel.sum()  # normalisation to ensure the unity sum
     return kernel
 
-def convolve_gaussian_axis0(arr, sigma, GPU_AVAILABLE):
+def convolve_gaussian(arr, sigma, GPU_AVAILABLE):
     kernel = gaussian_kernel_unity(sigma) 
     pad_width = len(kernel) // 2  # pad symmetrically at the edges to eliminate edge effects 
 
     if GPU_AVAILABLE:
         kernel = cp.array(kernel)  # move to VRAM
-        arr_gpu_padded = cp.pad(cp.array(arr), ((0, 0), (pad_width, pad_width)), mode='reflect')
-        if len(arr_gpu_padded.shape)>1:  # more than 1 ROIs
+        if len(arr.shape)>1:  # more than 1 ROIs
+            arr_gpu_padded = cp.pad(cp.array(arr), ((0, 0), (pad_width, pad_width)), mode='reflect')
             # apply convolution across axis 1 without explicit looping
             return cp.apply_along_axis(lambda x: cp.convolve(x, kernel, mode='same'), 
                                        axis=1, 
-                                       arr=arr_gpu_padded)[:, pad_width:-pad_width].get()
+                                       arr=arr_gpu_padded)[:, pad_width:-pad_width]  # do not need to .get() since GPU_AVAILABLE doesn't change 
         else:  # 1 ROI
-            return cp.convolve(arr_gpu_padded, kernel, mode='same')[pad_width:-pad_width].get()
+            arr_gpu_padded = cp.pad(cp.array(arr), (pad_width, pad_width), mode='reflect')
+            return cp.convolve(arr_gpu_padded, kernel, mode='same')[pad_width:-pad_width]
     else:
-        arr_padded = np.pad(arr, ((0, 0), (pad_width, pad_width)), mode='reflect')
-        if len(arr_padded.shape)>1:  # more than 1 ROIs
+        if len(arr.shape)>1:  # more than 1 ROIs
+            arr_padded = np.pad(arr, ((0, 0), (pad_width, pad_width)), mode='reflect')
             return np.apply_along_axis(lambda x: np.convolve(x, kernel, mode='same'), 
                                        axis=1, 
                                        arr=arr_padded)[:, pad_width:-pad_width]
         else:  # 1 ROI
-            return np.convolve(arr_padded, kernel, mode='same')[pad_width:-pad_width].get()
+            arr_padded = np.pad(arr, (pad_width, pad_width), mode='reflect')
+            return np.convolve(arr_padded, kernel, mode='same')[pad_width:-pad_width]
 
 def rolling_min(arr, win, GPU_AVAILABLE):
     if len(arr.shape)>1:  # 2D
@@ -87,7 +88,7 @@ def rolling_min(arr, win, GPU_AVAILABLE):
         else:
             array_padding = cp.hstack((arr_gpu[:half_win], arr_gpu, arr_gpu[-half_win:length]))
             output = cp.array([cp.min(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
-        return output.get()  # move back to RAM
+        return output
     else:
         half_win = int(np.ceil(win/2))
         if len(arr.shape)>1:
@@ -113,7 +114,7 @@ def rolling_max(arr, win, GPU_AVAILABLE):
         else:
             array_padding = cp.hstack((arr_gpu[:half_win], arr_gpu, arr_gpu[-half_win:length]))
             output = cp.array([cp.max(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
-        return output.get()  # move back to RAM
+        return output
     else:
         half_win = int(np.ceil(win/2))
         if len(arr.shape)>1:
@@ -130,7 +131,7 @@ def calculate_dFF(F_array, window=1800, sigma=300, GPU_AVAILABLE=False):
     Parameters
     ----------
     F_array : numpy array
-        2D array with fluorescence traces for each ROI.
+        array with fluorescence traces for each ROI.
     window : int, default=1800
         Window for calculating baselines.
     sigma : int, default=300
@@ -142,12 +143,12 @@ def calculate_dFF(F_array, window=1800, sigma=300, GPU_AVAILABLE=False):
 
     """
     # print('GPU_AVAILABLE: {}'.format(GPU_AVAILABLE))
-    baseline = convolve_gaussian_axis0(F_array, sigma, GPU_AVAILABLE)
+    baseline = convolve_gaussian(F_array, sigma, GPU_AVAILABLE)
     baseline = rolling_min(baseline, window, GPU_AVAILABLE)
     baseline = rolling_max(baseline, window, GPU_AVAILABLE)
     
+    if GPU_AVAILABLE: F_array = cp.array(F_array)  # if GPU_AVAILABLE, baseline will remain on GPU
     return (F_array-baseline)/baseline
-
 
 def filter_outlier(F_array, std_threshold=10):
     means = F_array.mean(axis=1)  # mean of each ROI trace

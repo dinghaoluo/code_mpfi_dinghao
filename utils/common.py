@@ -12,10 +12,7 @@ import os
 
 
 # os functions 
-def generate_dir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
+
 def scan_directory_tree(path, indent='', is_first_level=True):
     output = ''
     
@@ -87,13 +84,14 @@ def smooth_convolve(data, sigma=3, axis=1):  # sigma in frames
 
     kernel = gaussian_unity(sigma)
     pad_width = len(kernel) // 2  # how long to pad on each side 
-    data_padded = np.pad(data, ((0, 0), (pad_width, pad_width)), mode='reflect')
     
     if len(data.shape)>1:  # more than 1 dimension
+        data_padded = np.pad(data, ((0, 0), (pad_width, pad_width)), mode='reflect')
         return np.apply_along_axis(lambda x: np.convolve(x, kernel, mode='same'), 
                                    axis=axis, 
                                    arr=data_padded)[:, pad_width:-pad_width]
     else:  # vector
+        data_padded = np.pad(data, (pad_width, pad_width), mode='reflect')
         return np.convolve(data_padded, kernel, mode='same')[pad_width:-pad_width]
 
 

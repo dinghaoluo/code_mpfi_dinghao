@@ -27,9 +27,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.colors import LinearSegmentedColormap
 import sys
 import os
-import psutil
 from tqdm import tqdm
-import gc  # garbage collector 
 from time import time
 from datetime import timedelta
 from scipy.stats import sem 
@@ -38,7 +36,7 @@ sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_pipeline_functions as ipf
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import normalise, smooth_convolve, generate_dir, mpl_formatting
+from common import normalise, smooth_convolve, mpl_formatting
 mpl_formatting()
 
 # global variables 
@@ -73,10 +71,248 @@ else:
     print('GPU-acceleartion unavailable')
 
 
+#%% functions
+def calculate_and_plot_overlap_indices(ref_im, ref_ch2_im, stat, valid_rois, recname, border=10):
+    """
+    calculate overlap indices between ROIs and channel 2, then plot each ROI overlay with reference images.
+    
+    parameters
+    ----------
+    ref_im : np.ndarray
+        reference image for channel 1.
+    ref_ch2_im : np.ndarray
+        reference image for channel 2.
+    stat : list of dict
+        list of ROI dictionaries, each containing 'xpix' and 'ypix' with ROI pixel coordinates.
+    valid_rois : list
+        list of indices of valid ROIs.
+    recname : str
+        name of the recording session.
+    border : int, optional
+        additional padding around ROI for plotting (default is 10).
+    
+    returns
+    -------
+    overlap_indices : dict
+        dictionary with ROI indices as keys and calculated overlap indices as values.
+    """
+    overlap_indices = {}
+    
+    # ensure output directory exists
+    output_dir = os.path.join(r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions', recname, 'ROI_ch2_validation')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # loop over each valid ROI to compute overlap index and generate plots
+    for roi in valid_rois:
+        xpix = stat[roi]['xpix']
+        ypix = stat[roi]['ypix']
+        
+        # calculate overlap index
+        ch2_values = ref_ch2_im[ypix, xpix]
+        ch1_values = ref_im[ypix, xpix]
+        overlap_index = ch2_values.mean() / ch1_values.mean()
+        overlap_indices[roi] = overlap_index
+        
+        # plot ROI overlay with reference images
+        x_min, x_max = xpix.min(), xpix.max()
+        y_min, y_max = ypix.min(), ypix.max()
+        
+        x_center = (x_min + x_max) // 2
+        y_center = (y_min + y_max) // 2
+        half_span = max(x_max - x_min, y_max - y_min) // 2 + border
+        
+        x_min_square = max(0, x_center - half_span)
+        x_max_square = min(ref_im.shape[1], x_center + half_span)
+        y_min_square = max(0, y_center - half_span)
+        y_max_square = min(ref_im.shape[0], y_center + half_span)
+        
+        channel1_sub = ref_im[y_min_square:y_max_square, x_min_square:x_max_square]
+        channel2_sub = ref_ch2_im[y_min_square:y_max_square, x_min_square:x_max_square]
+        
+        fig, axes = plt.subplots(1, 2, figsize=(4, 2))
+        
+        # plot channel 1 with ROI outline
+        axes[0].imshow(channel1_sub, cmap='gray', extent=(x_min_square, x_max_square, y_max_square, y_min_square))
+        axes[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], color='limegreen', edgecolor='none', s=1, alpha=1)
+        axes[0].set_title(f'ROI {roi}: {round(overlap_index, 3)}')
+        
+        # plot channel 2 with the same view
+        axes[1].imshow(channel2_sub, cmap='gray', extent=(x_min_square, x_max_square, y_max_square, y_min_square))
+        axes[1].set_title('channel 2 ref.')
+        
+        # save the plot
+        fig.savefig(os.path.join(output_dir, f'roi_{roi}.png'), dpi=300)
+        plt.close(fig)
+    
+    return overlap_indices
+
+
+
+def load_reference_images(ref_path, ref_ch2_path, bin_path, bin2_path, proc_path, tot_frames, ops, GPU_AVAILABLE):
+    """
+    load or generate reference images for channels 1 and 2
+    
+    parameters
+    ----------
+    ref_path : str
+        path to the saved reference image for channel 1
+    ref_ch2_path : str
+        path to the saved reference image for channel 2
+    bin_path : str
+        path to the binary file for channel 1 data
+    bin2_path : str
+        path to the binary file for channel 2 data
+    proc_path : str
+        path for saving processed data
+    tot_frames : int
+        total number of frames in the imaging data
+    ops : dict
+        suite2p operations dictionary containing image dimensions
+    ipf : module
+        module for imaging pipeline functions
+    GPU_AVAILABLE : bool
+        flag for GPU availability
+    
+    returns
+    -------
+    ref_im : np.ndarray
+        reference image for channel 1
+    ref_ch2_im : np.ndarray
+        reference image for channel 2
+    """
+    if not os.path.exists(ref_path) or not os.path.exists(ref_ch2_path):
+        shape = (tot_frames, ops['Ly'], ops['Lx'])
+        print('plotting reference images...')
+        
+        # Generate reference image for channel 1
+        start = time()
+        mov = np.memmap(bin_path, mode='r', dtype='int16', shape=shape)
+        ref_im = ipf.plot_reference(mov, channel=1, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
+        mov._mmap.close()
+        print('ref done ({})'.format(str(timedelta(seconds=int(time() - start)))))
+        
+        # Generate reference image for channel 2
+        start = time()
+        mov2 = np.memmap(bin2_path, mode='r', dtype='int16', shape=shape)
+        ref_ch2_im = ipf.plot_reference(mov2, channel=2, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
+        mov2._mmap.close()
+        print('ref_ch2 done ({})'.format(str(timedelta(seconds=int(time() - start)))))
+        
+    else:
+        print(f'ref images already plotted\nloading ref_im from {proc_path}...')
+        ref_im = np.load(os.path.join(proc_path, 'ref_mat_ch1.npy'), allow_pickle=True)
+        ref_ch2_im = np.load(os.path.join(proc_path, 'ref_mat_ch2.npy'), allow_pickle=True)
+    
+    return ref_im, ref_ch2_im
+
+def filter_valid_rois(stat):
+    """
+    filter ROIs to include only those with the longest or unique 'imerge' lists
+    
+    fix the issue where serial merges on the same constituent ROIs may cause 
+    multiple new ROIs (e.g. ROI 817 may have an imerge-list that is a subset of
+    that of ROI 818, in which case we want to eliminate ROI 817),
+    13 Nov 2024 Dinghao 
+    
+    parameters
+    ----------
+    stat : list
+        list of ROI dictionaries, each containing an 'imerge' key with constituent ROIs
+    
+    returns
+    -------
+    valid_rois : list
+        list of indices of ROIs with the longest or unique 'imerge' lists
+    tot_valids : int
+        total count of valid ROIs
+    """
+    valid_rois = []
+    
+    # create a sorted list of ROI indices based on the length of their 'imerge' lists, from longest to shortest
+    sorted_rois = sorted(range(len(stat)), key=lambda roi: len(stat[roi]['imerge']), reverse=True)
+    
+    # initialise a set to keep track of constituent ROIs that are part of any valid ROI's merge list
+    covered_constituents = set()
+    
+    # loop through the sorted indices
+    for roi in sorted_rois:
+        imerge_set = set(stat[roi]['imerge'])  # convert the imerge list to a set for easy subset checking
+    
+        # check if this ROI's constituent ROIs are already covered by any previously added valid ROIs
+        if not imerge_set.issubset(covered_constituents):
+            # add this ROI index to the valid_rois list
+            valid_rois.append(roi)
+            
+            # update the set to include this ROI's constituents
+            covered_constituents.update(imerge_set)
+    
+    # return valid ROIs and the total count of valid ROIs
+    return valid_rois
+
+def plot_roi_overlays(ref_im, ref_ch2_im, stat, valid_rois, recname, proc_path):
+    """
+    create a 3-panel plot showing ROIs overlayed with channel references, and save it in specified formats.
+    
+    parameters
+    ----------
+    ref_im : np.ndarray
+        reference image for channel 1
+    ref_ch2_im : np.ndarray
+        reference image for channel 2
+    stat : list of dict
+        list of ROI dictionaries, each containing 'xpix' and 'ypix' with ROI pixel coordinates
+    valid_rois : list
+        list of indices of valid ROIs
+    recname : str
+        name of the recording session
+    proc_path : str
+        path for saving processed data
+    
+    returns
+    -------
+    valid_roi_dict : dict
+        dictionary containing pixel coordinates for each valid ROI
+    """
+    fig, axs = plt.subplots(1, 3, figsize=(6, 2))
+    fig.subplots_adjust(wspace=0.35, top=0.75)
+    for ax in axs:
+        ax.set(xlim=(0, 512), ylim=(0, 512))
+        ax.set_aspect('equal')
+    
+    # custom color maps for channels 1 and 2
+    colors_ch1 = plt.cm.Reds(np.linspace(0, 0.8, 256))
+    colors_ch2 = plt.cm.Greens(np.linspace(0, 0.8, 256))
+    custom_cmap_ch1 = LinearSegmentedColormap.from_list('mycmap_ch1', colors_ch1)
+    custom_cmap_ch2 = LinearSegmentedColormap.from_list('mycmap_ch2', colors_ch2)
+    
+    # display reference images in channels 1 and 2
+    axs[1].imshow(ref_im, cmap=custom_cmap_ch1)
+    axs[2].imshow(ref_ch2_im, cmap=custom_cmap_ch2)
+    axs[1].set(title='axon-GCaMP')
+    axs[2].set(title='Dbh:Ai14')
+    
+    # overlay ROIs and store their coordinates in valid_roi_dict
+    valid_roi_dict = {}
+    for roi in valid_rois:
+        axs[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], edgecolor='none', s=0.1, alpha=0.2)
+        valid_roi_dict[f'ROI {roi}'] = [stat[roi]['xpix'], stat[roi]['ypix']]
+    axs[0].set(title='merged ROIs')
+    
+    # save ROI dictionary and plot
+    np.save(os.path.join(proc_path, 'valid_roi_dict.npy'), valid_roi_dict)
+    fig.suptitle(recname)
+    for ext in ['.png', '.pdf']:
+        fig.savefig(os.path.join(proc_path, f'rois_v_ref{ext}'), dpi=200)
+    plt.close(fig)
+    
+    return valid_roi_dict
+
+
+
 #%% main
 for rec_path in pathHPCLCGCaMP:
     recname = rec_path[-17:]
-    print(recname)
+    print(f'\n{recname}')
     
     ops_path = rec_path+r'/suite2p/plane0/ops.npy'
     bin_path = rec_path+r'/suite2p/plane0/data.bin'
@@ -87,9 +323,9 @@ for rec_path in pathHPCLCGCaMP:
     
     # folder to put processed data and single-session plots 
     proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions\{}'.format(recname)
-    generate_dir(proc_path)
-    ref_path = proc_path+r'/ref_ch1.png'
-    ref_ch2_path = proc_path+r'/ref_ch2.png'
+    os.makedirs(proc_path, exist_ok=True)
+    ref_path = proc_path+r'\ref_ch1.png'
+    ref_ch2_path = proc_path+r'\ref_ch2.png'
     
     # load files 
     stat = np.load(stat_path, allow_pickle=True)
@@ -109,78 +345,33 @@ for rec_path in pathHPCLCGCaMP:
     frame_times = beh['frame_times']
     run_frames = [frame for frame in run_frames if frame != -1]  # filter out the no-clear-onset trials
     pump_frames = [frame for frame in pump_frames if frame != -1]  # filter out the no-rew trials
-
-    # checks $FM against tot_frame
-    if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
-        print('\nWARNING:\ncheck $FM for {}\n'.format(recname))
-
     
     # reference images
-    if not os.path.exists(ref_path) or not os.path.exists(ref_ch2_path):
-        shape = tot_frames, ops['Ly'], ops['Lx']
-        print('plotting reference images...')
-        start = time()  # timer
-        mov = np.memmap(bin_path, mode='r', dtype='int16', shape=shape)
-        ref_im = ipf.plot_reference(mov, channel=1, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
-        mov._mmap.close()
-        print('ref done ({})'.format(str(timedelta(seconds=int(time()-start)))))
-        mov2 = np.memmap(bin2_path, mode='r', dtype='int16', shape=shape)
-        ref_ch2_im = ipf.plot_reference(mov2, channel=2, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
-        mov2._mmap.close()
-        print('ref_ch2 done ({})'.format(str(timedelta(seconds=int(time()-start)))))
-    else:
-        print(f'ref images already plotted; loading ref_im from {ref_path}...')
-        ref_mat_path = proc_path+r'/ref_mat_ch1.npy'
-        ref_ch2_mat_path = proc_path+r'/ref_mat_ch2.npy'
-        ref_im = np.load(ref_mat_path, allow_pickle=True)
-        ref_ch2_im = np.load(ref_ch2_mat_path, allow_pickle=True)
+    ref_im, ref_ch2_im = load_reference_images(ref_path, ref_ch2_path,
+                                               bin_path, bin2_path,
+                                               proc_path,
+                                               tot_frames, ops,
+                                               GPU_AVAILABLE)
 
-
-    # find valid ROIs
-    imerge_pooled = set()
-    for roi in range(tot_rois):
-        imerge_pooled.update(stat[roi]['imerge'])  # update the set with unique elements
-    # if this ROI was sorted as a 'cell' & is not merged into another ROI
-    valid_rois = [roi for roi in range(tot_rois) 
-                  if roi not in imerge_pooled and iscell[roi][0]==1]
+    # filter valid ROIs: the end results should only contain end-merge ROIs and 
+    # ROIs that have never been merged with other ROIs
+    valid_rois = filter_valid_rois(stat)
     tot_valids = len(valid_rois)
 
+    # filtering through channel 2
+    overlap_indices = calculate_and_plot_overlap_indices(ref_im, ref_ch2_im, stat, valid_rois, recname)
     
     # ROI plots
-    fig, axs = plt.subplots(1,3, figsize=(6,2))
-    fig.subplots_adjust(wspace=.35, top=.75)
-    for i in range(3):
-        axs[i].set(xlim=(0,512), ylim=(0,512))
-        axs[i].set_aspect('equal')
+    valid_roi_dict = plot_roi_overlays(ref_im, ref_ch2_im, stat, valid_rois, recname, proc_path)
     
-    colors_ch1 = plt.cm.Reds(np.linspace(0, 0.8, 256))
-    colors_ch2 = plt.cm.Greens(np.linspace(0, 0.8, 256))
-    custom_cmap_ch1 = LinearSegmentedColormap.from_list('mycmap', colors_ch1)
-    custom_cmap_ch2 = LinearSegmentedColormap.from_list('mycmap', colors_ch2)
-    axs[1].imshow(ref_im, cmap=custom_cmap_ch1)
-    axs[2].imshow(ref_ch2_im, cmap=custom_cmap_ch2)
-    axs[1].set(title='axon-GCaMP')
-    axs[2].set(title='Dbh:Ai14')
-    
-    for roi in valid_rois:
-        axs[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], edgecolor='none', s=.1, alpha=.2)
-    axs[0].set(title='merged ROIs')
-    
-    fig.suptitle(recname)
-    
-    for ext in ['.png', '.pdf']:
-        fig.savefig(r'{}\rois_v_ref{}'.format(proc_path, ext),
-                    dpi=200)
-    plt.close(fig)
-    
-    
+    # load F trace
     F = np.load(F_path, allow_pickle=True)
     
     # plotting: RO-aligned 
     run_path = r'{}\RO_aligned_single_roi'.format(proc_path)
-    generate_dir(run_path)
-    all_mean_run = np.zeros((tot_valids, (bef+aft)*30)); counter = 0
-    for roi in tqdm(valid_rois):
+    os.makedirs(run_path, exist_ok=True)
+    all_mean_run_dict = {}
+    for roi in tqdm(valid_rois, desc='plotting RO-aligned'):
         ca = F[roi]
         start = time()  # timer
         ca = ipf.calculate_dFF(ca, GPU_AVAILABLE=False)  # not using GPU is faster when we are calculating only 1 vector
@@ -213,7 +404,7 @@ for rec_path in pathHPCLCGCaMP:
         
         run_aligned_mean = np.mean(run_aligned, axis=0)
         run_aligned_sem = sem(run_aligned, axis=0)
-        all_mean_run[counter, :] = run_aligned_mean
+        all_mean_run_dict[f'ROI {roi}'] = run_aligned_mean
             
         fig = plt.figure(figsize=(5, 2.5))
         gs = GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
@@ -228,8 +419,9 @@ for rec_path in pathHPCLCGCaMP:
         ax1.set(xlim=(0,512), 
                 ylim=(0,512))
         
-        ax2.imshow(run_aligned_im, cmap='Greys', extent=[-1, 4, 0, tot_run], aspect='auto')
-        ax2.set(xticks=[],
+        image = ax2.imshow(run_aligned_im, cmap='Greys', extent=[-1, 4, 0, tot_run], aspect='auto')
+        plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. dF/F')
+        ax2.set(xticklabels=[],
                 ylabel='trial #')
         
         ax3.plot(xaxis, run_aligned_mean, c='darkgreen')
@@ -244,28 +436,15 @@ for rec_path in pathHPCLCGCaMP:
         fig.savefig(r'{}\roi_{}.png'.format(run_path, roi),
                     dpi=300)
         plt.close(fig)
-        
-        counter+=1
-            
-    
-    # plot heatmap of all: RO-aligned
-    keys = np.argsort([np.argmax(all_mean_run[roi]) for roi in range(tot_valids)])
-    im_matrix = normalise(all_mean_run[keys, :])
-    
-    fig, ax = plt.subplots(figsize=(3,3))
-    ax.imshow(im_matrix, aspect='auto', extent=[-1,4,0,tot_valids], cmap='Greys')
-    ax.set(xlabel='time from run-onset (s)',
-           ylabel='ROI #')
-    fig.savefig(r'{}\RO_aligned_sorted.png'.format(proc_path))
-    np.save(r'{}\RO_aligned_sorted_mat.npy'.format(proc_path), im_matrix)
-    plt.close(fig)
+
+    np.save(r'{}\RO_aligned_dict.npy'.format(proc_path), all_mean_run_dict)
     
     
     # plotting: rew-aligned 
     rew_path = r'{}\rew_aligned_single_roi'.format(proc_path)
-    generate_dir(rew_path)
-    all_mean_rew = np.zeros((tot_valids, (bef+aft)*30)); counter = 0
-    for roi in tqdm(valid_rois):
+    os.makedirs(rew_path, exist_ok=True)
+    all_mean_rew_dict = {}
+    for roi in tqdm(valid_rois, desc='plotting rew-aligned'):
         ca = F[roi]
         start = time()  # timer
         ca = ipf.calculate_dFF(ca, GPU_AVAILABLE=False) 
@@ -298,7 +477,7 @@ for rec_path in pathHPCLCGCaMP:
         
         rew_aligned_mean = np.mean(rew_aligned, axis=0)
         rew_aligned_sem = sem(rew_aligned, axis=0)
-        all_mean_rew[counter, :] = rew_aligned_mean
+        all_mean_rew_dict[f'ROI {roi}'] = rew_aligned_mean
             
         fig = plt.figure(figsize=(5, 2.5))
         gs = GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
@@ -329,28 +508,6 @@ for rec_path in pathHPCLCGCaMP:
         fig.savefig(r'{}\roi_{}.png'.format(rew_path, roi),
                     dpi=300)
         plt.close(fig)
-        
-        counter+=1
             
-    
-    # plot heatmap of all: rew-aligned
-    keys = np.argsort([np.argmax(all_mean_rew[roi]) for roi in range(tot_valids)])
-    im_matrix = normalise(all_mean_rew[keys, :])
-    
-    fig, ax = plt.subplots(figsize=(3,3))
-    ax.imshow(im_matrix, aspect='auto', extent=[-1,4,0,tot_valids], cmap='Greys')
-    ax.set(xlabel='time from reward (s)',
-           ylabel='ROI #')
-    fig.savefig(r'{}\rew_aligned_sorted.png'.format(proc_path))
-    np.save(r'{}\rew_aligned_sorted_mat.npy'.format(proc_path), im_matrix)
-    plt.close(fig)
-
-
-    # release memory
-    process = psutil.Process()
-    print(f'memory usage before collection: {process.memory_info().rss / 1024**2:.2f} mb')
-
-    del stat, iscell, ops, F, ref_im, ref_ch2_im, all_mean_run, im_matrix
-    gc.collect()  # trigger garbage collection after deletion
-
-    print(f'memory usage after collection: {process.memory_info().rss / 1024**2:.2f} mb')
+        
+    np.save(r'{}\rew_aligned_dict.npy'.format(proc_path), all_mean_rew_dict)

@@ -24,7 +24,7 @@ pathOpt = rec_list.pathLCopt
 sess_list = [sess[-17:] for sess in pathOpt]
 
 n_bst = 1000  # hyperparameter for bootstrapping
-comp_method = 'baseline'
+comp_method = 'stim_cont'
 print('\n**BOOTSTRAP # = {}**'.format(n_bst))
 print('**comparison method: {}**\n'.format(comp_method))
 
@@ -116,28 +116,47 @@ for sessname in sess_list:
         all_licks_stim.append(np.median(curr_licks_stim))
     
     
-    # licks plot 
-    fig, ax = plt.subplots()
-    for p in ['top', 'right', 'left']:
-        ax.spines[p].set_visible(False)
-    ax.set(title='{}, stim={}'.format(sessname, stim_cond),
-           ylim=(0, 1.5), xlim=(30, 225),
-           xlabel='dist. 1st lick (cm)')
-    ax.set_yticks([.5, 1])
+    data = [[l[0] for l in licks_non_stim], [l[0] for l in licks_stim]]
+    
+    fig, ax = plt.subplots(figsize=(3.3,2))
+    
+    # Remove top, right, and left spines
+    for spine in ['top', 'right', 'left']:
+        ax.spines[spine].set_visible(False)
+    
+    # Set title and axis limits
+    ax.set(title=f'{sessname}, stim={stim_cond}', 
+           xlim=(30, 225), ylim=(-0.5, 1.5), 
+           ylabel='Condition', xlabel='dist. 1st lick (cm)')
+    ax.set_yticks([0, 1])
     ax.set_yticklabels(['baseline', 'stim'])
-    ax.scatter(licks_non_stim, [.5]*len(licks_stim), color='grey')
-    ax.scatter(licks_stim, [1]*len(licks_stim), color='darkblue')
-    ax.plot([np.median(licks_non_stim), np.median(licks_stim)], [.5, 1],
-            color='grey', alpha=.5)
-    fig.suptitle('dist. 1st licks')
+    
+    # Plot box plots on separate tracks
+    box_positions = [0, 1]
+    boxplot = ax.boxplot(data, 
+                         positions=box_positions, vert=False, widths=0.3,
+                         patch_artist=True, 
+                         boxprops=dict(facecolor='lightgrey', color='grey'),
+                         medianprops=dict(color='black'))
+    colors = ['grey', 'royalblue']
+    for patch, color in zip(boxplot['boxes'], colors):
+        patch.set_facecolor(color)
+        patch.set_edgecolor('k')
+    
+    ax.scatter(licks_non_stim, [.25]*len(licks_non_stim), color='grey', label='Baseline')
+    ax.scatter(licks_stim, [.75]*len(licks_stim), color='royalblue', label='Stimulation')
+    
+    ax.plot([np.median(licks_non_stim), np.median(licks_stim)], [.25, .75], 
+            color='grey', alpha=0.5, linestyle='--')
+        
     if comp_method == 'baseline':
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_0{}0\{}.png'.format(stim_cond, sessname),
-                    dpi=300,
-                    bbox_inches='tight')
+        fig.savefig(f'Z:/Dinghao/code_dinghao/LC_opto_ephys/opto_lickdist_0{stim_cond}0/{sessname}.png', 
+                    dpi=300, bbox_inches='tight')
     elif comp_method == 'stim_cont':
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_0{}0_stim_cont\{}.png'.format(stim_cond, sessname),
-                    dpi=300,
-                    bbox_inches='tight')
+        fig.savefig(f'Z:/Dinghao/code_dinghao/LC_opto_ephys/opto_lickdist_0{stim_cond}0_stim_cont/{sessname}.png', 
+                    dpi=300, bbox_inches='tight')
+    
+    plt.show()
   
     
 #%% summary statistics 

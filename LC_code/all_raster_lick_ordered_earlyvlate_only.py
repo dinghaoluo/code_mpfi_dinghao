@@ -21,6 +21,8 @@ plt.rcParams['font.family'] = 'Arial'
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
+xaxis = np.arange(6*1250)/1250-1
+
 
 #%% load data 
 rasters = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters_simp_name.npy',
@@ -51,21 +53,13 @@ for clu in cell_prop.index:
             put_rop_list.append(clu)
 
 
-#%% shuffle function 
-def cir_shuf(train, length, num_shuf=1000):
-    tot_t = len(train)
-    shuf_array = np.zeros([num_shuf, length])
-    for i in range(num_shuf):
-        rand_shift = np.random.randint(1, tot_t/2)
-        shuf_array[i,:] = np.roll(train, -rand_shift)[:length]
-    
-    return np.mean(shuf_array, axis=0)
-
-
 #%% MAIN 
 noStim = 'Y'
+window = [3750-313, 3750+313]
 
 for cluname in clu_list:
+    if cluname==clu_list[171]:
+        continue
     print(cluname)
     raster = rasters[cluname]
     train = all_train[cluname]
@@ -113,9 +107,12 @@ for cluname in clu_list:
     # plotting
     fig, axs = plt.subplots(2, 1, figsize=(3,2.5))
     
-    line_counter = 0  # for counting scatter plot lines 
-    for trial in early_trials:
+    early_prof = np.zeros((10, 1250*6))
+    late_prof = np.zeros((10, 1250*6))
+    
+    for i, trial in enumerate(early_trials):
         curr_raster = raster[trial]
+        early_prof[i, :len(train[trial][2500:2500+6*1250])] = train[trial][2500:2500+6*1250]*500
         curr_trial = np.where(curr_raster==1)[0]
         curr_trial = [(s-3750)/1250 for s in curr_trial if s>2500]  # starts from -1 s 
         
@@ -123,19 +120,18 @@ for cluname in clu_list:
         calpha = 0.7
         dotsize = 0.35
         
-        axs[1].scatter(curr_trial, [line_counter+1]*len(curr_trial),
+        axs[1].scatter(curr_trial, [i+1]*len(curr_trial),
                        color=c, alpha=calpha, s=dotsize)
         axs[1].plot([first_licks[trial]/1250, first_licks[trial]/1250],
-                    [line_counter, line_counter+1],
+                    [i, i+1],
                     linewidth=2, color='orchid')
         # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
         #               [trial, trial+1],
         #               linewidth=2, color='darkgreen')
-        line_counter+=1
         
-    line_counter = 0
-    for trial in reversed(late_trials):
+    for i, trial in enumerate(reversed(late_trials)):
         curr_raster = raster[trial]
+        late_prof[i, :len(train[trial][2500:2500+6*1250])] = train[trial][2500:2500+6*1250]*500
         curr_trial = np.where(curr_raster==1)[0]
         curr_trial = [(s-3750)/1250 for s in curr_trial if s>2500]  # starts from -1 s 
         
@@ -143,20 +139,35 @@ for cluname in clu_list:
         calpha = 0.7
         dotsize = 0.35
         
-        axs[0].scatter(curr_trial, [line_counter+1]*len(curr_trial),
+        axs[0].scatter(curr_trial, [i+1]*len(curr_trial),
                        color=c, alpha=calpha, s=dotsize)
         axs[0].plot([first_licks[trial]/1250, first_licks[trial]/1250],
-                    [line_counter, line_counter+1],
+                    [i, i+1],
                     linewidth=2, color='orchid')
         # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
         #               [trial, trial+1],
         #               linewidth=2, color='darkgreen')
-        line_counter+=1
+        
+    
+    e_mean = np.mean(early_prof, axis=0)
+    l_mean = np.mean(late_prof, axis=0)
+    max_y = max(max(e_mean), max(l_mean))
+    min_y = min(min(e_mean), min(l_mean))
+    
+    axt1 = axs[1].twinx()
+    axt1.plot(xaxis, np.mean(early_prof, axis=0), color='k')
+    axt1.set(ylabel='spike rate (Hz)',
+             ylim=(min_y, max_y))
+    
+    axt0 = axs[0].twinx()
+    axt0.plot(xaxis, np.mean(late_prof, axis=0), color='k')
+    axt0.set(ylabel='spike rate (Hz)',
+             ylim=(min_y, max_y))
     
     for i in range(2):
-        axs[i].set(xlabel='time (s)', ylabel='trial #',
+        axs[i].set(xlabel='time from run-onset (s)', ylabel='trial #',
                    yticks=[1, 10], xticks=[0, 2, 4],
-                   xlim=(-1, 6))
+                   xlim=(-1, 5))
         for p in ['top', 'right']:
             axs[i].spines[p].set_visible(False)
     

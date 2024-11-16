@@ -54,3 +54,11 @@ def circ_shuffle(arr, alpha=.01, num_shuf=5000):
     return [np.mean(shuf_mean_array, axis=0), 
             np.percentile(shuf_mean_array, sig_perc, axis=0, method='midpoint'),
             np.percentile(shuf_mean_array, 100-sig_perc, axis=0, method='midpoint')]
+
+
+def gaussian_kernel_unity(sigma):
+    kernel_size = int(6 * sigma + 1)
+    x = np.arange(kernel_size) - (kernel_size // 2)
+    kernel = np.exp(-(x**2 / (2 * sigma**2)))
+    kernel /= kernel.sum()  # normalisation to ensure the unity sum
+    return kernel 
