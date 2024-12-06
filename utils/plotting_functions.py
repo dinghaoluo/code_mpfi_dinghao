@@ -18,7 +18,7 @@ from scipy.stats import wilcoxon, ranksums, ttest_rel, ttest_ind
 
 #%% functions 
 def plot_violin_with_scatter(data1, data2, colour1, colour2,
-                             paired=True,
+                             paired=True, alpha=.25,
                              xlabel=' ', xticks=[1,2], xticklabels=['data1', 'data2'],
                              ylabel=' ', yscale=None,
                              title=' ',
@@ -26,10 +26,61 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
                              statistics=True,
                              save=False, savepath=' ', dpi=120):
     """
-    pretty self-explanatory; plots half-violins on x-positions 1 and 2
-    useful for comparing ctrl and stim conditions
-    if paired==True, use paired statistics 
-    if paired==False, use unpaired statistics 
+    plot half-violins with optional scatter and statistical comparisons
+
+    parameters
+    ----------
+    data1 : array-like
+        values for the first dataset (plotted at x=1)
+    data2 : array-like
+        values for the second dataset (plotted at x=2)
+    colour1 : str or tuple
+        colour for the first dataset
+    colour2 : str or tuple
+        colour for the second dataset
+    paired : bool, optional
+        if True, use paired statistics; otherwise, use unpaired statistics (default: True)
+    alpha : float, optional
+        transparency level for scatter points and lines (default: 0.25)
+    xlabel : str, optional
+        label for the x-axis (default: ' ')
+    xticks : list, optional
+        positions for x-axis ticks (default: [1, 2])
+    xticklabels : list, optional
+        labels for the x-axis ticks (default: ['data1', 'data2'])
+    ylabel : str, optional
+        label for the y-axis (default: ' ')
+    yscale : str, optional
+        scale for the y-axis (e.g., 'symlog'); if None, use linear scale (default: None)
+    title : str, optional
+        title for the plot (default: ' ')
+    showmeans : bool, optional
+        if True, display mean markers and lines (default: False)
+    showmedians : bool, optional
+        if True, display median markers and lines (default: True)
+    showextrema : bool, optional
+        if True, show extrema for violins (default: False)
+    statistics : bool, optional
+        if True, calculate and display statistical results (default: True)
+    save : bool, optional
+        if True, save the plot as a .png and .pdf (default: False)
+    savepath : str, optional
+        path to save the plot (default: ' ')
+    dpi : int, optional
+        resolution for the saved image (default: 120)
+
+    returns
+    -------
+    None
+
+    notes
+    -----
+    - half-violins are plotted for two datasets at x=1 and x=2
+    - supports paired or unpaired statistical tests
+    - visualises scatter points for individual data, with optional mean or median markers
+    - violins are coloured based on `colour1` and `colour2`
+    - saves the plot in both .png and .pdf formats if `save=True`
+
     """
     fig, ax = plt.subplots(figsize=(1.8,2.4))
     
@@ -50,7 +101,7 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
         if paired:
             ax.plot([1.1, 1.9], 
                     [data1, data2], 
-                    color='grey', alpha=.05, linewidth=1, zorder=1)
+                    color='grey', alpha=alpha, linewidth=1, zorder=1)
             ax.plot([1.1, 1.9], [np.mean(data1), np.mean(data2)],
                     color='k', linewidth=2, zorder=1)
     if showmedians:
@@ -63,7 +114,7 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
         if paired:
             ax.plot([1.1, 1.9], 
                     [data1, data2], 
-                    color='grey', alpha=.05, linewidth=1, zorder=1)
+                    color='grey', alpha=alpha, linewidth=1, zorder=1)
             ax.plot([1.1, 1.9], [np.median(data1), np.median(data2)],
                     color='k', linewidth=2, zorder=1)
     for i in [0,1]:
@@ -80,10 +131,10 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
 
     ax.scatter([1.1]*len(data1), 
                data1, 
-               s=10, c=colour1, ec='none', lw=.5, alpha=.05)
+               s=10, c=colour1, ec='none', lw=.5, alpha=alpha)
     ax.scatter([1.9]*len(data2), 
                data2, 
-               s=10, c=colour2, ec='none', lw=.5, alpha=.05)
+               s=10, c=colour2, ec='none', lw=.5, alpha=alpha)
     
     y_range = [max(max(data1), max(data2)), min(min(data1), min(data2))]
     y_range_tot = y_range[0]-y_range[1]

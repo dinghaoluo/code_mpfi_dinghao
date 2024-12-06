@@ -7,8 +7,6 @@ Modified on Fri 15 Nov 16:16:14 2024
 @modified by Dinghao Luo
 
 calculate std map for movies
-
-functions were taken out of the 
 """
 
 
@@ -22,6 +20,25 @@ import matplotlib.pyplot as plt
 from warnings import warn
 import time
 from tqdm import tqdm
+
+# GPU support
+try:
+    import cupy as cp 
+    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
+except ModuleNotFoundError:
+    print('cupy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
+    GPU_AVAILABLE = False
+except Exception as e:
+    # catch any other unexpected errors and print a general message
+    print(f'An error occurred: {e}')
+    GPU_AVAILABLE = False
+
+if GPU_AVAILABLE:
+    # we are assuming that there is only 1 GPU device
+    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
+    print(f'GPU-acceleration with {str(name)} and cupy')
+else:
+    print('GPU-acceleartion unavailable')
 
 
 #%% functions
@@ -442,7 +459,7 @@ def max_filter(mov: np.ndarray, width: int) -> np.ndarray:
         mov[i, :, :] = mov[i:i + width, :, :].max(axis=0)
     return mov
 
-def median_filter(mov: np.ndarray, width: int) -> np.ndarray:
+def mean_filter(mov: np.ndarray, width: int) -> np.ndarray:
     """
     Returns a filtered copy of the 3D array "mov" using a rolling mean kernel over time.
 
@@ -460,9 +477,39 @@ def median_filter(mov: np.ndarray, width: int) -> np.ndarray:
 
     """
     mov = mov.copy()
-    for i in tqdm(range(mov.shape[0]), desc='Median-filtering:'):
-        mov[i, :, :] = np.median(mov[i:i + width, :, :], axis=0)
+    for i in tqdm(range(mov.shape[0]), desc='Mean-filtering:'):
+        mov[i, :, :] = np.mean(mov[i:i + width, :, :], axis=0)
     return mov
+
+def median_filter(mov, width, GPU_AVAILABLE=False):
+    """
+    Returns a filtered copy of the 3D array "mov" using a rolling mean kernel over time.
+
+    Parameters
+    ----------
+    mov: nImg x Ly x Lx
+        The frames to filter
+    width: int
+        The filter width
+
+    Returns
+    -------
+    filtered_mov: nImg x Ly x Lx
+        The filtered frames
+
+    """
+    if GPU_AVAILABLE:
+        print('using GPU')
+        new_mov = cp.zeros(mov.shape)
+        for i in tqdm(range(mov.shape[0]), desc='median filtering:'):
+            new_mov[i, :, :] = cp.median(cp.asarray(mov[i:i+width, :, :]), axis=0)
+        return new_mov.get()
+    else:
+        print('not using GPU')
+        new_mov = np.zeros(mov.shape)
+        for i in tqdm(range(mov.shape[0]), desc='median filtering:'):
+            new_mov[i, :, :] = np.median(mov[i:i + width, :, :], axis=0)
+        return new_mov
 
 
 def standard_deviation_over_time(mov: np.ndarray, batch_size: int) -> np.ndarray:
@@ -904,9 +951,11 @@ batch_size = 200
 
 #%% loading test data
 # if using data.bin file
-# session = r'AC926-20240307-02'
-p_data = r"Z:\Dinghao\2p_recording\A094i\A094i-20240716\A094i-20240716-01\processed\suite2p\plane0"
-p_ops = r"Z:\Dinghao\2p_recording\A094i\A094i-20240716\A094i-20240716-01\processed\suite2p\plane0"
+
+p_ops = p_data = r"Z:\Jingyu\2P_Recording\AC955\AC955-20240911\02\RegOnly\suite2p\plane0"
+
+# p_data = r"Z:\Dinghao\2p_recording\A094i\A094i-20240716\A094i-20240716-01\processed\suite2p\plane0"
+# p_ops = r"Z:\Dinghao\2p_recording\A094i\A094i-20240716\A094i-20240716-01\processed\suite2p\plane0"
 ops = np.load(p_ops+r'\ops.npy', allow_pickle=True).item()
 reg_dlight = np.memmap(p_data+r'\data.bin', mode='r', dtype='int16',shape=(5000, 512, 512))
 mov = reg_dlight.astype('float32')
@@ -924,8 +973,10 @@ movc = mov.copy()
 # rolling max filter:
 if rolling == 'max':
     movc = max_filter(movc, width=int(width))
+if rolling == 'mean':
+    movc = mean_filter(movc, width=int(width))
 if rolling == 'median':
-    movc = median_filter(movc, width=int(width))
+    movc = median_filter(movc, width=int(width), GPU_AVAILABLE=GPU_AVAILABLE)
 
 # neuropil subtraction
 movc = neuropil_subtraction(movc, filter_size=15)

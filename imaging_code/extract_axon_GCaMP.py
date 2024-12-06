@@ -29,7 +29,6 @@ import sys
 import os
 from tqdm import tqdm
 from time import time
-from datetime import timedelta
 from scipy.stats import sem 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
@@ -145,65 +144,6 @@ def calculate_and_plot_overlap_indices(ref_im, ref_ch2_im, stat, valid_rois, rec
         plt.close(fig)
     
     return overlap_indices
-
-
-
-def load_reference_images(ref_path, ref_ch2_path, bin_path, bin2_path, proc_path, tot_frames, ops, GPU_AVAILABLE):
-    """
-    load or generate reference images for channels 1 and 2
-    
-    parameters
-    ----------
-    ref_path : str
-        path to the saved reference image for channel 1
-    ref_ch2_path : str
-        path to the saved reference image for channel 2
-    bin_path : str
-        path to the binary file for channel 1 data
-    bin2_path : str
-        path to the binary file for channel 2 data
-    proc_path : str
-        path for saving processed data
-    tot_frames : int
-        total number of frames in the imaging data
-    ops : dict
-        suite2p operations dictionary containing image dimensions
-    ipf : module
-        module for imaging pipeline functions
-    GPU_AVAILABLE : bool
-        flag for GPU availability
-    
-    returns
-    -------
-    ref_im : np.ndarray
-        reference image for channel 1
-    ref_ch2_im : np.ndarray
-        reference image for channel 2
-    """
-    if not os.path.exists(ref_path) or not os.path.exists(ref_ch2_path):
-        shape = (tot_frames, ops['Ly'], ops['Lx'])
-        print('plotting reference images...')
-        
-        # Generate reference image for channel 1
-        start = time()
-        mov = np.memmap(bin_path, mode='r', dtype='int16', shape=shape)
-        ref_im = ipf.plot_reference(mov, channel=1, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
-        mov._mmap.close()
-        print('ref done ({})'.format(str(timedelta(seconds=int(time() - start)))))
-        
-        # Generate reference image for channel 2
-        start = time()
-        mov2 = np.memmap(bin2_path, mode='r', dtype='int16', shape=shape)
-        ref_ch2_im = ipf.plot_reference(mov2, channel=2, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
-        mov2._mmap.close()
-        print('ref_ch2 done ({})'.format(str(timedelta(seconds=int(time() - start)))))
-        
-    else:
-        print(f'ref images already plotted\nloading ref_im from {proc_path}...')
-        ref_im = np.load(os.path.join(proc_path, 'ref_mat_ch1.npy'), allow_pickle=True)
-        ref_ch2_im = np.load(os.path.join(proc_path, 'ref_mat_ch2.npy'), allow_pickle=True)
-    
-    return ref_im, ref_ch2_im
 
 def filter_valid_rois(stat):
     """
@@ -324,8 +264,6 @@ for rec_path in pathHPCLCGCaMP:
     # folder to put processed data and single-session plots 
     proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions\{}'.format(recname)
     os.makedirs(proc_path, exist_ok=True)
-    ref_path = proc_path+r'\ref_ch1.png'
-    ref_ch2_path = proc_path+r'\ref_ch2.png'
     
     # load files 
     stat = np.load(stat_path, allow_pickle=True)
@@ -347,11 +285,10 @@ for rec_path in pathHPCLCGCaMP:
     pump_frames = [frame for frame in pump_frames if frame != -1]  # filter out the no-rew trials
     
     # reference images
-    ref_im, ref_ch2_im = load_reference_images(ref_path, ref_ch2_path,
-                                               bin_path, bin2_path,
-                                               proc_path,
-                                               tot_frames, ops,
-                                               GPU_AVAILABLE)
+    ref_im, ref_ch2_im = ipf.load_or_generate_reference_images(proc_path,
+                                                               bin_path, bin2_path,
+                                                               tot_frames, ops,
+                                                               GPU_AVAILABLE)
 
     # filter valid ROIs: the end results should only contain end-merge ROIs and 
     # ROIs that have never been merged with other ROIs

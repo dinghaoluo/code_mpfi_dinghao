@@ -117,7 +117,7 @@ plt.legend([lp, ld], ['baseline', 'exp.'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 ax.set(xlim=(30,219), xlabel='distance (cm)',
-       ylabel='hist. licks')
+       ylabel='hist. licks', ylim=(0,0.9), yticks=(0,0.5))
 
 for ext in ['.png', '.pdf']:
     fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\SCH23390\lick_profile{}'.format(ext),

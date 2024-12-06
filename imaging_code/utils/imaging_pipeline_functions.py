@@ -12,6 +12,10 @@ modified: added GPU acceleration using cupy, 1 Nov 2024 Dinghao
 
 #%% imports 
 import numpy as np
+import os 
+from time import time 
+from datetime import timedelta
+import gc
 try:
     import cupy as cp
 except ModuleNotFoundError:
@@ -242,6 +246,40 @@ def run_grid(frame, grids, tot_grid, stride=8, GPU_AVAILABLE=False):
     return gridded
 
 def plot_reference(mov, grids=-1, stride=-1, dim=512, channel=1, outpath=r'', GPU_AVAILABLE=False): 
+    """
+    plot a reference image (mean Z-projection) with optional grid annotations
+    
+    parameters
+    ----------
+    mov : np.ndarray or cupy.ndarray
+        imaging data as a 3D array (frames x height x width)
+    grids : list[int] or int, optional
+        grid line positions for annotation; set to -1 to disable grid processing
+    stride : int, optional
+        stride length between grid lines; required if grids is not -1
+    dim : int, optional
+        dimension of the imaging data for plotting (default: 512)
+    channel : int, optional
+        channel number to annotate in the title (default: 1)
+    outpath : str, optional
+        output path to save the reference image and array (default: '')
+    GPU_AVAILABLE : bool, optional
+        flag to enable GPU processing using cupy (default: False)
+    
+    returns
+    -------
+    ref_im : np.ndarray
+        processed reference image (mean Z-projection)
+    
+    notes
+    -----
+    - If `grids` is not -1, the function will annotate the reference image with
+      vertical and horizontal grid lines based on the provided positions and stride.
+    - If `GPU_AVAILABLE` is True, the function uses cupy to process data on the GPU,
+      otherwise it defaults to numpy for CPU-based processing.
+    - The function saves the reference image and the numpy array (`ref_im`) to the
+      specified `outpath`.
+    """
     if grids!=-1:  # if one is using grid-processing; else don't do anything
         boundary_low = grids[0]
         boundary_high = grids[-1]+stride
@@ -274,10 +312,86 @@ def plot_reference(mov, grids=-1, stride=-1, dim=512, channel=1, outpath=r'', GP
                     bbox_inches='tight')
         np.save(r'{}\ref_mat_ch{}.npy'.format(outpath, channel), ref_im)
     else:  # regular 
-        fig.savefig(r'{}\ref_ch{}.png'.format(outpath, channel))
+        fig.savefig(r'{}\ref_ch{}.png'.format(outpath, channel),
+                    dpi=300,
+                    bbox_inches='tight')
         np.save(r'{}\ref_mat_ch{}.npy'.format(outpath, channel), ref_im)
+    plt.close(fig)
 
+    # explicitly clear VRAM
+    if GPU_AVAILABLE:
+        del mov_gpu, ref_im_gpu
+        gc.collect()
+        cp.get_default_memory_pool().free_all_blocks()
     return ref_im
+
+
+def load_or_generate_reference_images(proc_path, bin_path, bin2_path, tot_frames, ops, GPU_AVAILABLE):
+    """
+    load or generate reference images for channels 1 and 2
+    
+    parameters
+    ----------
+    proc_path : str
+        path to the saved reference images 
+    bin_path : str
+        path to the binary file for channel 1 data
+    bin2_path : str
+        path to the binary file for channel 2 data
+    tot_frames : int
+        total number of frames in the imaging data
+    ops : dict
+        suite2p operations dictionary containing image dimensions
+    GPU_AVAILABLE : bool
+        flag for GPU availability
+    
+    returns
+    -------
+    ref_im : np.ndarray
+        reference image for channel 1
+    ref_ch2_im : np.ndarray
+        reference image for channel 2
+    """
+    ref_path = os.path.join(proc_path, 'ref_mat_ch1.npy')
+    ref_ch2_path = os.path.join(proc_path, 'ref_mat_ch2.npy')
+    if not os.path.exists(proc_path) or not os.path.exists(ref_path) or not os.path.exists(ref_ch2_path):
+        os.makedirs(proc_path, exist_ok=True)  # create proc_path if it does not already exist 
+        shape = (tot_frames, ops['Ly'], ops['Lx'])
+        print('generating reference images...')
+        
+        # Generate reference image for channel 1
+        start = time()
+        try:
+            mov = np.memmap(bin_path, mode='r', dtype='int16', shape=shape)
+            ref_im = plot_reference(mov, channel=1, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
+        except Exception as e:
+            raise IOError(f'failed to memory-map .bin file: {e}')
+        finally:
+            if mov is not None:
+                mov._mmap.close()
+        print('ref done ({})'.format(str(timedelta(seconds=int(time() - start)))))
+        
+        # Generate reference image for channel 2
+        start = time()
+        try:
+            mov2 = np.memmap(bin2_path, mode='r', dtype='int16', shape=shape)
+            ref_ch2_im = plot_reference(mov2, channel=2, outpath=proc_path, GPU_AVAILABLE=GPU_AVAILABLE)
+        except Exception as e:
+            raise IOError(f'failed to memory-map .bin file: {e}')
+        finally:
+            if mov2 is not None:
+                mov2._mmap.close()
+        print('ref_ch2 done ({})'.format(str(timedelta(seconds=int(time() - start)))))
+        
+    else:
+        print(f'ref images already generated\nloading ref_im from {ref_path}...')
+        try:
+            ref_im = np.load(ref_path, allow_pickle=True)
+            ref_ch2_im = np.load(ref_ch2_path, allow_pickle=True)
+        except Exception as e:
+            raise IOError(f'paths exist but failure occurred when loading ref images: {e}')
+    
+    return ref_im, ref_ch2_im
         
     
 def post_processing_suite2p_gui(img_orig):

@@ -24,7 +24,7 @@ pathOpt = rec_list.pathLCopt
 sess_list = [sess[-17:] for sess in pathOpt]
 
 n_bst = 1000  # hyperparameter for bootstrapping
-comp_method = 'stim_cont'
+comp_method = 'baseline'
 print('\n**BOOTSTRAP # = {}**'.format(n_bst))
 print('**comparison method: {}**\n'.format(comp_method))
 
@@ -116,7 +116,7 @@ for sessname in sess_list:
         all_licks_stim.append(np.median(curr_licks_stim))
     
     
-    data = [[l[0] for l in licks_non_stim], [l[0] for l in licks_stim]]
+    data = [licks_non_stim, [l[0] for l in licks_stim]]
     
     fig, ax = plt.subplots(figsize=(3.3,2))
     

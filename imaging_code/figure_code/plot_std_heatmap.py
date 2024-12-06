@@ -40,8 +40,9 @@ else:
 
 #%% process
 # reg_path = r'Z:\Jingyu\2P_Recording\AC950\AC950-20240820\02\RegOnly\suite2p\plane0'
-reg_path = r'Z:\Dinghao\2p_recording\A094i\A094i-20240716\A094i-20240716-01\processed\suite2p\plane0'
-recname = r'A094i-20240716-01'
+# reg_path = r'Z:\Dinghao\2p_recording\A094i\A094i-20240716\A094i-20240716-01\processed\suite2p\plane0'
+reg_path = r'Z:\Jingyu\2P_Recording\AC955\AC955-20240911\02\RegOnly\suite2p\plane0'
+recname = r'AC955-20240911'
 
 opsfile = reg_path+r'\ops.npy'
 ops = np.load(opsfile, allow_pickle=True).item()
@@ -49,7 +50,7 @@ tot_frames = ops['nframes']
 shape = tot_frames, ops['Ly'], ops['Lx']
 
 binfile = reg_path+r'\data.bin'
-data = np.memmap(binfile, dtype='int16', mode='r', shape=shape)
+data = np.memmap(binfile, dtype='int16', mode='r', shape=shape)[:2000]
 
 # calculate dFF
 if GPU_AVAILABLE:
@@ -67,6 +68,7 @@ if GPU_AVAILABLE:
 #%% plotting
 # plot the standard deviation map
 if 'Jingyu' in reg_path: sensor = 'dLight'
+if '955' in reg_path or '092' in reg_path: sensor = 'GRABDA'
 if 'Dinghao' in reg_path: sensor = 'GRABNE'
 
 fig, ax = plt.subplots(figsize=(3,3))

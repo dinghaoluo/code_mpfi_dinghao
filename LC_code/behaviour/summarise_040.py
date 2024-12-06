@@ -10,16 +10,17 @@ summarise pharmacological experiments with SCH23390
 
 #%% imports 
 import numpy as np
-import matplotlib.pyplot as plt
 import sys
-import scipy.io as sio
-from scipy.stats import sem
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
 mpl_formatting()
 
 from behaviour_processing import process_behavioural_data
+
+if (r'Z:\Dinghao\code_mpfi_dinghao\iutils' in sys.path) == False:
+    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+import plotting_functions as pf
 
 
 #%% recording list
@@ -31,13 +32,13 @@ condLCBehopt = rec_list.condLCBehopt
 
 
 #%% main
-base_list = []
-stim_list = []
-for i, pathname in enumerate(pathLCBehopt[:2]):   
+all_opto_ctrl_num_licks_aft = [] 
+all_opto_stim_num_licks_aft = []
+for i, pathname in enumerate(pathLCBehopt):   
     sessname = pathname[-13:]
     curr_cond = condLCBehopt[i]
     curr_sess = sessLCBehopt[i]
-    if str([0,4,0])[1:-1] not in str(curr_cond)[1:-1]:
+    if str([0,4,0])[1:-1] not in str(curr_cond)[1:-1]:  # I have to commemmorate this as quite a clever trick
         print(f'{sessname} does not have rew-stim.')
         continue
     file_idx = curr_sess[curr_cond.index(4)]  # rew
@@ -46,102 +47,59 @@ for i, pathname in enumerate(pathLCBehopt[:2]):
                                                 sessname, file_idx)
     curr_txt = process_behavioural_data(text_file)
     
-    # Segment the session based on optogenetic protocol
+    # segment the session based on optogenetic protocol
     optogenetic_protocol = curr_txt['optogenetic_protocols']
-    start_idx, end_idx = None, None
     
-    # Find start of optogenetic session
-    for trial_idx, protocol in enumerate(optogenetic_protocol):
+    start_idx = end_idx = None  # handle edge-cases
+    for trial_idx, protocol in enumerate(optogenetic_protocol):  # find the start 
         if protocol != '0':
             start_idx = trial_idx
             break
+    for trial_idx in range(start_idx, len(optogenetic_protocol) - 2):  # find the end
+        if (optogenetic_protocol[trial_idx] == '0' and 
+            optogenetic_protocol[trial_idx + 1] == '0' and 
+            optogenetic_protocol[trial_idx + 2] == '0'):
+            end_idx = trial_idx  # end before the 3 consecutive 0s
+            break
     
-    # Find end of optogenetic session
-    if start_idx is not None:
-        for trial_idx in range(start_idx, len(optogenetic_protocol) - 2):
-            if (optogenetic_protocol[trial_idx] == '0' and 
-                optogenetic_protocol[trial_idx + 1] == '0' and 
-                optogenetic_protocol[trial_idx + 2] == '0'):
-                end_idx = trial_idx  # End before the 3 consecutive 0s
-                break
-    
-    # Handle cases where optogenetic session runs until the end
+    # handle cases where optogenetic session runs until the end
     if start_idx is not None and end_idx is None:
         end_idx = len(optogenetic_protocol)
     
-    # Handle edge case where no optogenetic session is found
+    # handle edge case where no optogenetic session is found
     if start_idx is None:
-        print(f"{sessname}: No optogenetic session found.")
+        print(f'{sessname}: no optogenetic stim. in this session')
         baseline_trials = list(range(len(optogenetic_protocol)))
         optogenetic_trials = []
     else:
         baseline_trials = list(range(0, start_idx))
-        optogenetic_trials = list(range(start_idx, end_idx))
+        opto_stim_trials = list(range(start_idx, end_idx, 3))
+        opto_ctrl_trials = [i+2 for i in opto_stim_trials]
     
-    # Add to base and stim lists for further analysis
-    base_list.append(baseline_trials)
-    stim_list.append(optogenetic_trials)
+    baseline_dict = {key: [value[i] for i in baseline_trials] for key, value in curr_txt.items()}
+    opto_stim_dict = {key: [value[i] for i in opto_stim_trials] for key, value in curr_txt.items()}
+    opto_ctrl_dict = {key: [value[i] for i in opto_ctrl_trials] for key, value in curr_txt.items()}
     
-    print(f"Session {sessname}:")
-    print(f"  Baseline trials: {baseline_trials}")
-    print(f"  Optogenetic trials: {optogenetic_trials}")
-        
-
-#%% speed plot  
-fig, ax = plt.subplots(figsize=(2.3,1.7))
-
-ms_pre = np.mean(mean_speeds_pre, axis=0)/10
-ms_drug = np.mean(mean_speeds_drug, axis=0)/10
-ms_post = np.mean(mean_speeds_post, axis=0)/10
-ss_pre = sem(mean_speeds_pre, axis=0)/10
-ss_drug = sem(mean_speeds_drug, axis=0)/10
-ss_post = sem(mean_speeds_post, axis=0)/10
-
-lp, = ax.plot(x_speed, ms_pre, color='grey')
-ax.fill_between(x_speed, ms_pre+ss_pre,
-                         ms_pre-ss_pre,
-                color='grey', edgecolor='none', alpha=.15)
-ld, = ax.plot(x_speed, ms_drug, color='#darkgreen')
-ax.fill_between(x_speed, ms_drug+ss_drug,
-                         ms_drug-ss_drug,
-                color='darkgreen', edgecolor='none', alpha=.15)
-
-plt.legend([lp, ld], ['baseline', 'exp.'], frameon=False)
-for s in ['top', 'right']:
-    ax.spines[s].set_visible(False)
-ax.set(xlim=(0,180), xlabel='distance (cm)',
-       ylabel='velocity (cm/s)')
-
-for ext in ['.png', '.pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\propranolol\speed_profile{}'.format(ext),
-                dpi=300, bbox_inches='tight')
+    
+    #### lick specific stuff, for commmittee meeting
+    opto_stim_num_licks_aft = []
+    for i, licks in enumerate(opto_stim_dict['lick_times']):
+        pump_time = opto_stim_dict['reward_times'][i]
+        opto_stim_num_licks_aft.append(len([l for l in licks if l > pump_time]))
+    opto_ctrl_num_licks_aft = []
+    for i, licks in enumerate(opto_ctrl_dict['lick_times']):
+        pump_time = opto_ctrl_dict['reward_times'][i]
+        opto_ctrl_num_licks_aft.append(len([l for l in licks if l > pump_time]))
+    
+    all_opto_ctrl_num_licks_aft.append(np.mean(opto_ctrl_num_licks_aft))
+    all_opto_stim_num_licks_aft.append(np.mean(opto_stim_num_licks_aft))
+    
     
 
-#%% lick plot  
-fig, ax = plt.subplots(figsize=(2.3,1.7))
-
-ml_pre = np.mean(mean_licks_pre, axis=0)/10
-ml_drug = np.mean(mean_licks_drug, axis=0)/10
-ml_post = np.mean(mean_licks_post, axis=0)/10
-sl_pre = sem(mean_licks_pre, axis=0)/10
-sl_drug = sem(mean_licks_drug, axis=0)/10
-sl_post = sem(mean_licks_post, axis=0)/10
-
-lp, = ax.plot(x_lick, ml_pre, color='grey')
-ax.fill_between(x_lick, ml_pre+sl_pre,
-                        ml_pre-sl_pre,
-                color='grey', edgecolor='none', alpha=.15)
-ld, = ax.plot(x_lick, ml_drug, color='darkgreen')
-ax.fill_between(x_lick, ml_drug+sl_drug,
-                        ml_drug-sl_drug,
-                color='darkgreen', edgecolor='none', alpha=.15)
-
-plt.legend([lp, ld], ['baseline', 'exp.'], frameon=False)
-for s in ['top', 'right']:
-    ax.spines[s].set_visible(False)
-ax.set(xlim=(30,219), xlabel='distance (cm)',
-       ylim=(0,0.4), ylabel='hist. licks', yticks=[0, 0.3])
-
-for ext in ['.png', '.pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\propranolol\lick_profile{}'.format(ext),
-                dpi=300, bbox_inches='tight')
+#%% plotting 
+pf.plot_violin_with_scatter(all_opto_ctrl_num_licks_aft, all_opto_stim_num_licks_aft, 
+                            'grey', 'royalblue',
+                            xticklabels=['ctrl.', 'stim.'],
+                            save=True,
+                            savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\040_lick_aft_rew',
+                            dpi=300)

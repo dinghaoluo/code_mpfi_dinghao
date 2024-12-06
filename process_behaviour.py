@@ -3,7 +3,7 @@
 Created on Fri Jul 12 17:35:35 2024
 
 process and save behaviour files as dataframes
-modified for HPCLCterm
+for non-imaging experiments
 
 @author: Dinghao Luo
 """
@@ -17,11 +17,30 @@ import os
 import pandas as pd
 
 # import pre-processing functions 
-sys.path.extend([r'Z:\Dinghao\code_mpfi_dinghao\utils', r'Z:\Dinghao\code_dinghao'])
+if (r'Z:\Dinghao\code_mpfi_dinghao\utils' in sys.path) == False:
+    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 import txt_processing_functions as tpf
 import behaviour_functions as bf
+
+
+#%% recording list
+if r'Z:\Dinghao\code_dinghao' not in sys.path:
+    sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
-pathHPC = rec_list.pathHPCLCtermopt
+
+list_to_process = input('Process which list? 1. HPCLC, 2. HPCLCterm, 3. LC\n')
+
+if list_to_process == '1':
+    paths = rec_list.pathHPCLCopt
+    prefix = 'HPCLC'
+elif list_to_process == '2':
+    paths = rec_list.pathHPCLCtermopt
+    prefix = 'HPCLCterm'
+elif list_to_process == '3':
+    paths = rec_list.pathLC
+    prefix = 'LC'
+else:
+    raise Exception('not a valid input; only 1, 2, 3 are supported')
 
 
 #%% container
@@ -41,7 +60,7 @@ df = pd.DataFrame(sess)
 
 
 #%% main 
-for pathname in pathHPC:
+for pathname in paths:
     recname = pathname[-17:]
     print(recname+'\n')
     
@@ -50,10 +69,13 @@ for pathname in pathHPC:
     txt = tpf.process_txt(txt_path)
     
     ## timestamps
-    pump_times, speed_times, movie_times, lick_times, pulse_times, pulse_descriptions, trial_statements = [
-        txt[field] for field in 
-        ['pump_times', 'speed_times', 'movie_times', 'lick_times', 'pulse_times', 'pulse_descriptions', 'trial_statements']
-    ]
+    pump_times = txt['pump_times']  # pumps 
+    speed_times = txt['speed_times']  # speeds 
+    movie_times = txt['movie_times']  # cues 
+    lick_times = txt['lick_times']  # licks 
+    pulse_times = txt['pulse_times']  # pulses
+    pulse_descriptions = txt['pulse_descriptions']
+    trial_statements = txt['trial_statements']
     
     tot_trial = len(speed_times)
     
@@ -101,7 +123,7 @@ for pathname in pathHPC:
         fig.savefig(filename, dpi=80, bbox_inches='tight')
         
         plt.close(fig)
-                             
+    
     lick_locs = bf.get_lick_locs(speed_times, lick_times)
     lick_selectivity = bf.lick_index(lick_locs)
         
@@ -115,11 +137,10 @@ for pathname in pathHPC:
                                   pulse_times,
                                   pulse_descriptions,
                                   trial_statements,
-                                  no_full_stop,  # Jingyu, 9/27/2024
+                                  no_full_stop, 
                                       ],
                                   dtype='object')
 
 
 #%% save dataframe 
-df.to_csv(r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCterm_sessions.csv')
-df.to_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCterm_sessions.pkl')
+df.to_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_{}_sessions.pkl').format(prefix)

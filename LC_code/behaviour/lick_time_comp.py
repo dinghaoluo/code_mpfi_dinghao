@@ -22,8 +22,7 @@ plt.rcParams['font.family'] = 'Arial'
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-if (r'Z:\Dinghao\code_mpfi_dinghao\iutils' in sys.path) == False:
-    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 import plotting_functions as pf
 
 

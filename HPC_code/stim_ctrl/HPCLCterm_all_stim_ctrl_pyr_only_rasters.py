@@ -102,8 +102,7 @@ for pathname in pathHPC:
                 for p in ['top', 'right']:
                     axs[i].spines[p].set_visible(False)
                 axs[i].set(xlabel='time (s)', ylabel='trial #',
-                           xticks=[0,2,4], xlim=(-1, 4),
-                           yticks=[1,20])
+                           xticks=[0,2,4], xlim=(-1, 4))
 
             fig.tight_layout()
             plt.show()
