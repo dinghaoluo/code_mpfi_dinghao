@@ -16,32 +16,27 @@ import os
 #%% os functions 
 def scan_directory_tree(path, indent='', is_first_level=True):
     output = ''
-    
+
     if not os.path.isdir(path):
         print('path does not point to a valid directory')
         return None 
-    
-    ignore_folders = {'__pycache__', 
-                      '.git', 
-                      '.vscode', 
-                      '.ipynb_checkpoints', 
-                      'defunct_code'}
+
+    ignore_folders = {'__pycache__', '.git', '.vscode', '.ipynb_checkpoints', 'defunct_code'}
     items = sorted(os.listdir(path))
-    
+
     for i, item in enumerate(items):
         if item in ignore_folders:
-           continue  # kkip ignored folders
-           
+            continue
+
         full_path = os.path.join(path, item)
-        is_last = (i == len(items) - 1)
-        prefix = '└── ' if is_last else '├── '
+        prefix = '|- '  # consistent prefix for all items
 
         if os.path.isdir(full_path):
             output += f'{indent}{prefix}**{item}**  \n'
-            output += scan_directory_tree(full_path, indent + ('    ' if is_last else '│   '), is_first_level=False)
+            output += scan_directory_tree(full_path, indent + '|  ', is_first_level=False)
         else:
             output += f'{indent}{prefix}*{item}*  \n'
-    
+
     return output
 
 

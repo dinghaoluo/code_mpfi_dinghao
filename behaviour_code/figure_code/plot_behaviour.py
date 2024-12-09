@@ -16,7 +16,7 @@ import os
 import sys 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import replace_outlier
+from common import replace_outlier, smooth_convolve
 
 # plotting parameters 
 import matplotlib
@@ -30,7 +30,7 @@ save_every = 5  # save every n trials
 
 
 #%% load data 
-exp_name = 'GRABNE'
+exp_name = 'HPCLC'
 df = pd.read_pickle(r'Z:/Dinghao/code_dinghao/behaviour/all_{}_sessions.pkl'.format(
     exp_name))
 
@@ -55,20 +55,21 @@ for recname, row in df.iterrows():
         if np.mod(trial, save_every)==0 and trial!=0:  # if 5 trials have been held, plot, save and close the current fig and create another fig 
             all_speeds = np.vstack(all_speeds)
             times = all_speeds[:,0]/1000
-            speeds = replace_outlier(all_speeds[:,1])
+            speeds = replace_outlier(smooth_convolve(all_speeds[:,1], sigma=2, axis=0))
+            speed_min = min(speeds)
             speed_max = max(speed_max, max(speeds))
             ax.plot(times, speeds, linewidth=1, color='k')
         
             for lick in holdout_licks:
-                ax.vlines(x=lick, ymin=speed_max+speed_max*.01, ymax=speed_max+speed_max*.1, 
-                          linewidth=.5, color='orchid')
+                ax.vlines(x=lick, ymin=speed_max+speed_max*.01, ymax=speed_max+speed_max*.1,
+                          linewidth=.3, color='orchid')
             for rew in holdout_rews:
-                ax.vlines(x=rew, ymin=speed_max+speed_max*.01, ymax=speed_max+speed_max*.1, 
-                          linewidth=.5, color='darkgreen')
+                ax.vlines(x=rew, ymin=speed_max, ymax=speed_max+speed_max*.11, 
+                          linewidth=1, color='darkgreen')
             
             for s in ['top','right']: ax.spines[s].set_visible(False)
             ax.set(xlabel='time (s)',
-                   ylabel='speed (cm/s)', ylim=(0, speed_max+speed_max*.11),
+                   ylabel='speed (cm/s)', ylim=(min(speed_min, speed_max), speed_max+speed_max*.11),
                    title='{}_{}'.format(trial-(save_every-1), trial))
             for ext in ['.png', '.pdf']:
                 fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\trial_profiles\{}\{}\{}{}'.format(
@@ -90,10 +91,10 @@ for recname, row in df.iterrows():
         curr_start = row['run_onsets'][trial]/1000
         ax.axvline(x=curr_start, linewidth=1, color='red', alpha=.8)
         
-        if not not(row['lick_times'][trial]):  # if the current trial has any lick 
+        if row['lick_times'][trial]:  # if the current trial has any lick 
             curr_licks = np.asarray(row['lick_times'][trial])/1000
             holdout_licks = np.concatenate((holdout_licks, curr_licks))
         
-        if not not(row['reward_times'][trial]):  # if the current trial has a reward 
+        if row['reward_times'][trial]:  # if the current trial has a reward 
             curr_rew = row['reward_times'][trial][0]/1000
             holdout_rews.append(curr_rew)

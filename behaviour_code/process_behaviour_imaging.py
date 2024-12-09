@@ -62,6 +62,7 @@ else:
         'lick_selectivities': [],
         'trial_statements': [],
         'full_stops': [],
+        'bad_trials': [],
         'frame_times': []
         }
     df = pd.DataFrame(sess)
@@ -74,7 +75,7 @@ for pathname in paths:
         print(recname)
     else:
         print(f'{recname} has already been processed...\n')
-        continue
+        continue  # comment out this line to re-process everything
 
     start = time()
 
@@ -96,6 +97,7 @@ for pathname in paths:
                                 behavioural_data['lick_selectivities'],
                                 behavioural_data['trial_statements'],
                                 behavioural_data['full_stops'],
+                                behavioural_data['bad_trials'],
                                 behavioural_data['frame_times']
                                     ],
                                 dtype='object')
