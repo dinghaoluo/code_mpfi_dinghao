@@ -29,13 +29,19 @@ def scan_directory_tree(path, indent='', is_first_level=True):
             continue
 
         full_path = os.path.join(path, item)
-        prefix = '|- '  # consistent prefix for all items
+        prefix = '|- '
 
         if os.path.isdir(full_path):
-            output += f'{indent}{prefix}**{item}**  \n'
-            output += scan_directory_tree(full_path, indent + '|' + '\u00A0\u00A0\u00A0\u00A0', is_first_level=False)
+            output += f'{indent}{prefix}**{item}**\n'
+            output += scan_directory_tree(full_path, indent + '|    ', is_first_level=False)
         else:
-            output += f'{indent}{prefix}*{item}*  \n'
+            output += f'{indent}{prefix}*{item}*\n'
+
+    # wrap the output in code block because it turned out that GitHub collapses
+    # even non-breaking spaces (\u00A0) into a single space... the only way to circumvent 
+    # that is to wrap everything in a code block
+    if is_first_level:
+        output = '```\n' + output + '```'
 
     return output
 
