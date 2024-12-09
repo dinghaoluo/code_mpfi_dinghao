@@ -33,7 +33,7 @@ def scan_directory_tree(path, indent='', is_first_level=True):
 
         if os.path.isdir(full_path):
             output += f'{indent}{prefix}**{item}**  \n'
-            output += scan_directory_tree(full_path, indent + '|  ', is_first_level=False)
+            output += scan_directory_tree(full_path, indent + '|    ', is_first_level=False)
         else:
             output += f'{indent}{prefix}*{item}*  \n'
 
