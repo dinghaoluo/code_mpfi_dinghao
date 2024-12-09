@@ -25,7 +25,8 @@ def scan_directory_tree(path, indent='', is_first_level=True):
                       '.git', 
                       '.vscode', 
                       '.ipynb_checkpoints', 
-                      'defunct_code'}
+                      'defunct_code',
+                      'defunct'}
     items = sorted(os.listdir(path))
     
     for i, item in enumerate(items):

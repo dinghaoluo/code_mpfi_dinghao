@@ -5,22 +5,17 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 *(does not include defunct scripts)*  
 ```
 ├── **HPC_code**  
-│   ├── *HPCLC_all_rasters.py*  
-│   ├── *HPCLC_all_train.py*  
-│   ├── *HPCLC_all_train_cue.py*  
-│   ├── *HPCLC_clu_list.py*  
-│   ├── *HPCLC_place_cell_profiles.py*  
+│   ├── *HPCLC_all_rasters.py* (saves spike raster data for all hippocampal-locus coeruleus (HPC-LC) sessions into .npy files for each session)  
+│   ├── *HPCLC_all_train.py* (processes and pools spike train data from all HPC-LC recording sessions, applying Gaussian convolution and saving the results for further analysis)  
+│   ├── *HPCLC_clu_list.py* (generates and saves lists of clusters with their metadata (e.g., shank and local cluster ID) for each HPC-LC session as .npy files)  
+│   ├── *HPCLC_place_cell_profiles.py* (extracts and saves place cell profiles for each HPC-LC session into a CSV file, including the total number of place cells and their indices)  
 │   ├── *HPCLC_pyract_profiles.py*  
 │   ├── *HPCLC_pyract_single_cell_profiles.py*  
-│   ├── *HPCLC_raster_first_lick_ranked.py*  
 │   ├── *HPCLC_sess_pyr_profiles.py*  
 │   ├── *HPCLC_theta_stim.py*  
 │   ├── *HPCLC_waveform_all.py*  
 │   ├── *HPCLC_waveform_proc.py*  
-│   ├── *HPCLCterm_all_rasters.py*  
-│   ├── *HPCLCterm_all_train.py*  
-│   ├── *HPCLCterm_clu_list.py*  
-│   ├── *HPCLCterm_place_cell_profiles.py*  
+│   ├── ...HPCLCterm versions of the above scripts  
 │   ├── *HPC_UMAP_single_trial_traj_interactive.ipynb*  
 │   ├── *HPC_all_1st_lick_ordered.py*  
 │   ├── *HPC_population_v_licks.py*  
@@ -242,8 +237,6 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 └── **utils**  
     ├── *behaviour_functions.py*  
     ├── *common.py*  
-    ├── **defunct**  
-    │   └── *txt_processing_functions.py*  
     ├── *logger_module.py*  
     ├── *param_to_array.py*  
     ├── *plotting_functions.py*  
