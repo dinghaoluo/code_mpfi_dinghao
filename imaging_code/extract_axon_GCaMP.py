@@ -55,7 +55,7 @@ try:
     import cupy as cp 
     GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
 except ModuleNotFoundError:
-    print('cupy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
+    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
     GPU_AVAILABLE = False
 except Exception as e:
     # catch any other unexpected errors and print a general message
