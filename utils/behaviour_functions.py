@@ -29,7 +29,7 @@ def process_behavioural_data(txtfile: str,
     processes behavioural data from a txt file, aligning speed, lick, and reward events 
     to both time and distance bases, while extracting metrics such as run onsets, 
     lick selectivity, trial quality, and full stop status.
-
+    
     parameters:
     ----------
     txtfile : str
@@ -45,15 +45,16 @@ def process_behavioural_data(txtfile: str,
     run_onset_duration : int, optional
         duration (in ms) for which the sustained speed threshold must be held 
         to confirm run onset (default is 300 ms).
-
+    
     returns:
     -------
     dict
         a dictionary containing aligned behavioural data across time and distance bases, including:
         - 'speed_times': list of lists, each containing [timestamp, speed] pairs for each trial.
-        - 'speed_distance': list of arrays, each containing speeds aligned to a common distance base.
+        - 'speed_distances': list of arrays, each containing speeds aligned to a common distance base.
         - 'lick_times': list of lists, each containing lick event timestamps for each trial.
-        - 'lick_distance': list of arrays, each containing lick events aligned to the distance base.
+        - 'lick_distances': list of arrays, each containing lick events aligned to the distance base.
+        - 'lick_maps': list of arrays, each binary array representing lick events mapped onto the distance base.
         - 'start_cue_times': list of lists, each containing timestamps of start cues.
         - 'reward_times': list of lists, each containing timestamps of reward deliveries.
         - 'reward_distance': list of arrays, each containing reward events aligned to the distance base.
@@ -62,13 +63,11 @@ def process_behavioural_data(txtfile: str,
         - 'trial_statements': list of lists containing trial-specific metadata and protocols.
         - 'full_stops': list of booleans indicating whether the animal fully stopped (speed < 10 cm/s) 
           between the previous trial's reward and the current trial's reward.
-        - 'trial_quality': list of strings ('good' or 'bad') classifying each trial based on the following criteria:
-            - 'bad' trials meet at least one of the following:
-                1. licks occur between 30 cm and 90 cm.
-                2. speed drops below 10 cm/s for a total duration exceeding 5 seconds between run-onset and reward.
-                3. no full stop is observed before the run-onset.
-                4. no reward is delivered in the trial.
-            - 'good' trials meet none of these criteria.
+        - 'bad_trials': list of booleans indicating whether each trial was classified as "bad" based on:
+            1. Presence of licks between 30 and 90 cm.
+            2. Speeds below 10 cm/s for a cumulative duration >5 seconds between run-onset and reward.
+            3. Lack of a detected run-onset or delivered reward.
+        - 'frame_times': list of timestamps for each movie frame, corrected for overflow.
     '''
     # load and parse the txt file
     data = process_txt(txtfile)  # uses user's custom `process_txt` function
@@ -85,9 +84,9 @@ def process_behavioural_data(txtfile: str,
     common_distance_base = np.linspace(0, max_distance, int(max_distance / distance_resolution))
     
     # initialise lists for storing data across trials
-    speed_times, speed_distance = [], []
-    lick_times, lick_distance = [], []
-    start_cue_times, reward_times, reward_distance = [], [], []
+    speed_times, speed_distances = [], []
+    lick_times, lick_distances, lick_maps = [], [], []
+    start_cue_times, reward_times, reward_distances = [], [], []
     run_onsets = []
     trial_statements = []
     lick_selectivities = []
@@ -132,7 +131,7 @@ def process_behavioural_data(txtfile: str,
         valid_distance_base = common_distance_base[common_distance_base <= max_distance_trial]
         interpolated_speed = np.interp(valid_distance_base, distances, speeds)
         padded_speed = np.pad(interpolated_speed, (0, len(common_distance_base) - len(interpolated_speed)), 'constant')
-        speed_distance.append(padded_speed)
+        speed_distances.append(padded_speed)
 
         # run-onset detection
         run_onset = -1  # default to -1 if no valid onset found
@@ -174,16 +173,18 @@ def process_behavioural_data(txtfile: str,
         # process lick data
         lick_times_trial = [event[0] for event in lick_trial]
         lick_distances_trial = np.interp(lick_times_trial, times, distances)
-        lick_indices = np.searchsorted(common_distance_base, lick_distances_trial)
-        lick_distance_trial = np.zeros(len(common_distance_base))
-        valid_indices = lick_indices[lick_indices < len(lick_distance_trial)]
-        lick_distance_trial[valid_indices] = 1
         lick_times.append(lick_times_trial)
-        lick_distance.append(lick_distance_trial)
+        lick_distances.append(lick_distances_trial)
+        
+        lick_indices = np.searchsorted(common_distance_base, lick_distances_trial)
+        lick_map_trial = np.zeros(len(common_distance_base))
+        valid_indices = lick_indices[lick_indices < len(lick_map_trial)]
+        lick_map_trial[valid_indices] = 1
+        lick_maps.append(lick_map_trial)
 
         # process reward data
         reward_times.append(reward_trial)
-        reward_distance.append(np.interp(reward_trial, times, distances) if reward_trial else [])
+        reward_distances.append(np.interp(reward_trial, times, distances) if reward_trial else [])
 
         # extract start cue times
         start_cue_times.append([m[0] for m in movie_trial if m[1] == 2])
@@ -193,17 +194,18 @@ def process_behavioural_data(txtfile: str,
         trial_statements.append(trial_statement)
         
         # lick selectivity
-        lick_selectivities.append(lick_index(lick_distance_trial))
+        lick_selectivities.append(lick_index(lick_map_trial))
 
     # structure the result
     return {
         'speed_times': speed_times,
-        'speed_distance': speed_distance,
+        'speed_distances': speed_distances,
         'lick_times': lick_times,
-        'lick_distance': lick_distance,
+        'lick_distances': lick_distances,
+        'lick_maps': lick_maps,
         'start_cue_times': start_cue_times,
         'reward_times': reward_times,
-        'reward_distance': reward_distance,
+        'reward_distances': reward_distances,
         'run_onsets': run_onsets,
         'lick_selectivities': lick_selectivities,
         'trial_statements': trial_statements,

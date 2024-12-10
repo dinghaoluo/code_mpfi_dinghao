@@ -9,15 +9,13 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   ├── *HPCLC_all_train.py* (processes and pools spike train data from all HPC-LC recording sessions, applying Gaussian convolution and saving the results for further analysis)  
 │   ├── *HPCLC_clu_list.py* (generates and saves lists of clusters with their metadata (e.g., shank and local cluster ID) for each HPC-LC session as .npy files)  
 │   ├── *HPCLC_place_cell_profiles.py* (extracts and saves place cell profiles for each HPC-LC session into a CSV file, including the total number of place cells and their indices)  
-│   ├── *HPCLC_pyract_profiles.py*  
-│   ├── *HPCLC_pyract_single_cell_profiles.py*  
-│   ├── *HPCLC_sess_pyr_profiles.py*  
-│   ├── *HPCLC_theta_stim.py*  
-│   ├── *HPCLC_waveform_all.py*  
-│   ├── *HPCLC_waveform_proc.py*  
+│   ├── *HPCLC_pyract_profiles.py* (generates and plots single-cell profiles for pyramidal neurons activated by run-onsets in HPC-LC sessions)  
+│   ├── *HPCLC_pyract_single_cell_profiles.py* (creates detailed single-cell profiles for pyramidal neurons in HPC-LC sessions based on activity and Poisson deviations)  
+│   ├── *HPCLC_sess_pyr_profiles.py* (plots profiles of all pyramidal neurons for each HPC-LC stimulation session and calculates rise and drop ratios)  
+│   ├── *HPCLC_theta_stim.py* (analyses theta rhythm amplitude, frequency, and phase in HPC recordings aligned to LC stimulation)  
+│   ├── *HPCLC_waveform_all.py* (summarises the average waveforms of all cells across HPC recordings and saves them in a dictionary)  
+│   ├── *HPCLC_waveform_proc.py* (processes and saves average waveforms and standard errors for all clusters in HPC recordings)  
 │   ├── ...HPCLCterm versions of the above scripts  
-│   ├── *HPC_UMAP_single_trial_traj_interactive.ipynb*  
-│   ├── *HPC_all_1st_lick_ordered.py*  
 │   ├── *HPC_population_v_licks.py*  
 │   ├── *HPC_population_v_licks_poisson.py*  
 │   ├── *HPC_population_v_licks_poisson_example_session.py*  
