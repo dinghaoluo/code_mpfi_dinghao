@@ -16,13 +16,8 @@ import os
 import sys 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import replace_outlier
-
-# plotting parameters 
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+from common import replace_outlier, mpl_formatting
+mpl_formatting()
 
 
 #%% parameters 
@@ -30,7 +25,7 @@ save_every = 5  # save every n trials
 
 
 #%% load data 
-exp_name = 'HPCLCterm'  # HPCLC, HPCLCterm, LC, GRABNE, HPCLCGCaMP
+exp_name = 'HPCLCterm'  # HPCLC, HPCLCterm, LC, HPCGRABNE, HPCLCGCaMP
 df = pd.read_pickle(r'Z:/Dinghao/code_dinghao/behaviour/all_{}_sessions.pkl'.format(
     exp_name))
 

@@ -14,15 +14,9 @@ import matplotlib.pyplot as plt
 import scipy.io as sio 
 import sys 
 
-# plotting parameters 
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
-
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
-from common import normalise
+sys.path.append('Z:\Dinghao\code_dinghao\common')
+from common import normalise, mpl_formatting
+mpl_formatting()
 
 
 #%% parameters

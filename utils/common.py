@@ -51,7 +51,7 @@ def scan_directory_tree(path, indent='', is_first_level=True):
     return output
 
 
-#%% plot formatting (to produce PDFs that allow Illustrator editing)
+#%% plot formatting
 def mpl_formatting():
     import matplotlib
     matplotlib.rcParams['font.family'] = 'Arial'
@@ -59,7 +59,7 @@ def mpl_formatting():
     matplotlib.rcParams['ps.fonttype'] = 42
 
 
-#%% data normalisation 
+#%% normalisation
 def normalise(data, axis=1):
     if data.size==0:
         print('array size is not valid')
@@ -75,7 +75,7 @@ def normalise_to_all(data, alldata):  # data needs to be a 1-d vector/list
     return norm_data
 
 
-#%% data processing
+#%% statistics 
 def circ_shuffle(arr, alpha=.01, num_shuf=5000, GPU_AVAILABLE=False):
     '''
     performs circular shuffling on an input array.
@@ -191,9 +191,10 @@ def smooth_convolve(data, sigma=3, axis=1):
     return smoothed
 
 
-def gaussian_kernel_unity(sigma):
+def gaussian_kernel_unity(sigma, GPU_AVAILABLE=False):
     '''
     generates a normalised gaussian kernel.
+    if GPU_AVAILABLE, return a CuPy array
     
     parameters:
     ----------
@@ -209,7 +210,12 @@ def gaussian_kernel_unity(sigma):
     x = np.arange(kernel_size) - (kernel_size // 2)
     kernel = np.exp(-(x**2 / (2 * sigma**2)))
     kernel /= kernel.sum()  # normalisation to ensure the unity sum
-    return kernel 
+    
+    if GPU_AVAILABLE:
+        import cupy as cp 
+        return cp.asarray(kernel)
+    else:
+        return kernel
 
 def replace_outlier(arr, method='std', k=5):
     '''
@@ -270,10 +276,11 @@ def replace_outlier(arr, method='std', k=5):
         return arr
 
 
-#%% calculate sem using cupy 
+#%% CuPy sem function 
 def sem_gpu(arr, axis=0, ddof=1):
     import cupy as cp 
     n = arr.shape[axis]
     arr_gpu = cp.array(arr)  # move to VRAM
     s = cp.std(arr_gpu, axis=axis, ddof=ddof) / cp.sqrt(n)
-    return s.get()  # move back to VRAM
+    return s
+
