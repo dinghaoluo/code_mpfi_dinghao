@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat 19 Oct 14:31:52 2024
+Created on Mon 13 Nov 14:32:54 2023
 
-Quantify the responses of neuronal activity changes against 1st-lick time
-shuffle-based
+Quantify the relationship between first lick time and neuronal activity drop-off for inhibition cells 
 
 @author: Dinghao Luo
 """
 
 
 #%% imports 
+import numpy as np 
 import matplotlib.pyplot as plt 
 import scipy.io as sio
 import pandas as pd
@@ -18,71 +18,32 @@ import sys
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 import plotting_functions as pf
-from common import gaussian_kernel_unity, mpl_formatting
-mpl_formatting()
 
-
-#%% GPU acceleration
-try:
-    import cupy as cp 
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
-except ModuleNotFoundError:
-    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
-    GPU_AVAILABLE = False
-except Exception as e:
-    # catch any other unexpected errors and print a general message
-    print(f'An error occurred: {e}')
-    GPU_AVAILABLE = False
-
-if GPU_AVAILABLE:
-    # we are assuming that there is only 1 GPU device
-    xp = cp
-    import numpy as np  # needed for the empty arrays... CuPy empty arrays are not the same as NumPy ones
-    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
-    print(f'GPU-acceleration with {str(name)} and cupy')
-else:
-    import numpy as np 
-    xp = np
-    print('GPU-acceleartion unavailable')
-
-
-#%% params
-single_trial_num_shuf = 500
-gx_spike = np.arange(-500, 500, 1)
-sigma_spike = 1250/3
-
-gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
-
-xaxis_trial = np.arange(1250*6)/1250-3
-
-
-#%% timer
-from time import time 
-start = time()
+# plotting parameters 
+import matplotlib
+plt.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 
 
 #%% load dataframe  
-cell_prop = pd.read_pickle(r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_single_cell_properties.pkl')
+cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 
 
 #%% load trains 
-all_train = np.load('Z:/Dinghao/code_dinghao/LC_ephys/LC_all_info.npy',
+all_train = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
                     allow_pickle=True).item()
-print('all spike trains loaded')
 
 
 #%% shuffle function 
-def cir_shuf(train, num_shuf=single_trial_num_shuf):
+def cir_shuf(train, num_shuf=50):
     tot_t = len(train)
-    if GPU_AVAILABLE: 
-        train_gpu = cp.array(train)
-        shifts = cp.random.randint(1, tot_t, size=num_shuf)
-        shuf_array = cp.array([cp.roll(train_gpu, -shift) for shift in shifts])
-        return shuf_array.get()  # convert back to np array
-    else:
-        shifts = np.random.randint(1, tot_t, size=num_shuf)
-        shuf_array = np.array([np.roll(train, -shift) for shift in shifts])
-        return shuf_array
+    shuf_array = np.zeros([num_shuf, tot_t])
+    for i in range(num_shuf):
+        rand_shift = np.random.randint(1, tot_t)
+        shuf_array[i,:] = np.roll(train, -rand_shift)
+    
+    return np.percentile(shuf_array, 75, axis=0)  # upper quartile
     
 
 def find_switch_point(line, v, mode='downwards'):
@@ -93,8 +54,9 @@ def find_switch_point(line, v, mode='downwards'):
                 return i
     elif mode=='upwards':
         for i in range(1, len(line)):
-            if line[i - 1] <= v and line[i] > v:
+            if line[i - 1] <= v[i - 1] and line[i] > v[i]:
                 return i
+            
     return 10000
 
 
@@ -102,22 +64,32 @@ def find_switch_point(line, v, mode='downwards'):
 clu_list = list(cell_prop.index)
 
 sensitive = []
-ON = []; OFF = []
+exc = []; inh = []
 
 for clu in cell_prop.index:
-    stype = cell_prop['lick_sensitive_shuf_type'][clu]
+    sens = cell_prop['lick_sensitive'][clu]
+    stype = cell_prop['lick_sensitive_type'][clu]
     
-    if stype=='ON':
-        ON.append(clu)
-    if stype=='OFF':
-        OFF.append(clu)
+    if sens:
+        sensitive.append(clu)
+        if stype=='excitation':
+            exc.append(clu)
+        if stype=='inhibition':
+            inh.append(clu)
             
             
-#%% main (OFF)
+#%% main (inhibition)
+gx_spike = np.arange(-500, 500, 1)
+sigma_spike = 1250/3
+gaus_spike = [1 / (sigma_spike*np.sqrt(2*np.pi)) * 
+              np.exp(-x**2/(2*sigma_spike**2)) for x in gx_spike]
+
+xaxis_trial = np.arange(1250*6)/1250-3
+
 mean_cutoff_all = []  # note that this, despite the name, does not include stims
 mean_cutoff_stim = []  # this includes stims and nothing else
 
-for cluname in OFF:
+for cluname in inh:
     print(cluname)
     
     train = all_train[cluname]  # read all trials 
@@ -146,12 +118,7 @@ for cluname in OFF:
         tlick = first_licks[trial]
         
         if tlick<10000:  # only execute if there is actually licks in this trial
-            if GPU_AVAILABLE:
-                train_gpu = cp.array(train[trial])
-                curr_train_gpu = cp.convolve(train_gpu, gaus_spike, mode='same')[tlick+3750-3750:tlick+3750+3750]*1250
-                curr_train = curr_train_gpu.get()
-            else:
-                curr_train = np.convolve(train[trial], gaus_spike, 'same')[tlick+3750-3750:tlick+3750+3750]*1250
+            curr_train = np.convolve(train[trial], gaus_spike, 'same')[tlick+3750-3750:tlick+3750+3750]*1250
             shuf_train = cir_shuf(curr_train)
             
             # idea: get 1 mean shuffled value and use next() to find the crossing point
@@ -171,7 +138,7 @@ for cluname in OFF:
                 ax.axhspan(mean_shuf+.001, mean_shuf-.001, color='grey', alpha=.5)
                 ax.axvspan((co-tlick-1)/1250, (co-tlick+1)/1250, color='r')
                 ax.set(title='trial {}'.format(trial+1))
-                outdir = r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitive_cutoff_point_analysis_shufbased\{}\trial{}.png'.format(cluname+' OFF', trial+1)
+                outdir = r'Z:\Dinghao\code_dinghao\LC_all\lick_sensitive_cutoff_point_analysis\{}\trial{}.png'.format(cluname+' OFF', trial+1)
                 os.makedirs(os.path.dirname(outdir), exist_ok=True)
                 fig.savefig(outdir,
                             dpi=100, bbox_inches='tight')
@@ -210,7 +177,7 @@ for cluname in OFF:
     fig.tight_layout()
     plt.show()
     
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_ephys\single_cell_OFF_v_first_licks_shufbased\{}.png'.format(cluname+' OFF'),
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_inhibition_v_first_licks\{}.png'.format(cluname+' OFF'),
                 dpi=500,
                 bbox_inches='tight')
     
@@ -232,19 +199,26 @@ mean_cutoff_all_clean = [s for i, s in enumerate(mean_cutoff_all) if i not in de
 mean_cutoff_stim_clean = [s for i, s in enumerate(mean_cutoff_stim) if i not in del_sess]
 
 pf.plot_violin_with_scatter(mean_cutoff_all_clean, mean_cutoff_stim_clean, 
-                            'grey', 'forestgreen', 
+                            'grey', 'royalblue', 
                             paired=True, 
                             xticklabels=['ctrl.', 'stim'], 
                             ylabel='t. to OFF', 
                             title='1st-lick OFF', 
-                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_time_to_OFF_shufbased', dpi=300)
+                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_time_to_OFF', dpi=300)
 
 
-#%% main (ON)
+#%% main (excitation)
+gx_spike = np.arange(-500, 500, 1)
+sigma_spike = 1250/3
+gaus_spike = [1 / (sigma_spike*np.sqrt(2*np.pi)) * 
+              np.exp(-x**2/(2*sigma_spike**2)) for x in gx_spike]
+
+xaxis_trial = np.arange(1250*6)/1250-3
+
 mean_cutoff_all = []  # note that this, despite the name, does not include stims
 mean_cutoff_stim = []  # this includes stims and nothing else
 
-for cluname in ON:
+for cluname in exc:
     print(cluname)
     
     train = all_train[cluname]  # read all trials 
@@ -273,14 +247,10 @@ for cluname in ON:
         tlick = first_licks[trial]
         
         if tlick<10000:  # only execute if there is actually licks in this trial
-            if GPU_AVAILABLE:
-                train_gpu = cp.array(train[trial])
-                curr_train_gpu = cp.convolve(train_gpu, gaus_spike, mode='same')[tlick+3750-3750:tlick+3750+3750]*1250
-                curr_train = curr_train_gpu.get()
-            else:
-                curr_train = np.convolve(train[trial], gaus_spike, 'same')[tlick+3750-3750:tlick+3750+3750]*1250
+            curr_train = np.convolve(train[trial], gaus_spike, 'same')[tlick+3750-3750:tlick+3750+3750]*1250
             shuf_train = cir_shuf(curr_train)
             
+            # idea: get 1 mean shuffled value and use next() to find the crossing point
             mean_shuf = np.mean(shuf_train)
             
             try:
@@ -297,7 +267,7 @@ for cluname in ON:
                 ax.axhspan(mean_shuf+.001, mean_shuf-.001, color='grey', alpha=.5)
                 ax.axvspan((co-tlick-1)/1250, (co-tlick+1)/1250, color='r')
                 ax.set(title='trial {}'.format(trial+1))
-                outdir = r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitive_cutoff_point_analysis_shufbased\{}\trial{}.png'.format(cluname+' ON', trial+1)
+                outdir = r'Z:\Dinghao\code_dinghao\LC_all\lick_sensitive_cutoff_point_analysis\{}\trial{}.png'.format(cluname+' ON', trial+1)
                 os.makedirs(os.path.dirname(outdir), exist_ok=True)
                 fig.savefig(outdir,
                             dpi=100, bbox_inches='tight')
@@ -338,7 +308,7 @@ for cluname in ON:
     fig.tight_layout()
     plt.show()
     
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_ephys\single_cell_ON_v_first_licks_shufbased\{}.png'.format(cluname+' ON'),
+    fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_inhibition_v_first_licks\{}.png'.format(cluname+' ON'),
                 dpi=500,
                 bbox_inches='tight')
     
@@ -360,9 +330,9 @@ mean_cutoff_all_clean = [s for i, s in enumerate(mean_cutoff_all) if i not in de
 mean_cutoff_stim_clean = [s for i, s in enumerate(mean_cutoff_stim) if i not in del_sess]
 
 pf.plot_violin_with_scatter(mean_cutoff_all_clean, mean_cutoff_stim_clean, 
-                            'grey', 'darkorange', 
+                            'grey', 'royalblue', 
                             paired=True, 
                             xticklabels=['ctrl.', 'stim'], 
                             ylabel='t. to ON', 
                             title='1st-lick ON', 
-                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_time_to_ON_shufbased', dpi=300)
+                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_time_to_ON', dpi=300)

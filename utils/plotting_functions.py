@@ -92,7 +92,6 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     - scatter points show individual data values; mean or median markers and lines are optional
     - violins are coloured based on `colour0` and `colour1`
     - saves the plot in both .png and .pdf formats if `save=True`
-
     """
     fig, ax = plt.subplots(figsize=(1.8,2.4))
     

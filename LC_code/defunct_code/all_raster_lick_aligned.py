@@ -9,31 +9,60 @@ align rasters to 1st-licks
 
 
 #%% imports 
-import numpy as np
-import cupy as cp
 import matplotlib.pyplot as plt 
 import scipy.io as sio
 import pandas as pd
-from scipy.stats import ttest_rel, ranksums, wilcoxon, sem
+import sys
+from tqdm import tqdm
 
-# plotting parameters
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from common import mpl_formatting
+mpl_formatting()
+
+
+#%% GPU acceleration
+try:
+    import cupy as cp 
+    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
+except ModuleNotFoundError:
+    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
+    GPU_AVAILABLE = False
+except Exception as e:
+    # catch any other unexpected errors and print a general message
+    print(f'An error occurred: {e}')
+    GPU_AVAILABLE = False
+
+if GPU_AVAILABLE:
+    # we are assuming that there is only 1 GPU device
+    xp = cp
+    import numpy as np  # for loading npy files that contain objects (dicts in this case)
+    from common import sem_gpu as sem
+    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
+    print(f'GPU-acceleration with {str(name)} and cupy')
+else:
+    import numpy as np
+    from scipy.stats import sem
+    xp = np
+    print('GPU-acceleartion unavailable')
 
 
 #%% load data 
-all_rasters = np.load(r'Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters_simp_name.npy',
-                      allow_pickle=True).item()
-all_train = np.load(r'Z:\Dinghao\code_dinghao\LC_all\LC_all_info.npy',
-                    allow_pickle=True).item()
+all_rasters = np.load(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_rasters_simp_name.npy',
+    allow_pickle=True
+    ).item()
+all_train = np.load(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_info.npy',
+    allow_pickle=True
+    ).item()
 
-cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+cell_prop = pd.read_pickle(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_single_cell_properties.pkl'
+    )
 
 
 #%% specify RO peaking putative Dbh cells
-clu_list = list(cell_prop.index)
+clulist = list(cell_prop.index)
 
 tag_list = []; put_list = []
 tag_rop_list = []; put_rop_list = []
@@ -53,8 +82,12 @@ for clu in cell_prop.index:
 
 
 #%% timer 
-import time
-start = time.time()
+from time import time 
+start = time()
+
+
+#%% parameters 
+xaxis = np.arange(6*1250)/1250-3  # in seconds, since sampling freq is 1250 Hz 
 
 
 #%% shuffle function 
@@ -72,11 +105,11 @@ def cir_shuf(conv_aligned_spike_array, length=6*1250):
         the flattened array containing every trial in this session each shuffled once.
     """
     tot_trial = conv_aligned_spike_array.shape[0]
-    trial_shuf_array = np.zeros([tot_trial, length])
+    trial_shuf_array = xp.zeros([tot_trial, length])
     for trial in range(tot_trial):
-        rand_shift = np.random.randint(1, length/2)
-        trial_shuf_array[trial,:] = np.roll(conv_aligned_spike_array[trial], -rand_shift)
-    return np.mean(trial_shuf_array, axis=0)
+        rand_shift = xp.random.randint(1, length/2)
+        trial_shuf_array[trial,:] = xp.roll(conv_aligned_spike_array[trial], -rand_shift)
+    return xp.mean(trial_shuf_array, axis=0)
 
 def bootstrap_ratio(conv_aligned_spike_array, bootstraps=500, length=6*1250):
     """
@@ -92,38 +125,47 @@ def bootstrap_ratio(conv_aligned_spike_array, bootstraps=500, length=6*1250):
     Returns
     -------
         the percentage thresholds for the bootstrapping result.
-    """
-    shuf_ratio = np.zeros(bootstraps)
-    for shuffle in range(bootstraps):
+    """    
+    shuf_ratio = xp.zeros(bootstraps)
+    for shuffle in tqdm(range(bootstraps), desc='bootstrap-shuffling'):
         shuf_result = cir_shuf(conv_aligned_spike_array, length)
-        shuf_ratio[shuffle] = np.sum(shuf_result[3750:3750+1250])/np.sum(shuf_result[3750-1250:3750])
-    return np.percentile(shuf_ratio, [99.9, 99, 95, 50, 5, 1, .1], axis=0)
+        shuf_ratio[shuffle] = xp.sum(shuf_result[3750:3750+1250])/xp.sum(shuf_result[3750-1250:3750])
+    return xp.percentile(shuf_ratio, [99.9, 99, 95, 50, 5, 1, .1], axis=0)
 
 
 #%% MAIN 
-xaxis = np.arange(6*1250)/1250-3  # in seconds 
-
 lick_sensitive = []
 lick_sensitive_type = []
 lick_sensitive_signif = []
 
-for cluname in clu_list:
+for cluname in clulist:
     print(cluname)
     raster = all_rasters[cluname]
     train = all_train[cluname]
     
-    filename = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
-    alignRun = sio.loadmat(filename)
+    alignRun = sio.loadmat(
+        r'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'
+        .format(
+            cluname[1:5], cluname[:14], cluname[:17], cluname[:17]
+            )
+        )
     
     licks = alignRun['trialsRun']['lickLfpInd'][0][0][0][1:]
     starts = alignRun['trialsRun']['startLfpInd'][0][0][0][1:]
     tot_trial = licks.shape[0]
     
-    behParf = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
-    behPar = sio.loadmat(behParf)
-    stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-    stimOn_ind = np.where(stimOn!=0)[0]+1
-    bad_beh_ind = list(np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1)
+    behPar = sio.loadmat(
+        r'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
+        .format(
+            cluname[1:5], cluname[:14], cluname[:17], cluname[:17]
+            )
+        )
+    
+    stimOn = xp.asarray(behPar['behPar']['stimOn'][0][0][0][1:])
+    stimOn_ind = xp.where(stimOn!=0)[0]+1
+    
+    bad_beh = xp.asarray(behPar['behPar'][0]['indTrBadBeh'][0][0])
+    bad_beh_ind = list(xp.where(bad_beh==1)[1]-1) if bad_beh.sum()!=0 else []
     
     first_licks = []
     for trial in range(tot_trial):
@@ -141,46 +183,59 @@ for cluname in clu_list:
     # define the subplots using the GridSpec layout
     axs = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1])]
 
-    trial_list = [t for t in np.arange(tot_trial) if t not in bad_beh_ind and t not in stimOn_ind]  # do not mind the bad and/or stim trials
+    trial_list = [t for t in np.arange(tot_trial) 
+                  if t not in bad_beh_ind 
+                  and t not in stimOn_ind]  # do not mind the bad and/or stim trials
     tot_trial = len(trial_list)
 
     ratio = []; ratio_shuf_95 = []; ratio_shuf_5 = []
-    aligned_prof = np.zeros((tot_trial, 1250*6))
-    aligned_raster = np.zeros((tot_trial, 1250*6))
+    aligned_prof = xp.zeros((tot_trial, 1250*6))
+    aligned_raster = xp.zeros((tot_trial, 1250*6))
     for i, trial in enumerate(trial_list):
-        curr_raster = raster[trial]
-        curr_train = train[trial]
-        curr_lick = first_licks[trial]
+        curr_raster = xp.asarray(raster[trial])
+        curr_train = xp.asarray(train[trial])
+        
+        curr_lick = first_licks[trial]  # this is used as indices so we don't need it in VRAM (if GPU_AVAILABLE)
         
         # process aligned_prof
-        end_idx = curr_lick+3750+3750
+        end_idx = curr_lick+3750+3750  # the second +3750 is to deal with the bef_time (relative to run) of 3 s
         if len(curr_train) < end_idx:
             if len(curr_train)+6*1250 < end_idx:
-                aligned_prof[i, :] = np.zeros(6*1250)
+                aligned_prof[i, :] = xp.zeros(6*1250)  # no spikes 3 seconds around first lick
             else:
-                aligned_prof[i, :] = np.pad(curr_train[curr_lick+3750-3750:curr_lick+3750+3750], (0, end_idx-len(curr_train)))
+                aligned_prof[i, :] = xp.pad(
+                    curr_train[curr_lick+3750-3750:curr_lick+3750+3750], 
+                    (0, end_idx-len(curr_train))
+                    )
         else:
             aligned_prof[i, :] = curr_train[curr_lick+3750-3750:curr_lick+3750+3750]
             
         # similarly, process aligned_raster
         if len(curr_raster) < end_idx:
             if len(curr_raster)+6*1250 < end_idx:
-                aligned_raster[i, :] = np.zeros(6*1250)
+                aligned_raster[i, :] = xp.zeros(6*1250)
             else:
-                aligned_raster[i, :] = np.pad(curr_raster[curr_lick+3750-3750:curr_lick+3750+3750], (0, end_idx-len(curr_raster)))
+                aligned_raster[i, :] = xp.pad(curr_raster[curr_lick+3750-3750:curr_lick+3750+3750], (0, end_idx-len(curr_raster)))
         else:
             aligned_raster[i, :] = curr_raster[curr_lick+3750-3750:curr_lick+3750+3750]
         
-        curr_trial = [(s-3750)/1250 for s in np.where(curr_raster[curr_lick+3750-3750:curr_lick+3750+3750]==1)[0]]
+        curr_trial = [(s-3750)/1250 
+                      for s 
+                      in xp.where(curr_raster[curr_lick+3750-3750:curr_lick+3750+3750]==1)[0]]
+        
+        # for plotting matpltolib doesn't take cupy arrays 
+        # also because this is the last place we are using curr_trial, we can 
+        #   simply replace it in-place
+        if GPU_AVAILABLE: curr_trial = [spike.get() for spike in curr_trial]
         axs[0].scatter(curr_trial, [i+1]*len(curr_trial),
-                         color='grey', alpha=.25, s=1)
+                         color='grey', alpha=.25, s=.6)
     
     # top--.001, .01, .05, mean, .05, .01, .001--bottom; 7 values in total
     shuf_ratios = bootstrap_ratio(aligned_prof)
      
-    aligned_prof_mean = np.nanmean(aligned_prof, axis=0)*1250
+    aligned_prof_mean = xp.nanmean(aligned_prof, axis=0)*1250
     aligned_prof_sem = sem(aligned_prof, axis=0)*1250
-    true_ratio = np.sum(aligned_prof_mean[3750:3750+1250])/np.sum(aligned_prof_mean[3750-1250:3750])
+    true_ratio = xp.sum(aligned_prof_mean[3750:3750+1250])/xp.sum(aligned_prof_mean[3750-1250:3750])
     
     if true_ratio>=shuf_ratios[2]: 
         lick_sensitive.append(True)
@@ -204,18 +259,27 @@ for cluname in clu_list:
         if i==2: signif = '*'
     else:
         lick_sensitive.append(False)
-        lick_sensitive_type.append(np.NAN)
+        lick_sensitive_type.append(xp.NAN)
         suffix = ''
         signif = 'n.s.'
     
     lick_sensitive_signif.append(signif)
     
-    axs[0].set(xlabel='time to 1st-lick (s)', xlim=(-3, 3), xticks=[-3, 0, 3],
+    axs[0].set(xlabel='time to 1st lick (s)', xlim=(-3, 3), xticks=[-3, 0, 3],
                ylabel='trial #',
                title=cluname+suffix)
     axs[0].title.set_fontsize(10)
 
     ax_twin = axs[0].twinx()
+    
+    # similar to above where curr_trial was converted in-place, here we can 
+    #   convert aligned_prof etc. in-place 
+    if GPU_AVAILABLE: 
+        aligned_prof_mean = aligned_prof_mean.get()
+        aligned_prof_sem = aligned_prof_sem.get()
+        shuf_ratios = [ratio.get() for ratio in shuf_ratios]
+        true_ratio = true_ratio.get()
+    
     ax_twin.plot(xaxis, aligned_prof_mean, color='k')
     ax_twin.fill_between(xaxis, aligned_prof_mean+aligned_prof_sem,
                                 aligned_prof_mean-aligned_prof_sem,
@@ -240,13 +304,17 @@ for cluname in clu_list:
     if cluname in tag_list: tp = ' tgd'
     if cluname in put_list: tp = ' put'
     
-    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\single_cell_1st_lick_aligned\{}'.format(cluname+tp+suffix),
-                dpi=200)
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitivity\single_cell_first_lick_aligned_rasters\{}'
+        .format(
+            cluname+tp+suffix
+            ),
+        dpi=200
+        )
 
 
 #%% timer 
-passed_time = time.time() - start
-print(passed_time)
+print(time() - start)
 
 
 #%% save to dataframe

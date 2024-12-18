@@ -26,8 +26,8 @@ start = time()
 
 
 #%% load dataframe  
-cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
-warped_dict = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_warped.npy', allow_pickle=True).item()
+cell_prop = pd.read_pickle(r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_single_cell_properties.pkl')
+warped_dict = np.load(r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_warped.npy', allow_pickle=True).item()
 
 
 #%% obtain structure 
@@ -110,7 +110,7 @@ norm_OFF = normalise_to_all(mean_OFF, np.hstack((mean_ON, mean_OFF)))
 cell_types = ('tagged\nDbh+', 'putative\nDbh+\nRO-peaking', 
               'tagged\nDbh+\nRO-peaking', 'tagged\nDbh+', 
               'putative\nDbh+\nRO-peaking', 'putative\nDbh+\nRO-peaking')
-colours = ['darkred', 'forestgreen', 'grey']
+colours = ['darkorange', 'forestgreen', 'grey']
 
 ON_tag_rop = len(tag_rop_sensitive_ON)/len(tag_rop_list)
 ON_put_rop = len(put_rop_sensitive_ON)/len(put_rop_list)
@@ -139,10 +139,13 @@ ax.pie(rop_pie, labels=[labelled_pie[tag] for tag in rop_pie],
     
 plt.show()
 
-for ext in ['png', 'pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\lick_sensitive_profiles_shuf_piechart.{}'.format(ext),
-                dpi=200,
-                bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitivity\lick_sensitive_profiles_shuf_piechart{}'
+        .format(ext),
+        dpi=300,
+        bbox_inches='tight'
+        )
 
 
 #%% plotting 
@@ -163,7 +166,7 @@ mean_OFF_interp = interp_func_OFF(x)
 
 fig, ax = plt.subplots(figsize=(2.2, 1.5))
 
-le, = ax.plot(x, mean_ON_interp, 'darkred', label='lick-ON')
+le, = ax.plot(x, mean_ON_interp, 'darkorange', label='lick-ON')
 li, = ax.plot(x, mean_OFF_interp, 'forestgreen', label='lick-OFF')
 
 for start, end in interp_gap:
@@ -179,7 +182,9 @@ for s in ['top', 'right']:
 
 plt.show()
 
-for ext in ['png', 'pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\lick_sensitive_profiles_shuf.{}'.format(ext),
-                dpi=300,
-                bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitivity\lick_sensitive_profiles_shuf{}'
+        .format(ext),
+        dpi=300,
+        bbox_inches='tight')
