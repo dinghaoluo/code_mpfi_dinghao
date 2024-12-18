@@ -12,11 +12,10 @@ compare opto stim vs baseline lickdist
 import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio
-from scipy.stats import ttest_rel, wilcoxon, ranksums
+from scipy.stats import ranksums
 import sys
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathOpt = rec_list.pathLCopt
 
@@ -29,23 +28,14 @@ print('\n**BOOTSTRAP # = {}**'.format(n_bst))
 print('**comparison method: {}**\n'.format(comp_method))
 
 
-#%% plotting parameters 
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
-
-if (r'Z:\Dinghao\code_mpfi_dinghao\iutils' in sys.path) == False:
-    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 import plotting_functions as pf
+from common import mpl_formatting
+mpl_formatting()
 
 
 #%% MAIN 
-all_licks_non_stim = []; all_licks_stim = []
-# all_mspeeds_non_stim = []; all_mspeeds_stim = []  # control 
-# all_accel_non_stim = []; all_accel_stim = []  # control 
-# all_pspeeds_non_stim = []; all_pspeeds_stim = []  # control 
-# all_initacc_non_stim = []; all_initacc_stim = []  # control 
+all_licks_ctrl = []; all_licks_stim = []
 
 for sessname in sess_list:
     print(sessname)
@@ -89,34 +79,34 @@ for sessname in sess_list:
     licks_stim = [first_licks[i-1] for i in stim if first_licks[i-1]!=0 and first_licks[i+1]!=0]
     
     pval = []; 
-    curr_licks_non_stim = []; curr_licks_stim = []
+    curr_licks_ctrl = []; curr_licks_stim = []
 
     for i in range(n_bst):
-        # select same number of non_stim to match 
-        non_stim_trials = np.where(pulseMethod==0)[0]
+        # select same number of ctrl to match 
+        ctrl_trials = np.where(pulseMethod==0)[0]
         if comp_method == 'baseline':
-            selected_non_stim = non_stim_trials[np.random.randint(0, stim[0]-1, len(licks_stim))]
-            licks_non_stim = []
-            for t in selected_non_stim:
+            selected_ctrl = ctrl_trials[np.random.randint(0, stim[0]-1, len(licks_stim))]
+            licks_ctrl = []
+            for t in selected_ctrl:
                 if first_licks[t-1]!=0:
-                    licks_non_stim.append(float(first_licks[t-1]))  # only compare trials with licks
+                    licks_ctrl.append(float(first_licks[t-1]))  # only compare trials with licks
                 else:
-                    licks_non_stim.append(float(first_licks[t]))
+                    licks_ctrl.append(float(first_licks[t]))
         elif comp_method == 'stim_cont': # stim_control 
-            selected_non_stim = [i+2 for i in stim]
-            licks_non_stim = [first_licks[i-1] for i in selected_non_stim if first_licks[i-1]!=0 and first_licks[i-3]!=0]
+            selected_ctrl = [i+2 for i in stim]
+            licks_ctrl = [first_licks[i-1] for i in selected_ctrl if first_licks[i-1]!=0 and first_licks[i-3]!=0]
         
-        curr_licks_non_stim.append(licks_non_stim)
+        curr_licks_ctrl.append(licks_ctrl)
         curr_licks_stim.append(licks_stim)
         
-        pval.append(ranksums(licks_non_stim, licks_stim)[1])
+        pval.append(ranksums(licks_ctrl, licks_stim)[1])
         
     if stim_cond==2:
-        all_licks_non_stim.append(np.median(curr_licks_non_stim))
+        all_licks_ctrl.append(np.median(curr_licks_ctrl))
         all_licks_stim.append(np.median(curr_licks_stim))
     
     
-    data = [licks_non_stim, [l[0] for l in licks_stim]]
+    data = [licks_ctrl, [l[0] for l in licks_stim]]
     
     fig, ax = plt.subplots(figsize=(3.3,2))
     
@@ -129,7 +119,7 @@ for sessname in sess_list:
            xlim=(30, 225), ylim=(-0.5, 1.5), 
            ylabel='Condition', xlabel='dist. 1st lick (cm)')
     ax.set_yticks([0, 1])
-    ax.set_yticklabels(['baseline', 'stim'])
+    ax.set_yticklabels(['ctrl.', 'stim/'])
     
     # Plot box plots on separate tracks
     box_positions = [0, 1]
@@ -143,24 +133,25 @@ for sessname in sess_list:
         patch.set_facecolor(color)
         patch.set_edgecolor('k')
     
-    ax.scatter(licks_non_stim, [.25]*len(licks_non_stim), color='grey', label='Baseline')
+    ax.scatter(licks_ctrl, [.25]*len(licks_ctrl), color='grey', label='Baseline')
     ax.scatter(licks_stim, [.75]*len(licks_stim), color='royalblue', label='Stimulation')
     
-    ax.plot([np.median(licks_non_stim), np.median(licks_stim)], [.25, .75], 
+    ax.plot([np.median(licks_ctrl), np.median(licks_stim)], [.25, .75], 
             color='grey', alpha=0.5, linestyle='--')
         
-    if comp_method == 'baseline':
-        fig.savefig(f'Z:/Dinghao/code_dinghao/LC_opto_ephys/opto_lickdist_0{stim_cond}0/{sessname}.png', 
-                    dpi=300, bbox_inches='tight')
-    elif comp_method == 'stim_cont':
-        fig.savefig(f'Z:/Dinghao/code_dinghao/LC_opto_ephys/opto_lickdist_0{stim_cond}0_stim_cont/{sessname}.png', 
-                    dpi=300, bbox_inches='tight')
+    for ext in ['.png', '.pdf']:
+        if comp_method == 'baseline':
+            fig.savefig(f'Z:/Dinghao/code_dinghao/LC_opto_ephys/opto_lickdist_0{stim_cond}0/{sessname}{ext}', 
+                        dpi=300, bbox_inches='tight')
+        elif comp_method == 'stim_cont':
+            fig.savefig(f'Z:/Dinghao/code_dinghao/LC_opto_ephys/opto_lickdist_0{stim_cond}0_stim_cont/{sessname}{ext}', 
+                        dpi=300, bbox_inches='tight')
     
     plt.show()
   
     
 #%% summary statistics 
-pf.plot_violin_with_scatter(all_licks_non_stim, all_licks_stim, 'grey', 'royalblue', 
+pf.plot_violin_with_scatter(all_licks_ctrl, all_licks_stim, 'grey', 'royalblue', 
                             paired=True,
                             xticklabels=['ctrl.', 'stim.'], ylabel='distance 1st-licks (cm)',
                             save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary', dpi=300)

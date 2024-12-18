@@ -20,12 +20,14 @@ import numpy as np
 import pandas as pd
 from scipy.stats import sem, ttest_rel, wilcoxon
 import matplotlib.pyplot as plt 
-plt.rcParams['font.family'] = 'Arial' 
 import scipy.io as sio
 import mat73
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+import mpl_formatting
+mpl_formatting()
+
+sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathLC = rec_list.pathLC
 

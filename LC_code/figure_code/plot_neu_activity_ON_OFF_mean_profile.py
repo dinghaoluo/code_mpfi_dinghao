@@ -14,19 +14,10 @@ import matplotlib.pyplot as plt
 from scipy.stats import sem
 import pandas as pd
 import sys
-import os
 
 sys.path.append(r'Z:/Dinghao/code_mpfi_dinghao/utils')
-from common import normalise_to_all
-
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from logger_module import log_run
-
-# plotting parameters
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+from common import normalise_to_all, mpl_formatting
+mpl_formatting()
 
 
 #%% time 
@@ -37,12 +28,6 @@ start = time()
 #%% load dataframe  
 cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
 warped_dict = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_warped.npy', allow_pickle=True).item()
-
-
-#%% function
-def normalise(data):  # data needs to be a 1-d vector/list
-    norm_data = (data - min(data))/(max(data) - min(data))
-    return norm_data
 
 
 #%% obtain structure 
@@ -122,8 +107,6 @@ norm_OFF = normalise_to_all(mean_OFF, np.hstack((mean_ON, mean_OFF)))
 
 
 #%% plotting 
-import matplotlib.pyplot as plt
-
 cell_types = ('tagged\nDbh+', 'putative\nDbh+\nRO-peaking', 
               'tagged\nDbh+\nRO-peaking', 'tagged\nDbh+', 
               'putative\nDbh+\nRO-peaking', 'putative\nDbh+\nRO-peaking')
@@ -163,42 +146,40 @@ for ext in ['png', 'pdf']:
 
 
 #%% plotting 
-fig, ax = plt.subplots(figsize=(2.2,1.5))
+from scipy.interpolate import interp1d
 
-le, = ax.plot(range(625), mean_ON[:625], 'darkred')
-# ax.fill_between(range(625), mean_ON[:625]+sem_ON[:625],
-#                             mean_ON[:625]-sem_ON[:625],
-#                             color='darkred', edgecolor='none', alpha=.1)
-ax.plot(range(630, 1870), mean_ON[630:1870], 'darkred')
-# ax.fill_between(range(630, 1870), mean_ON[630:1870]+sem_ON[630:1870],
-#                             mean_ON[630:1870]-sem_ON[630:1870],
-#                             color='darkred', edgecolor='none', alpha=.1)
-ax.plot(range(1875, 2500), mean_ON[1875:2500], 'darkred')
-# ax.fill_between(range(1875, 2500), mean_ON[1875:2500]+sem_ON[1875:2500],
-#                             mean_ON[1875:2500]-sem_ON[1875:2500],
-#                             color='darkred', edgecolor='none', alpha=.1)
+interp_gap = [(623, 640), (1863, 1880)]
 
-li, = ax.plot(range(625), mean_OFF[:625], 'forestgreen')
-ax.plot(range(630, 1870), mean_OFF[630:1870], 'forestgreen')
-ax.plot(range(1875, 2500), mean_OFF[1875:2500], 'forestgreen')
+x = np.arange(len(mean_ON))
+mask = np.ones_like(x, dtype=bool)
+for start, end in interp_gap:
+    mask[start:end] = False
 
-ax.axvspan(625,630, color='grey', alpha=.25)
-ax.axvspan(1870,1875, color='grey', alpha=.25)
+interp_func_ON = interp1d(x[mask], mean_ON[mask], kind='linear')
+mean_ON_interp = interp_func_ON(x)
+
+interp_func_OFF = interp1d(x[mask], mean_OFF[mask], kind='linear')
+mean_OFF_interp = interp_func_OFF(x)
+
+fig, ax = plt.subplots(figsize=(2.2, 1.5))
+
+le, = ax.plot(x, mean_ON_interp, 'darkred', label='lick-ON')
+li, = ax.plot(x, mean_OFF_interp, 'forestgreen', label='lick-OFF')
+
+for start, end in interp_gap:
+    ax.axvspan(start, end, color='grey', alpha=.25)
 
 ax.set(xticks=[628, 1873], xticklabels=['run-onset', '1st-lick'],
-       ylabel='spike rate (Hz)')
+       yticks=(3, 6), ylabel='spike rate (Hz)')
 
-ax.legend([le, li], ['lick-ON', 'lick-OFF'], frameon=False)
+ax.legend(frameon=False)
 
-for s in ['top', 'right']: ax.spines[s].set_visible(False)
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+
+plt.show()
 
 for ext in ['png', 'pdf']:
     fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\lick_sensitive_profiles_shuf.{}'.format(ext),
-                dpi=200,
+                dpi=300,
                 bbox_inches='tight')
-    
-    
-#%% logging 
-runtime = '{} s'.format(time()-start)
-params= {'run time': runtime}
-log_run(os.path.basename(__file__), params)

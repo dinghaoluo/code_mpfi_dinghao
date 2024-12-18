@@ -17,29 +17,31 @@ from scipy.stats import wilcoxon, ranksums, ttest_rel, ttest_ind
 
 
 #%% functions 
-def plot_violin_with_scatter(data1, data2, colour1, colour2,
+def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              paired=True, alpha=.25,
-                             xlabel=' ', xticks=[1,2], xticklabels=['data1', 'data2'],
+                             xlabel=' ', xticks=[1,2], xticklabels=['data0', 'data1'],
                              ylabel=' ', yscale=None,
+                             xlim=None, ylim=None,
                              title=' ',
+                             showscatter=True, showmainline=True,
                              showmeans=False, showmedians=True, showextrema=False,
-                             statistics=True,
+                             print_statistics=True, plot_statistics=True,
                              save=False, savepath=' ', dpi=120):
     """
     plot half-violins with optional scatter and statistical comparisons
 
     parameters
     ----------
-    data1 : array-like
+    data0 : array-like
         values for the first dataset (plotted at x=1)
-    data2 : array-like
+    data1 : array-like
         values for the second dataset (plotted at x=2)
-    colour1 : str or tuple
+    colour0 : str or tuple
         colour for the first dataset
-    colour2 : str or tuple
+    colour1 : str or tuple
         colour for the second dataset
     paired : bool, optional
-        if True, use paired statistics; otherwise, use unpaired statistics (default: True)
+        if true, use paired statistical tests; otherwise, use unpaired tests (default: True)
     alpha : float, optional
         transparency level for scatter points and lines (default: 0.25)
     xlabel : str, optional
@@ -47,23 +49,33 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
     xticks : list, optional
         positions for x-axis ticks (default: [1, 2])
     xticklabels : list, optional
-        labels for the x-axis ticks (default: ['data1', 'data2'])
+        labels for the x-axis ticks (default: ['data0', 'data1'])
     ylabel : str, optional
         label for the y-axis (default: ' ')
     yscale : str, optional
-        scale for the y-axis (e.g., 'symlog'); if None, use linear scale (default: None)
+        scale for the y-axis (e.g., 'symlog'); if none, uses linear scale (default: None)
+    xlim : tuple, optional
+        limits for the x-axis (default: None)
+    ylim : tuple, optional
+        limits for the y-axis (default: None)
     title : str, optional
         title for the plot (default: ' ')
+    showscatter : bool, optional
+        if true, scatter individual data points on the plot (default: True)
+    showmainline : bool, optional
+        if true, draw a line connecting mean or median values (default: True)
     showmeans : bool, optional
-        if True, display mean markers and lines (default: False)
+        if true, display mean markers and lines (default: False)
     showmedians : bool, optional
-        if True, display median markers and lines (default: True)
+        if true, display median markers and lines (default: True)
     showextrema : bool, optional
-        if True, show extrema for violins (default: False)
-    statistics : bool, optional
-        if True, calculate and display statistical results (default: True)
+        if true, show extrema for violins (default: False)
+    print_statistics : bool, optional
+        if true, print statistical results in the console (default: True)
+    plot_statistics : bool, optional
+        if true, display statistical results on the plot (default: True)
     save : bool, optional
-        if True, save the plot as a .png and .pdf (default: False)
+        if true, save the plot as a .png and .pdf file (default: False)
     savepath : str, optional
         path to save the plot (default: ' ')
     dpi : int, optional
@@ -71,51 +83,53 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
 
     returns
     -------
-    None
+    none
 
     notes
     -----
     - half-violins are plotted for two datasets at x=1 and x=2
-    - supports paired or unpaired statistical tests
-    - visualises scatter points for individual data, with optional mean or median markers
-    - violins are coloured based on `colour1` and `colour2`
+    - supports paired or unpaired statistical tests (wilcoxon and paired t-tests for paired data; rank-sum and unpaired t-tests for unpaired data)
+    - scatter points show individual data values; mean or median markers and lines are optional
+    - violins are coloured based on `colour0` and `colour1`
     - saves the plot in both .png and .pdf formats if `save=True`
 
     """
     fig, ax = plt.subplots(figsize=(1.8,2.4))
     
-    vp = ax.violinplot([data1, data2],
+    vp = ax.violinplot([data0, data1],
                        positions=[1,2],
                        showmeans=showmeans, showmedians=showmedians, 
                        showextrema=False)
 
-    vp['bodies'][0].set_color(colour1)
-    vp['bodies'][1].set_color(colour2)
+    vp['bodies'][0].set_color(colour0)
+    vp['bodies'][1].set_color(colour1)
     if showmeans:
         vp['cmeans'].set_color('k')
         vp['cmeans'].set_linewidth(2)
-        ax.scatter(1.1, np.mean(data1), 
+        ax.scatter(1.1, np.mean(data0), 
+                   s=30, c=colour0, ec='none', lw=.5, zorder=2)
+        ax.scatter(1.9, np.mean(data1), 
                    s=30, c=colour1, ec='none', lw=.5, zorder=2)
-        ax.scatter(1.9, np.mean(data2), 
-                   s=30, c=colour2, ec='none', lw=.5, zorder=2)
-        if paired:
+        if paired and showscatter:
             ax.plot([1.1, 1.9], 
-                    [data1, data2], 
+                    [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)
-            ax.plot([1.1, 1.9], [np.mean(data1), np.mean(data2)],
+        if showmainline:
+            ax.plot([1.1, 1.9], [np.mean(data0), np.mean(data1)],
                     color='k', linewidth=2, zorder=1)
     if showmedians:
         vp['cmedians'].set_color('k')
         vp['cmedians'].set_linewidth(2)
-        ax.scatter(1.1, np.median(data1), 
+        ax.scatter(1.1, np.median(data0), 
+                   s=30, c=colour0, ec='none', lw=.5, zorder=2)
+        ax.scatter(1.9, np.median(data1), 
                    s=30, c=colour1, ec='none', lw=.5, zorder=2)
-        ax.scatter(1.9, np.median(data2), 
-                   s=30, c=colour2, ec='none', lw=.5, zorder=2)
-        if paired:
+        if paired and showscatter:
             ax.plot([1.1, 1.9], 
-                    [data1, data2], 
+                    [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)
-            ax.plot([1.1, 1.9], [np.median(data1), np.median(data2)],
+        if showmainline:
+            ax.plot([1.1, 1.9], [np.median(data0), np.median(data1)],
                     color='k', linewidth=2, zorder=1)
     for i in [0,1]:
         vp['bodies'][i].set_edgecolor('none')
@@ -129,26 +143,39 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
         if i==1:
             b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
-    ax.scatter([1.1]*len(data1), 
-               data1, 
-               s=10, c=colour1, ec='none', lw=.5, alpha=alpha)
-    ax.scatter([1.9]*len(data2), 
-               data2, 
-               s=10, c=colour2, ec='none', lw=.5, alpha=alpha)
+    if showscatter:
+        ax.scatter([1.1]*len(data0), 
+                   data0, 
+                   s=10, c=colour0, ec='none', lw=.5, alpha=alpha)
+        ax.scatter([1.9]*len(data1), 
+                   data1, 
+                   s=10, c=colour1, ec='none', lw=.5, alpha=alpha)
     
-    y_range = [max(max(data1), max(data2)), min(min(data1), min(data2))]
-    y_range_tot = y_range[0]-y_range[1]
-        
-    if statistics:
-        if paired:
-            wilc_stat, wilc_p = wilcoxon(data1, data2)
-            ttest_stat, ttest_p = ttest_rel(data1, data2)
+    if xlim is not None:
+        ax.set(xlim=xlim)
+    if ylim is not None:
+        ax.set(ylim=ylim)
+        y_range = (ylim[1], ylim[0])
+        y_range_tot = ylim[1]-ylim[0]
+    else:
+        y_range = (max(max(data0), max(data1)), min(min(data0), min(data1)))
+        y_range_tot = y_range[0]-y_range[1]
+
+    if paired:
+        wilc_stat, wilc_p = wilcoxon(data0, data1)
+        ttest_stat, ttest_p = ttest_rel(data0, data1)
+        if print_statistics:
+            print(f'wilc: {wilc_stat}, p={wilc_p}')
+        if plot_statistics:
             ax.plot([1, 2], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
             ax.text(1.5, y_range[0]+y_range_tot*.05, 'wilc_p={}\nttest_p={}'.format(round(wilc_p, 5), round(ttest_p, 5)), 
                     ha='center', va='bottom', color='k', fontsize=8)
-        else:
-            rank_stat, rank_p = ranksums(data1, data2)
-            ttest_stat, ttest_p = ttest_ind(data1, data2)
+    else:
+        rank_stat, rank_p = ranksums(data0, data1)
+        ttest_stat, ttest_p = ttest_ind(data0, data1)
+        if print_statistics:
+            print(f'ranksums: {rank_stat}, p={rank_p}')
+        if plot_statistics:
             ax.plot([1, 2], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
             ax.text(1.5, y_range[0]+y_range_tot*.05, 'ranksums_p={}\nttest_p={}'.format(round(rank_p, 5), round(ttest_p, 5)), 
                     ha='center', va='bottom', color='k', fontsize=8)
@@ -168,11 +195,10 @@ def plot_violin_with_scatter(data1, data2, colour1, colour2,
     plt.show()
     
     if save:
-        fig.savefig(savepath+'.png',
-                    dpi=dpi,
-                    bbox_inches='tight')
-        fig.savefig(savepath+'.pdf',
-                    bbox_inches='tight')
+        for ext in ['.png', '.pdf']:
+            fig.savefig(f'{savepath}{ext}',
+                        dpi=dpi,
+                        bbox_inches='tight')
         
         
 #%% profile-plotting functions
@@ -187,3 +213,11 @@ def scale_min_max(mean_data, sem_data=[]):
     scale_min = min_point-full_range*.05
     
     return (scale_min, scale_max)
+
+def get_lower_upper_bounds_violin(body):
+    '''take the body of a violinplot'''
+    '''return (lower_bound, upper_bound)'''
+    vertices = body.get_paths()[0].vertices 
+    y_values = vertices[:,1]
+    
+    return min(y_values), max(y_values)

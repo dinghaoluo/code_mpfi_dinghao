@@ -231,9 +231,9 @@ else:
     for i in range(tot_clu):
         curr_ratio = np.nanmean(stim_cont[i,625:1875])/np.nanmean(stim_cont[i,3125:4375])  # .5~1.5s
         stim_cont_pp_ratio[i] = curr_ratio
-        if curr_ratio < .9:  # rise-cells 
+        if curr_ratio < .8:  # rise-cells 
             stim_cont_rise_count+=1
-        elif curr_ratio > 1.1:  # down-cells 
+        elif curr_ratio > 1.25:  # down-cells 
             stim_cont_down_count+=1
         if np.isnan(stim_cont_pp_ratio[i]) or max(stim_cont[i,:])==0:  # if everything is 0
             stim_cont_pp_ratio[i] = 100  # if divided by 0
@@ -249,9 +249,9 @@ else:
     for i in range(tot_clu):
         curr_ratio = np.nanmean(stim[i,625:1875])/np.nanmean(stim[i,3125:4375])
         stim_pp_ratio[i] = curr_ratio
-        if curr_ratio < .9:  # rise-cells 
+        if curr_ratio < .8:  # rise-cells 
             stim_rise_count+=1
-        elif curr_ratio > 1.1:  # down-cells 
+        elif curr_ratio > 1.25:  # down-cells 
             stim_down_count+=1
         if np.isnan(stim_pp_ratio[i]):
             stim_pp_ratio[i] = 100

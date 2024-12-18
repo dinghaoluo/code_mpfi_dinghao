@@ -107,11 +107,7 @@ else:
         'prof_good_mean': [],
         'prof_good_sem': [],
         'prof_bad_mean': [],
-        'prof_bad_sem': [],
-        'prof_good_mean_matlab': [],
-        'prof_good_sem_matlab': [],
-        'prof_bad_mean_matlab': [],
-        'prof_bad_sem_matlab': [],
+        'prof_bad_sem': []
         }
     df = pd.DataFrame(sess)
 
@@ -151,9 +147,9 @@ def classify_run_onset_activation_ratio(train,
     post = xp.nanmean(train[int(run_onset_bin+samp_freq*.5):int(run_onset_bin+samp_freq*1.5)])
     ratio = pre/post
     if ratio < run_onset_activated_thres:
-        ratiotype = 'run-onset ON'
+        ratiotype = 'run-onset activated'
     elif ratio > run_onset_inhibited_thres:
-        ratiotype = 'run-onset OFF'
+        ratiotype = 'run-onset inhibited'
     else:
         ratiotype = 'run-onset unresponsive'
         
@@ -171,8 +167,8 @@ def compute_spatial_information(spike_counts, occupancy):
     - spatial_info: Spatial information in bits per spike.
     """
     # ensure spike_counts and occupancy are xp arrays
-    if GPU_AVAILABLE:
-        occupancy = occupancy.get()
+    spike_counts = xp.asarray(spike_counts)
+    occupancy = xp.asarray(occupancy)
     
     # handle cases with zero occupancy
     valid_bins = occupancy > 0
@@ -181,19 +177,19 @@ def compute_spatial_information(spike_counts, occupancy):
     occupancy = occupancy[valid_bins]
     
     # compute probability of occupancy (p(x))
-    total_time = np.sum(occupancy)
+    total_time = xp.sum(occupancy)
     p_x = occupancy / total_time
 
     # compute firing rate per bin (λ(x))
     lambda_x = spike_counts / occupancy
 
     # compute overall mean firing rate (λ)
-    lambda_bar = np.sum(lambda_x * p_x)
+    lambda_bar = xp.sum(lambda_x * p_x)
 
     # compute spatial information (Skaggs formula)
     with np.errstate(divide='ignore', invalid='ignore'):
-        spatial_info = np.nansum(
-            p_x * (lambda_x / lambda_bar) * np.log2(lambda_x / lambda_bar)
+        spatial_info = xp.nansum(
+            p_x * (lambda_x / lambda_bar) * xp.log2(lambda_x / lambda_bar)
         )
     
     return spatial_info
@@ -210,29 +206,29 @@ def compute_temporal_information(spike_times, bin_size_steps):
     - temporal_info: Temporal information in bits per spike.
     """
     # ensure spike_times is a xp array 
-    spike_times = np.asarray(spike_times)
+    spike_times = xp.asarray(spike_times)
     
     # define temporal bins
     total_steps = len(spike_times)
     num_bins = total_steps // bin_size_steps
-    bin_edges = np.arange(0, total_steps + bin_size_steps, bin_size_steps)
+    bin_edges = xp.arange(0, total_steps + bin_size_steps, bin_size_steps)
 
     # compute spike counts per bin
-    spike_counts, _ = np.histogram(spike_times, bins=bin_edges)
+    spike_counts, _ = xp.histogram(spike_times, bins=bin_edges)
 
     # probability of occupancy per bin (uniform for equal bin sizes)
-    p_t = np.ones(num_bins) / num_bins
+    p_t = xp.ones(num_bins) / num_bins
 
     # compute firing rate per bin
     lambda_t = spike_counts / (bin_size_steps / 1250)  # convert bin size to seconds
 
     # overall mean firing rate
-    lambda_bar = np.sum(lambda_t * p_t)
+    lambda_bar = xp.sum(lambda_t * p_t)
 
     # compute temporal information
     with np.errstate(divide='ignore', invalid='ignore'):
-        temporal_info = np.nansum(
-            p_t * (lambda_t / lambda_bar) * np.log2(lambda_t / lambda_bar)
+        temporal_info = xp.nansum(
+            p_t * (lambda_t / lambda_bar) * xp.log2(lambda_t / lambda_bar)
         )
     
     return temporal_info
@@ -276,10 +272,7 @@ def get_good_bad_idx(beh_series):
 def get_trial_matrix(trains, trialtype_idx, max_samples, clu):
     temp_matrix = xp.zeros((len(trialtype_idx), max_samples))
     for idx, trial in enumerate(trialtype_idx):
-        try:
-            trial_length = len(trains[clu][trial])
-        except TypeError:
-            trial_length = 0
+        trial_length = len(trains[clu][trial])
         if 0 < trial_length < max_samples:
             temp_matrix[idx, :trial_length] = xp.asarray(trains[clu][trial][:])*samp_freq  # *samp_freq to convert to Hz
         elif trial_length > 0:
@@ -328,7 +321,7 @@ def load_dist_spike_array(dist_filename):
 
 
 #%% MAIN
-for pathname in paths[19:]:
+for pathname in paths:
     recname = pathname[-17:]
     print(recname)
     
@@ -342,15 +335,6 @@ for pathname in paths[19:]:
                                 format(prefix), recname)
     speeds = load_speeds(beh_df)
     good_idx, bad_idx = get_good_bad_idx(beh_df)
-    if not good_idx:  # if there is no good trials (most likely lickport artefacts)
-        continue
-    
-    # import bad beh trial indices from MATLAB pipeline 
-    behPar = sio.loadmat(pathname+pathname[-18:]+
-                         '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
-    bad_idx_matlab = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]
-    good_idx_matlab = np.arange(behPar['behPar'][0]['indTrBadBeh'][0].shape[1])
-    good_idx_matlab = np.delete(good_idx_matlab, bad_idx_matlab)
     
     # calculate occupancy
     distance_bins = xp.arange(0, track_length + bin_size, bin_size)
@@ -424,39 +408,22 @@ for pathname in paths[19:]:
         
         # temporal information 
         baseline_TI = [compute_temporal_information(trains[pyr][trial][samp_freq*3:],
-                                                    bin_size_steps=1) for trial in baseline_idx 
-                       if trains[pyr][trial] is not None]
+                                                    bin_size_steps=1) for trial in baseline_idx]
         ctrl_TI = [compute_temporal_information(trains[pyr][trial][samp_freq*3:],
-                                                bin_size_steps=1) for trial in ctrl_idx
-                   if trains[pyr][trial] is not None]
+                                                bin_size_steps=1) for trial in ctrl_idx]
         stim_TI = [compute_temporal_information(trains[pyr][trial][samp_freq*3:],
-                                                bin_size_steps=1) for trial in stim_idx
-                   if trains[pyr][trial] is not None]
+                                                bin_size_steps=1) for trial in stim_idx]
         
         # good/bad trial mean profiles 
         good_matrix = get_trial_matrix(trains, good_idx, max_samples, pyr)
         good_mean = xp.nanmean(good_matrix, axis=0)
         good_sem = sem(good_matrix, axis=0)
         bad_matrix = get_trial_matrix(trains, bad_idx, max_samples, pyr)
-        bad_mean = xp.nanmean(bad_matrix, axis=0) if bad_matrix.shape[0]!=0 else bad_matrix  # in case there is no bad trials
-        bad_sem = sem(bad_matrix, axis=0) if bad_matrix.shape[0]!=0 else bad_matrix 
-        
-        # good/bad trial mean profiles (MATLAB)
-        good_matrix_matlab = get_trial_matrix(trains, good_idx_matlab, max_samples, pyr)
-        good_mean_matlab = xp.nanmean(good_matrix_matlab, axis=0)
-        good_sem_matlab = sem(good_matrix_matlab, axis=0)
-        bad_matrix_matlab = get_trial_matrix(trains, bad_idx_matlab, max_samples, pyr)
-        bad_mean_matlab = xp.nanmean(bad_matrix_matlab, axis=0) if bad_matrix_matlab.shape[0]!=0 else bad_matrix_matlab
-        bad_sem_matlab = sem(bad_matrix_matlab, axis=0) if bad_matrix_matlab.shape[0]!=0 else bad_matrix_matlab
+        bad_mean = xp.nanmean(bad_matrix, axis=0)
+        bad_sem = sem(bad_matrix, axis=0)
 
         # transfer stuff from VRAM back to RAM
         if GPU_AVAILABLE:
-            baseline_run_onset_ratio = baseline_run_onset_ratio.get()
-            stim_run_onset_ratio = stim_run_onset_ratio.get()
-            ctrl_run_onset_ratio = ctrl_run_onset_ratio.get()
-            baseline_var = baseline_var.get()
-            stim_var = stim_var.get()
-            ctrl_var = ctrl_var.get()
             baseline_mean = baseline_mean.get()
             baseline_sem = baseline_sem.get()
             stim_mean = stim_mean.get()
@@ -467,25 +434,21 @@ for pathname in paths[19:]:
             good_sem = good_sem.get()
             bad_mean = bad_mean.get()
             bad_sem = bad_sem.get()
-            good_mean_matlab = good_mean_matlab.get()
-            good_sem_matlab = good_sem_matlab.get()
-            bad_mean_matlab = bad_mean_matlab.get()
-            bad_sem_matlab = bad_sem_matlab.get()
         
         cluname = clu_list[pyr]
         df.loc[cluname] = np.array([prefix,  # rectype
                                     recname,  # recname 
                                     pyr_spike_rate[i],  # spike_rate
                                     pyr in place_cell_idx,  # place_cell
-                                    baseline_run_onset_ratio,  # pre_post
-                                    stim_run_onset_ratio,  # pre_post_stim
-                                    ctrl_run_onset_ratio,  # pre_post_ctrl
+                                    baseline_run_onset_ratio.item(),  # pre_post
+                                    stim_run_onset_ratio.item(),  # pre_post_stim
+                                    ctrl_run_onset_ratio.item(),  # pre_post_ctrl
                                     baseline_run_onset_ratiotype,  # class
                                     stim_run_onset_ratiotype,  # class_stim
                                     ctrl_run_onset_ratiotype,  # class_ctrl 
-                                    baseline_var,  # var
-                                    stim_var,  # var_stim
-                                    ctrl_var,  # var_ctrl
+                                    baseline_var.item(),  # var
+                                    stim_var.item(),  # var_stim
+                                    ctrl_var.item(),  # var_ctrl
                                     baseline_SI,  # SI
                                     stim_SI,  # SI_stim
                                     ctrl_SI,  # SI_ctrl
@@ -501,15 +464,10 @@ for pathname in paths[19:]:
                                     good_mean,  # prof_good_mean
                                     good_sem,  # prof_good_sem
                                     bad_mean,  # prof_bad_mean
-                                    bad_sem,  # prof_bad_sem
-                                    good_mean_matlab,
-                                    good_sem_matlab,
-                                    bad_mean_matlab,
-                                    bad_sem_matlab
+                                    bad_sem  # prof_bad_sem
                                         ],
                                     dtype='object')
         
         
 #%% save dataframe 
 df.to_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_pyr_profiles.pkl')
-print('\ndataframe saved')
