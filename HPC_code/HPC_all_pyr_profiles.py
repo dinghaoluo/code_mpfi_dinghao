@@ -23,55 +23,8 @@ from common import mpl_formatting
 mpl_formatting()
 
 
-#%% parameters
-# behaviour 
-track_length = 200  # in cm
-bin_size = 0.1  # in cm
-
-# ephys 
-samp_freq = 1250  # in Hz
-max_time = 10  # collect (for each trial) a maximum of 10 s of spiking-profile
-max_samples = samp_freq * max_time
-
-# pre_post ratio thresholds 
-run_onset_activated_thres = 0.80
-run_onset_inhibited_thres = 1.25
-
-
-#%% GPU acceleration
-try:
-    import cupy as cp 
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
-except ModuleNotFoundError:
-    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
-    GPU_AVAILABLE = False
-except Exception as e:
-    # catch any other unexpected errors and print a general message
-    print(f'An error occurred: {e}')
-    GPU_AVAILABLE = False
-
-if GPU_AVAILABLE:
-    # we are assuming that there is only 1 GPU device
-    xp = cp
-    import numpy as np
-    from common import sem_gpu as sem
-    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
-    print(f'GPU-acceleration with {str(name)} and cupy')
-else:
-    import numpy as np 
-    from scipy.stats import sem 
-    xp = np
-    print('GPU-acceleartion unavailable')
-
-
-#%% load paths to recordings 
-sys.path.append('Z:\Dinghao\code_dinghao')
-import rec_list
-paths = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt
-
-
 #%% dataframe initialisation/loading
-fname = r'Z:\Dinghao\code_dinghao\HPC_all\all_pyr_profiles.pkl'
+fname = r'Z:\Dinghao\code_dinghao\HPC_all\HPC_all_pyr_profiles.pkl'
 if os.path.exists(fname):
     df = pd.read_pickle(fname)
     print(f'df loaded from {fname}')
@@ -114,6 +67,55 @@ else:
         'prof_bad_sem_matlab': [],
         }
     df = pd.DataFrame(sess)
+
+
+
+#%% load paths to recordings 
+sys.path.append('Z:\Dinghao\code_dinghao')
+import rec_list
+paths = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt
+
+
+
+#%% parameters
+# behaviour 
+track_length = 200  # in cm
+bin_size = 0.1  # in cm
+
+# ephys 
+samp_freq = 1250  # in Hz
+max_time = 10  # collect (for each trial) a maximum of 10 s of spiking-profile
+max_samples = samp_freq * max_time
+
+# pre_post ratio thresholds 
+run_onset_activated_thres = 0.80
+run_onset_inhibited_thres = 1.25
+
+
+#%% GPU acceleration
+try:
+    import cupy as cp 
+    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
+except ModuleNotFoundError:
+    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
+    GPU_AVAILABLE = False
+except Exception as e:
+    # catch any other unexpected errors and print a general message
+    print(f'An error occurred: {e}')
+    GPU_AVAILABLE = False
+
+if GPU_AVAILABLE:
+    # we are assuming that there is only 1 GPU device
+    xp = cp
+    import numpy as np
+    from common import sem_gpu as sem
+    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
+    print(f'GPU-acceleration with {str(name)} and cupy')
+else:
+    import numpy as np 
+    from scipy.stats import sem 
+    xp = np
+    print('GPU-acceleartion unavailable')
 
 
 #%% functions 
@@ -511,5 +513,5 @@ for pathname in paths[19:]:
         
         
 #%% save dataframe 
-df.to_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_pyr_profiles.pkl')
+df.to_pickle(fname)
 print('\ndataframe saved')

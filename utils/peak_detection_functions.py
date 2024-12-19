@@ -38,20 +38,27 @@ def neu_shuffle(trains,
     from tqdm import tqdm
     if GPU_AVAILABLE: 
         import cupy as xp
+        device = 'GPU'
     else: 
         xp = np
+        device = 'CPU'
         
     trains = xp.asarray(trains)
     tot_trials = trains.shape[0]
     shuf_mean_arr = xp.zeros([bootstrap, samp_freq * around])
     
-    for shuf in tqdm(range(bootstrap), desc='peak detection'):
-        # every time, shuffle every single trial
-        shuf_arr = xp.zeros([tot_trials, samp_freq * around])
-        rand_shift = xp.random.randint(1, samp_freq * around, tot_trials)
-        for trial in range(tot_trials):
-            shuf_arr[trial,:] = xp.roll(trains[trial], -rand_shift[trial])
-        shuf_mean_arr[shuf,:] = xp.mean(shuf_arr, axis=0)
+    # pre-generate random shifts for all trials
+    rand_shift = xp.random.randint(1, samp_freq * around, tot_trials)
+    
+    # create an index array for shifts
+    indices = xp.arange(samp_freq * around)
+    
+    for shuf in tqdm(range(bootstrap), desc=f'peak detection ({device})'):
+        # shift all trials in parallel
+        shifted_indices = (indices[None, :] - rand_shift[:, None]) \
+            % (samp_freq * around)  # modulo here is to wrap the negative indices to the back (e.g. -5%9=4)
+        shuf_arr = trains[xp.arange(tot_trials)[:,None], shifted_indices]  # apply shifts
+        shuf_mean_arr[shuf, :] = xp.mean(shuf_arr, axis=0)
     
     shuf_mean = xp.mean(shuf_mean_arr, axis=0)
     shuf_sig = xp.percentile(
@@ -69,7 +76,7 @@ def neu_shuffle(trains,
 def peak_detection(trains, 
                    first_stim=-1,
                    around=6,
-                   peak_width=1, 
+                   peak_width=1,
                    min_peak=.2,
                    samp_freq=1250,
                    centre_bin=3750,
@@ -120,18 +127,16 @@ def peak_detection(trains,
     diffs_mean_shuf = mean_train_around - shuf_sig_95_around
     idx_diffs = [diff>0 for diff in diffs_mean_shuf]
 
-    # detect consecutive truths   
-    groups_0_1 = groupby(idx_diffs, lambda x: x)
-    tot_groups = len(list(groups_0_1))
-
+    # detect consecutive truths
+    tot_groups = len(list(groupby(idx_diffs)))  # a stupid way to prevent iterator consumption causing problems, 19 Dec 2024
+    groups_0_1 = groupby(idx_diffs)
+    
     max_truths = 0
-    group_count = 0
-    for key, group in groups_0_1:
-        consecutive_truths = sum(list(groups_0_1))  # how many consecutive 1's are there in this group
+    for group_count, (key, group) in enumerate(groups_0_1):
+        consecutive_truths = sum(list(group))  # how many consecutive 1's are there in this group
         if group_count!=0 and group_count!=tot_groups-1 and consecutive_truths>max_truths:
             # if this group is not the head/tail groups and if consecutively more truths are detected than before
             max_truths = consecutive_truths  # set the consecutive truths in this group as the new max count 
-        group_count+=1
     
     return max_truths > int(min_peak * samp_freq), mean_train_around, shuf_sig_95_around
 
@@ -140,6 +145,7 @@ def plot_peak_v_shuf(cluname,
                      shuf_prof,
                      peak,
                      savepath,
+                     peak_width=1,
                      samp_freq=1250):
     """
     plots the mean spike profile against shuffled profile for a single cell
@@ -162,17 +168,18 @@ def plot_peak_v_shuf(cluname,
     fig, ax = plt.subplots(figsize=(2,1.6))
 
     ax.set(title=f'{cluname}\nRO_peak={peak}',
-           xlim=(-.5, .5),
+           xlim=(-peak_width/2, peak_width/2),
            xlabel='time from run-onset (s)',
            ylabel='spike rate (Hz)')
     
-    xaxis = np.arange(-1250/2, 1250/2) / 1250
+    xaxis = np.arange(-samp_freq*peak_width/2, samp_freq*peak_width/2) / samp_freq
     mean_line, = ax.plot(xaxis, mean_prof)
     shuf_line, = ax.plot(xaxis, shuf_prof, color='grey')
     
     ax.legend([mean_line, shuf_line],
               ['mean', 'shuf.'],
-              frameon=False)
+              frameon=False,
+              fontsize=5)
 
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)

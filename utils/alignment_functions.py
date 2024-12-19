@@ -36,14 +36,15 @@ def cir_shuf(conv_aligned_spike_arr,
         trial_shuf_array[trial,:] = xp.roll(conv_aligned_spike_arr[trial], -rand_shift)
     return xp.mean(trial_shuf_array, axis=0)
 
-def bootstrap_ratio(conv_aligned_spike_array, 
+def bootstrap_ratio(spike_arr, 
                     bootstrap=500, 
+                    samp_freq=1250,
                     length=6*1250, 
                     GPU_AVAILABLE=False):
     """
     Parameters
     ----------
-    conv_aligned_spike_array : numpy array
+    spike_arr : numpy array
         smoothed spike array of one clu in this sessios, aligned to 1st-licks.
     bootstrap : int, optional
         the number of times we want to run the bootstrapping. The default is 500.
@@ -57,11 +58,24 @@ def bootstrap_ratio(conv_aligned_spike_array,
     from tqdm import tqdm
     if GPU_AVAILABLE:
         import cupy as xp
+        device = 'GPU'
     else:
         import numpy as xp
+        device = 'CPU'
     
+    tot_trials = spike_arr.shape[0]
     shuf_ratio = xp.zeros(bootstrap)
-    for shuffle in tqdm(range(bootstrap), desc='lick sensitivity'):
-        shuf_result = cir_shuf(conv_aligned_spike_array, length, GPU_AVAILABLE=GPU_AVAILABLE)
-        shuf_ratio[shuffle] = xp.sum(shuf_result[3750:3750+1250])/xp.sum(shuf_result[3750-1250:3750])
+    
+    # pre-compute random shifts
+    indices = xp.arange(length)
+
+    # shuffle in parallel 
+    for shuf in tqdm(range(bootstrap), desc=f'lick sensitivity ({device})'):
+        rand_shifts = xp.random.randint(1, length, tot_trials)
+        shifted_indices = (indices[None, :] - rand_shifts[:, None]) % length
+        shuf_arr = spike_arr[xp.arange(tot_trials)[:,None], shifted_indices]
+        shuf_result = xp.mean(shuf_arr, axis=0)
+        
+        shuf_ratio[shuf] = xp.sum(shuf_result[length//2:length//2+samp_freq])/xp.sum(shuf_result[length//2-samp_freq:length//2])
+        
     return xp.percentile(shuf_ratio, [99.9, 99, 95, 50, 5, 1, .1], axis=0)

@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jun  1 16:29:45 2023
+Modified on Thu 19 Dec 2024 12:25:
+    - improved readability 
+    - attempts to modularise scripts
 
-Does the RO-peak have anything to do with licking?
+determine whether run-onset burst amplitude is correlated with early/late 1st-lick timing
 
 @author: Dinghao Luo
 """
@@ -13,142 +16,131 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio
 import pandas as pd
+import sys 
 from scipy.stats import ttest_rel, ranksums, wilcoxon
 
-# plotting parameters
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from common import mpl_formatting
+mpl_formatting()
 
-xaxis = np.arange(6*1250)/1250-1
+
+#%% parameters 
+samp_freq = 1250  # in Hz
+run_onset_bin = 3750  # bin for run-onset
+max_trial_length = 6  # in seconds 
+time_bef = 1  # in seconds
+time_aft = max_trial_length-time_bef
+burst_window = .5  # in seconds, around the run-onset
+
+xaxis = np.arange(max_trial_length * samp_freq) / samp_freq - time_bef
 
 
 #%% load data 
-rasters = np.load('Z:\Dinghao\code_dinghao\LC_all\LC_all_rasters_simp_name.npy',
-                  allow_pickle=True).item()
-all_train = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
-                    allow_pickle=True).item()
+all_rasters = np.load(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_rasters.npy',
+    allow_pickle=True
+    ).item()
+all_trains = np.load(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_trains.npy',
+    allow_pickle=True
+    ).item()
+cell_profiles = pd.read_pickle(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
+    )
 
-cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
-
-
-#%% specify RO peaking putative Dbh cells
-clu_list = list(cell_prop.index)
-
-tag_list = []; put_list = []
-tag_rop_list = []; put_rop_list = []
-for clu in cell_prop.index:
-    tg = cell_prop['tagged'][clu]
-    pt = cell_prop['putative'][clu]
-    rop = cell_prop['peakness'][clu]
-    
-    if tg:
-        tag_list.append(clu)
-        if rop:
-            tag_rop_list.append(clu)
-    if pt:
-        put_list.append(clu)
-        if rop:
-            put_rop_list.append(clu)
+clu_list = list(cell_profiles.index)
 
 
 #%% MAIN 
-noStim = 'Y'
-window = [3750-313, 3750+313]
-
 for cluname in clu_list:
-    if cluname==clu_list[171]:
-        continue
     print(cluname)
-    raster = rasters[cluname]
-    train = all_train[cluname]
+    rasters = all_rasters[cluname]
+    trains = all_trains[cluname]
     
-    filename = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
-    alignRun = sio.loadmat(filename)
+    align_run_file = sio.loadmat(
+        r'Z:\Dinghao\MiceExp\ANMD{}\{}\{}\{}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'
+        .format(
+            cluname[1:5], cluname[:14], cluname[:17], cluname[:17]
+            )
+        )
     
-    licks = alignRun['trialsRun']['lickLfpInd'][0][0][0][1:]
-    starts = alignRun['trialsRun']['startLfpInd'][0][0][0][1:]
-    pumps = alignRun['trialsRun']['pumpLfpInd'][0][0][0][1:]
-    tot_trial = licks.shape[0]
-    for trial in range(tot_trial):
+    licks = align_run_file['trialsRun']['lickLfpInd'][0][0][0][1:]
+    starts = align_run_file['trialsRun']['startLfpInd'][0][0][0][1:]
+    pumps = align_run_file['trialsRun']['pumpLfpInd'][0][0][0][1:]
+    tot_trials = licks.shape[0]
+    for trial in range(tot_trials):
         if len(pumps[trial])>0:
             pumps[trial] = pumps[trial][0] - starts[trial]
         else:
-            pumps[trial] = 20000
+            pumps[trial] = np.nan
     
-    behParf = 'Z:/Dinghao/MiceExp/ANMD{}/{}/{}/{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(cluname[1:5], cluname[:14], cluname[:17], cluname[:17])
-    behPar = sio.loadmat(behParf)
-    stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-    stimOn_ind = np.where(stimOn!=0)[0]+1
-    bad_beh_ind = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
+    beh_parameters_file = sio.loadmat(
+        r'Z:\Dinghao\MiceExp\ANMD{}\{}\{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
+        .format(
+            cluname[1:5], cluname[:14], cluname[:17], cluname[:17]
+            )
+        )
+    stim_on = beh_parameters_file['behPar']['stimOn'][0][0][0][1:]
+    stim_idx = np.where(stim_on!=0)[0]+1  # +1 for legacy MATLAB indexing problem 
+    bad_idx = np.where(beh_parameters_file['behPar'][0]['indTrBadBeh'][0]==1)[0]-1
     
     first_licks = []
-    for trial in range(tot_trial):
-        lk = [l for l in licks[trial] if l-starts[trial] > 1250]  # only if the animal does not lick in the first second (carry-over licks)
+    for trial in range(tot_trials):
+        lk = [l for l in licks[trial] if l-starts[trial] > samp_freq]  # only if the animal does not lick in the first second (carry-over licks)
         if len(lk)==0:
-            first_licks.append(10000)
+            first_licks.append(np.nan)
         else:
             first_licks.extend(lk[0]-starts[trial])
 
-    temp = list(np.arange(tot_trial))
+    temp = list(np.arange(tot_trials))
     licks_ordered, temp_ordered = zip(*sorted(zip(first_licks, temp)))
     
     # pick out early and late trials for plotting, Dinghao 18 Sept 2024
     early_trials = []; late_trials = []
     for i in range(30):
-        if temp_ordered[i] not in bad_beh_ind and temp_ordered[i] not in stimOn_ind:
+        if temp_ordered[i] not in bad_idx and temp_ordered[i] not in stim_idx:
             if len(early_trials)<10:
                 early_trials.append(temp_ordered[i])
-        if temp_ordered[-(i+1)] not in bad_beh_ind and temp_ordered[-(i+1)] not in stimOn_ind:
+        if temp_ordered[-(i+1)] not in bad_idx and temp_ordered[-(i+1)] not in stim_idx:  # this goes in the reverse direction 
             if len(late_trials)<10:
                 late_trials.append(temp_ordered[-(i+1)])
 
     # plotting
     fig, axs = plt.subplots(2, 1, figsize=(3,2.5))
     
-    early_prof = np.zeros((10, 1250*6))
-    late_prof = np.zeros((10, 1250*6))
+    early_prof = np.zeros((10, samp_freq * max_trial_length))
+    late_prof = np.zeros((10, samp_freq * max_trial_length))
     
     for i, trial in enumerate(early_trials):
-        curr_raster = raster[trial]
-        early_prof[i, :len(train[trial][2500:2500+6*1250])] = train[trial][2500:2500+6*1250]*500
+        curr_raster = rasters[trial]
+        early_prof[i, :len(trains[trial][run_onset_bin-samp_freq:run_onset_bin+samp_freq*time_aft])] = \
+            trains[trial][run_onset_bin-samp_freq:run_onset_bin+samp_freq*time_aft]*samp_freq
         curr_trial = np.where(curr_raster==1)[0]
-        curr_trial = [(s-3750)/1250 for s in curr_trial if s>2500]  # starts from -1 s 
-        
-        c = 'grey'
-        calpha = 0.7
-        dotsize = 0.35
+        curr_trial = [(s - 3 * samp_freq) / samp_freq 
+                      for s in curr_trial 
+                      if s > run_onset_bin - samp_freq]  # starts from -1 s 
         
         axs[1].scatter(curr_trial, [i+1]*len(curr_trial),
-                       color=c, alpha=calpha, s=dotsize)
-        axs[1].plot([first_licks[trial]/1250, first_licks[trial]/1250],
+                       color='grey', alpha=.7, s=.35)
+        axs[1].plot([first_licks[trial]/samp_freq, first_licks[trial]/samp_freq],
                     [i, i+1],
                     linewidth=2, color='orchid')
-        # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
-        #               [trial, trial+1],
-        #               linewidth=2, color='darkgreen')
         
     for i, trial in enumerate(reversed(late_trials)):
-        curr_raster = raster[trial]
-        late_prof[i, :len(train[trial][2500:2500+6*1250])] = train[trial][2500:2500+6*1250]*500
+        curr_raster = rasters[trial]
+        late_prof[i, :len(trains[trial][run_onset_bin-samp_freq:run_onset_bin+samp_freq*time_aft])] = \
+            trains[trial][run_onset_bin-samp_freq:run_onset_bin+samp_freq*time_aft]*samp_freq
         curr_trial = np.where(curr_raster==1)[0]
-        curr_trial = [(s-3750)/1250 for s in curr_trial if s>2500]  # starts from -1 s 
-        
-        c = 'grey'
-        calpha = 0.7
-        dotsize = 0.35
+        curr_trial = [(s - 3 * samp_freq) / samp_freq 
+                      for s in curr_trial 
+                      if s > run_onset_bin - samp_freq]  # starts from -1 s
         
         axs[0].scatter(curr_trial, [i+1]*len(curr_trial),
-                       color=c, alpha=calpha, s=dotsize)
-        axs[0].plot([first_licks[trial]/1250, first_licks[trial]/1250],
+                       color='grey', alpha=.7, s=.35)
+        axs[0].plot([first_licks[trial]/samp_freq, first_licks[trial]/samp_freq],
                     [i, i+1],
                     linewidth=2, color='orchid')
-        # axs['A'].plot([pumps[temp_ordered[trial]]/1250, pumps[temp_ordered[trial]]/1250],
-        #               [trial, trial+1],
-        #               linewidth=2, color='darkgreen')
         
-    
     e_mean = np.mean(early_prof, axis=0)
     l_mean = np.mean(late_prof, axis=0)
     max_y = max(max(e_mean), max(l_mean))
