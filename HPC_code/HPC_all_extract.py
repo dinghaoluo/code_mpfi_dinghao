@@ -6,8 +6,6 @@ pool all cells from all recording sessions
 modified 11 Dec 2024 to process with all trials (not skipping trial 0) and 
     added GPU support
 
-*contains interneurones*
-
 @author: Dinghao Luo
 """
 
@@ -44,32 +42,32 @@ except Exception as e:
 if GPU_AVAILABLE:
     # we are assuming that there is only 1 GPU device
     xp = cp
-    import numpy as np  # needed for the empty arrays... CuPy empty arrays are not the same as NumPy ones
+    import cupyx.scipy.signal as cpss # for GPU
     name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
-    print(f'GPU-acceleration with {str(name)} and cupy')
+    print(f'GPU-acceleration with {str(name)} and cupy\n')
 else:
     import numpy as np 
     xp = np
-    print('GPU-acceleartion unavailable')
+    from scipy.signal import fftconvolve  # for CPU
+    print('GPU-acceleartion unavailable\n')
 
 
 #%% parameters 
 samp_freq = 1250  # Hz
 sigma_spike = samp_freq/10
+max_length = 12500  # samples 
 
 gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
 
 
 #%% main
-for pathname in paths[:1]:
+for pathname in paths:
     all_trains = {}
     all_rasters = {}
     
     recname = pathname[-17:]
     print(recname)  # recnames are as such: 'Axxxr-202xxxxx-0x'
-    
-    t0 = time()
-    
+        
     filename = os.path.join(pathname, f'{pathname[-17:]}_DataStructure_mazeSection1_TrialType1')
     BehavLFP = mat73.loadmat('{}.mat'.format(
         os.path.join(pathname, f'{pathname[-17:]}_BehavElectrDataLFP')))
@@ -84,49 +82,55 @@ for pathname in paths[:1]:
     tot_trial = time_aft.shape[0]  # trial 1 is empty but tot_trial includes it for now
         
     # spike reading
-    spike_time_aft = np.empty(shape=(tot_clu, tot_trial), dtype='object')
-    spike_time_bef = np.empty(shape=(tot_clu, tot_trial), dtype='object')
+    spike_time = np.empty((tot_clu, tot_trial), dtype='object')
     for clu in tqdm(range(tot_clu), desc='reading spike trains'):
-        for trial in range(1, tot_trial):
-            if isinstance(spike_time_file[time_aft[trial,clu]][0], np.uint64):
-                spike_time_aft[clu,trial] = []
-            else:
-                spike_time_aft[clu,trial] = [t for t in spike_time_file[time_aft[trial,clu]][0]]
-            if isinstance(spike_time_file[time_bef[trial,clu]][0], np.uint64):
-                spike_time_bef[clu,trial] = []
-            else:
-                spike_time_bef[clu,trial] = [t for t in spike_time_file[time_bef[trial,clu]][0]]
-                
-    # the convolution part is the only part where GPU acceleration is used (xp instead of np)
-    rasters = np.empty(shape=(tot_clu, tot_trial), dtype='object')  # this is the output rasters file
-    trains = np.empty(shape=(tot_clu, tot_trial), dtype='object')  # contain the convolved spike trains of all neurones
-    for clu in tqdm(range(tot_clu), desc='convolving spike trains'):
-        cluname = f'{pathname[-17:]} clu{clu+2} {int(shank[clu])} {int(localClu[clu])}'
-        for trial in range(tot_trial):
-            # pre-post concatenation logic 
-            if spike_time_bef[clu][trial]!=None and spike_time_aft[clu][trial]!=None:
-                spikes = np.concatenate([spike_time_bef[clu][trial],
-                                         spike_time_aft[clu][trial]])
-            elif spike_time_bef[clu][trial]!=None:
-                spikes = np.asarray(spike_time_bef[clu][trial])
-            elif spike_time_aft[clu][trial]!=None:
-                spikes = np.asarray(spike_time_aft[clu][trial])
-            else:
-                rasters[clu][trial] = np.zeros(12500)  # default to 10 s of emptiness if no spikes in this trial
-                trains[clu][trial] = np.zeros(12500)
-                continue
-            
-            # aligning the spikes correctly, otherwise spike_train_trial[spikes] 
-            #   would = 1 which makes no sense
-            spikes = [int(s+3750) for s in spikes]
-            
-            spike_train_trial = xp.zeros(spikes[-1]+1)  # +1 to ensure inclusion of the last spike 
-            spike_train_trial[spikes] = 1
-            spike_train_conv = xp.convolve(spike_train_trial, gaus_spike, mode='same')
-            
-            rasters[clu][trial] = spike_train_trial.get() if GPU_AVAILABLE else spike_train_trial
-            trains[clu][trial] = spike_train_conv.get() if GPU_AVAILABLE else spike_train_conv
+        # process all trials at once using vectorised operations
+        combined_spike_time = np.array([
+            # concatenate spike times from before and after
+            np.concatenate((
+                spike_time_file[time_bef[trial, clu]][0]
+                if not isinstance(spike_time_file[time_bef[trial, clu]][0], np.uint64) else [],
+                spike_time_file[time_aft[trial, clu]][0]
+                if not isinstance(spike_time_file[time_aft[trial, clu]][0], np.uint64) else []
+            ))
+            for trial in range(tot_trial)
+        ], dtype='object')
     
+        # store the combined spike times
+        spike_time[clu, :] = combined_spike_time
+    
+    # initialisation
+    ''' 
+    this has undergone some revamping--empty object arrays were initially used 
+    when initialising all_trains and all_rasters, but the outdated array type
+    defies vectorisation; considering that one never needed the arrays to be of
+    variable-length, I now initialise them to be fixed-length, numeric arrays 
+    for better performance and less memory usage
+    20 Dec 2024 Dinghao 
+    '''
+    rasters = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
+    trains = xp.zeros_like(rasters)
+    for clu in tqdm(range(tot_clu), desc='generating spike array'):
+        for trial in range(tot_trial):
+            # adjust spike index alignment (no negative indices)
+            spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
+            spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
+            rasters[clu, trial, spikes] = 1  # set spike times to 1
+    
+    t0 = time()
+    if GPU_AVAILABLE:
+        # GPU-accelerated convolution using CuPy
+        trains = cpss.fftconvolve(rasters, gaus_spike[None, None, :], mode='same') * samp_freq
+        trains = trains.get()
+        rasters = rasters.get()
+        print(f'convolution on GPU done in {time()-t0} s')
+    else:
+        # CPU convolution using SciPy's FFT-based convolution for better performance
+        trains = fftconvolve(rasters, gaus_spike[None, None, :], mode='same')
+        print(f'convolution on CPU done in {time()-t0} s')
+    
+    for clu in range(tot_clu):
+        cluname = f'{recname} clu{clu+2} {int(shank[clu])} {int(localClu[clu])}'
         all_trains[cluname] = trains[clu]
         all_rasters[cluname] = rasters[clu]
     

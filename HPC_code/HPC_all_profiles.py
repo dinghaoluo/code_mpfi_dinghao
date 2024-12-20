@@ -6,6 +6,8 @@ Modified on Tue 10 Dec 2024
 genearte profiles for all pyramidal cells in hippocampus recordings, 
     segregated into baseline, ctrl and stim trials 
 
+dependent on HPC_all_extract.py
+
 @author: Dinghao Luo
 """
 
