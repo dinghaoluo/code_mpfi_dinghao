@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed 27 Sept 14:44:27 2023
-
-compare all HPC cell's spiking profile between cont and stim 
-
 Modified on Fri 10 Nov 
+Modified on Fri 20 Dec 2024:
+    - merged everything together (HPCLC, HPCLCterm, pyr, int, you name it!)
 
-added ttest test to define responsive neurones
+compare all HPC cell's spiking profile between baseline ctrl and stim 
 
-@author: Dinghao
+@author: Dinghao Luo
 """
 
 
@@ -21,30 +20,23 @@ import os
 import scipy.io as sio 
 from scipy.stats import sem, ttest_rel
 
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from common import mpl_formatting
+mpl_formatting()
+
+sys.path.append(r'Z:\Dinghao\code_dinghao')
+import rec_list
+pathHPCLC = rec_list.pathHPCLCopt
+pathHPCLCterm = rec_list.pathHPCLCtermopt
+paths = pathHPCLC + pathHPCLCterm
+
+
+#%% parameters
 # plotting parameters 
 xaxis = np.arange(-1250, 5000)/1250  # 1 s bef, 4 s after
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
 
 
-#%% suppress warnings...
-# because we get this:
-# UserWarning: set_ticklabels() should only be used with a fixed number of ticks, i.e. after set_ticks() or using a FixedLocator.
-# which is super annoying 
-import warnings
-warnings.filterwarnings('ignore')
-
-
-#%% load paths to recordings 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
-import rec_list
-pathHPC = rec_list.pathHPCLCopt
-
-
-#%% dataframe to contain all results 
+#%% dataframe initialisation/loading
 profiles = {'recname': [],
             'ctrl_pre_post': [],
             'stim_pre_post': [],

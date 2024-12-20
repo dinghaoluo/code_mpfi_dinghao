@@ -14,6 +14,7 @@ genearte profiles for all pyramidal cells in hippocampus recordings,
 import mat73
 import scipy.io as sio
 from tqdm import tqdm 
+from time import time 
 import sys 
 import os 
 import pandas as pd
@@ -25,6 +26,7 @@ mpl_formatting()
 
 #%% dataframe initialisation/loading
 fname = r'Z:\Dinghao\code_dinghao\HPC_all\HPC_all_pyr_profiles.pkl'
+fname = ''
 if os.path.exists(fname):
     df = pd.read_pickle(fname)
     print(f'df loaded from {fname}')
@@ -65,6 +67,12 @@ else:
         'prof_good_sem_matlab': [],
         'prof_bad_mean_matlab': [],
         'prof_bad_sem_matlab': [],
+        'MI': [],  # modulation index
+        'MI_early': [],
+        'MI_late': [],
+        'MI_shuf': [],
+        'MI_shuf_early': [],
+        'MI_shuf_late': []
         }
     df = pd.DataFrame(sess)
 
@@ -76,11 +84,13 @@ import rec_list
 paths = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt
 
 
-
 #%% parameters
+global samp_freq, run_onset_bin
+
 # behaviour 
 track_length = 200  # in cm
 bin_size = 0.1  # in cm
+run_onset_bin = 3750  # in bins 
 
 # ephys 
 samp_freq = 1250  # in Hz
@@ -116,6 +126,15 @@ else:
     from scipy.stats import sem 
     xp = np
     print('GPU-acceleartion unavailable')
+    
+'''
+So far it seems that there is nothing to parallelise in this script for signi-
+ficant improvement in performance, so let's just stick to CPU computation
+'''
+print('not using GPU acceleration due to inefficiency')
+xp = np  # negate CuPy assignment
+GPU_AVAILABLE = False
+from scipy.stats import sem
 
 
 #%% functions 
@@ -160,6 +179,61 @@ def classify_run_onset_activation_ratio(train,
         ratiotype = 'run-onset unresponsive'
         
     return ratio, ratiotype
+
+def compute_modulation_index(ctrl, stim, 
+                             span=4):
+    global samp_freq, run_onset_bin
+    
+    # first calculate MI over the full trial ({span} seconds)
+    ctrl_full = xp.nanmean(ctrl[run_onset_bin:run_onset_bin+samp_freq*span])
+    stim_full = xp.nanmean(stim[run_onset_bin:run_onset_bin+samp_freq*span])
+    MI_full = (stim_full-ctrl_full) / (stim_full+ctrl_full)
+    
+    # demarcation 
+    demarc = int(run_onset_bin+samp_freq*span/2)
+    
+    # next, early MI and late MI
+    ctrl_early = xp.nanmean(ctrl[run_onset_bin:demarc])
+    stim_early = xp.nanmean(stim[run_onset_bin:demarc])
+    MI_early = (stim_early-ctrl_early) / (stim_early+ctrl_early)
+    ctrl_late = xp.nanmean(ctrl[demarc:run_onset_bin+samp_freq*span])
+    stim_late = xp.nanmean(stim[demarc:run_onset_bin+samp_freq*span])
+    MI_late = (stim_late-ctrl_late) / (stim_late+ctrl_late)
+    
+    return MI_full, MI_early, MI_late
+
+def compute_modulation_index_shuf(ctrl_matrix, stim_matrix,
+                                  span=4,
+                                  bootstrap=100):
+    global samp_freq, run_onset_bin
+    pooled_matrix = xp.vstack((ctrl_matrix, stim_matrix))
+    pooled_idx = xp.arange(ctrl_matrix.shape[0]+stim_matrix.shape[0])
+    shuf_ctrl_idx = xp.zeros((bootstrap, len(ctrl_idx)), dtype=int)
+    shuf_stim_idx = xp.zeros((bootstrap, len(ctrl_idx)), dtype=int)
+    for i in range(bootstrap):  # shuffle n times
+        shuf = xp.random.permutation(pooled_idx)
+        shuf_ctrl_idx[i, :] = shuf[:len(ctrl_idx)]
+        shuf_stim_idx[i, :] = shuf[len(ctrl_idx):]
+    shuf_ctrl_mean = pooled_matrix[shuf_ctrl_idx, :].mean(axis=0).mean(axis=0)
+    shuf_stim_mean = pooled_matrix[shuf_stim_idx, :].mean(axis=0).mean(axis=0)
+    
+    # first calculate MI over the full trial ({span} seconds)
+    ctrl_full = xp.nanmean(shuf_ctrl_mean[run_onset_bin:run_onset_bin+samp_freq*span])
+    stim_full = xp.nanmean(shuf_stim_mean[run_onset_bin:run_onset_bin+samp_freq*span])
+    MI_full = (stim_full-ctrl_full) / (stim_full+ctrl_full)
+    
+    # demarcation 
+    demarc = int(run_onset_bin+samp_freq*span/2)
+    
+    # next, early MI and late MI
+    ctrl_early = xp.nanmean(shuf_ctrl_mean[run_onset_bin:demarc])
+    stim_early = xp.nanmean(shuf_stim_mean[run_onset_bin:demarc])
+    MI_early = (stim_early-ctrl_early) / (stim_early+ctrl_early)
+    ctrl_late = xp.nanmean(shuf_ctrl_mean[demarc:run_onset_bin+samp_freq*span])
+    stim_late = xp.nanmean(shuf_stim_mean[demarc:run_onset_bin+samp_freq*span])
+    MI_late = (stim_late-ctrl_late) / (stim_late+ctrl_late)
+    
+    return MI_full, MI_early, MI_late  # this is shuffled 
 
 def compute_spatial_information(spike_counts, occupancy):
     """
@@ -249,6 +323,9 @@ def compute_trial_by_trial_variability(train):
     Returns:
     - variability_median: Variability as 1 - median of pairwise correlations.
     """
+    if len(train)==0: 
+        return np.nan
+    
     # threshold each trial by the maximum length of a trial 
     max_length = max([len(v) for v in train])
     train = [v[:max_length] for v in train]
@@ -256,9 +333,13 @@ def compute_trial_by_trial_variability(train):
     # compute correlation matrix 
     num_trials = len(train)
     corr_matrix = xp.full((num_trials, num_trials), xp.nan)  # initialise
+    
     for i in range(num_trials):
         for j in range(i + 1, num_trials):  # only compute upper triangular
-            corr_matrix[i, j] = xp.corrcoef(train[i], train[j])[0, 1]
+            if xp.nanstd(train[i]) == 0 or xp.nanstd(train[j]) == 0:
+                corr_matrix[i, j] = np.nan
+            else:
+                corr_matrix[i, j] = xp.corrcoef(train[i], train[j])[0, 1]
 
     # extract upper triangular correlations
     corr_values = corr_matrix[xp.triu_indices(num_trials, k=1)]
@@ -275,7 +356,23 @@ def get_good_bad_idx(beh_series):
     
     return good_idx, bad_idx
 
+def get_good_bad_idx_MATLAB(beh_series):
+    beh_parameter_file = sio.loadmat(
+        f'{pathname}{pathname[-18:]}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
+        )    
+    bad_idx_matlab = [trial for trial, quality 
+                      in enumerate(beh_parameter_file['behPar'][0]['indTrBadBeh'][0][0])
+                      if quality]
+    good_idx_matlab = [trial for trial, quality 
+                       in enumerate(beh_parameter_file['behPar'][0]['indTrBadBeh'][0][0])
+                       if not quality]
+    
+    return good_idx_matlab, bad_idx_matlab
+
 def get_trial_matrix(trains, trialtype_idx, max_samples, clu):
+    if len(trialtype_idx)==0:  # if there is no trial in the list 
+        return np.nan
+    
     temp_matrix = xp.zeros((len(trialtype_idx), max_samples))
     for idx, trial in enumerate(trialtype_idx):
         try:
@@ -330,9 +427,11 @@ def load_dist_spike_array(dist_filename):
 
 
 #%% MAIN
-for pathname in paths[19:]:
+for pathname in paths:
     recname = pathname[-17:]
     print(recname)
+    
+    t0 = time()
     
     if pathname in rec_list.pathHPCLCopt:
         prefix = 'HPCLC'
@@ -340,19 +439,15 @@ for pathname in paths[19:]:
         prefix = 'HPCLCterm'
     
     # load beh dataframe 
-    beh_df = load_beh_series(r'Z:\Dinghao\code_dinghao\behaviour\all_{}_sessions.pkl'.
-                                format(prefix), recname)
+    beh_df = load_beh_series(
+        r'Z:\Dinghao\code_dinghao\behaviour\all_{}_sessions.pkl'
+        .format(prefix), recname
+        )
     speeds = load_speeds(beh_df)
     good_idx, bad_idx = get_good_bad_idx(beh_df)
-    if not good_idx:  # if there is no good trials (most likely lickport artefacts)
-        continue
     
     # import bad beh trial indices from MATLAB pipeline 
-    behPar = sio.loadmat(pathname+pathname[-18:]+
-                         '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
-    bad_idx_matlab = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]
-    good_idx_matlab = np.arange(behPar['behPar'][0]['indTrBadBeh'][0].shape[1])
-    good_idx_matlab = np.delete(good_idx_matlab, bad_idx_matlab)
+    good_idx_matlab, bad_idx_matlab = get_good_bad_idx_MATLAB(pathname)
     
     # calculate occupancy
     distance_bins = xp.arange(0, track_length + bin_size, bin_size)
@@ -387,7 +482,8 @@ for pathname in paths[19:]:
         )
 
     # iterate over all pyramidal cells 
-    for i, pyr in tqdm(enumerate(pyr_idx), desc='collecting profiles'):
+    print('collecting profiles')
+    for i, pyr in tqdm(enumerate(pyr_idx)):
         # spike-profile matrix
         baseline_matrix = get_trial_matrix(trains, baseline_idx, max_samples, pyr)
         ctrl_matrix = get_trial_matrix(trains, ctrl_idx, max_samples, pyr)
@@ -410,6 +506,10 @@ for pathname in paths[19:]:
             ctrl_mean, run_onset_activated_thres, run_onset_inhibited_thres)
         stim_run_onset_ratio, stim_run_onset_ratiotype = classify_run_onset_activation_ratio(
             stim_mean, run_onset_activated_thres, run_onset_inhibited_thres)
+        
+        # modulation index calculation
+        MI, MI_early, MI_late = compute_modulation_index(ctrl_mean, stim_mean)
+        MI_shuf, MI_early_shuf, MI_late_shuf = compute_modulation_index_shuf(ctrl_matrix, stim_matrix)
         
         # trial by trial variatbility
         baseline_var = compute_trial_by_trial_variability(baseline_matrix)
@@ -437,19 +537,19 @@ for pathname in paths[19:]:
         
         # good/bad trial mean profiles 
         good_matrix = get_trial_matrix(trains, good_idx, max_samples, pyr)
-        good_mean = xp.nanmean(good_matrix, axis=0)
-        good_sem = sem(good_matrix, axis=0)
+        good_mean = xp.nanmean(good_matrix, axis=0) if good_idx else xp.array([])  # in case there is no bad trials
+        good_sem = sem(good_matrix, axis=0) if good_idx else xp.array([])
         bad_matrix = get_trial_matrix(trains, bad_idx, max_samples, pyr)
-        bad_mean = xp.nanmean(bad_matrix, axis=0) if bad_matrix.shape[0]!=0 else bad_matrix  # in case there is no bad trials
-        bad_sem = sem(bad_matrix, axis=0) if bad_matrix.shape[0]!=0 else bad_matrix 
+        bad_mean = xp.nanmean(bad_matrix, axis=0) if bad_idx else xp.array([])
+        bad_sem = sem(bad_matrix, axis=0) if bad_idx else xp.array([])
         
         # good/bad trial mean profiles (MATLAB)
         good_matrix_matlab = get_trial_matrix(trains, good_idx_matlab, max_samples, pyr)
-        good_mean_matlab = xp.nanmean(good_matrix_matlab, axis=0)
-        good_sem_matlab = sem(good_matrix_matlab, axis=0)
+        good_mean_matlab = xp.nanmean(good_matrix_matlab, axis=0) if good_idx_matlab else xp.array([])
+        good_sem_matlab = sem(good_matrix_matlab, axis=0) if good_idx_matlab else xp.array([])
         bad_matrix_matlab = get_trial_matrix(trains, bad_idx_matlab, max_samples, pyr)
-        bad_mean_matlab = xp.nanmean(bad_matrix_matlab, axis=0) if bad_matrix_matlab.shape[0]!=0 else bad_matrix_matlab
-        bad_sem_matlab = sem(bad_matrix_matlab, axis=0) if bad_matrix_matlab.shape[0]!=0 else bad_matrix_matlab
+        bad_mean_matlab = xp.nanmean(bad_matrix_matlab, axis=0) if bad_idx_matlab else xp.array([])
+        bad_sem_matlab = sem(bad_matrix_matlab, axis=0) if bad_idx_matlab else xp.array([])
 
         # transfer stuff from VRAM back to RAM
         if GPU_AVAILABLE:
@@ -507,9 +607,17 @@ for pathname in paths[19:]:
                                     good_mean_matlab,
                                     good_sem_matlab,
                                     bad_mean_matlab,
-                                    bad_sem_matlab
+                                    bad_sem_matlab,
+                                    MI,  # ctrl v stim
+                                    MI_early,
+                                    MI_late,
+                                    MI_shuf,
+                                    MI_early_shuf,
+                                    MI_late_shuf
                                         ],
                                     dtype='object')
+        
+    print(f'{recname} done in {time()-t0} s\n')
         
         
 #%% save dataframe 

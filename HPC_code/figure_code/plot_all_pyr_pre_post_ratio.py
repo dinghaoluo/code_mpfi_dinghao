@@ -55,8 +55,8 @@ df_sorted = df.sort_values(by='pre_post')
 pop_mat = df_sorted['prof_mean'].to_numpy()
 pop_mat = np.asarray([normalise(cell[2500:2500+5*1250]) for cell in pop_mat])
 
-ON = df_sorted[df_sorted['class']=='run-onset activated']
-OFF = df_sorted[df_sorted['class']=='run-onset inhibited']
+ON = df_sorted[df_sorted['class']=='run-onset ON']
+OFF = df_sorted[df_sorted['class']=='run-onset OFF']
 
 
 #%% overall plot 
@@ -70,7 +70,23 @@ ax.set(title=f'{ON.shape[0]} ON, {OFF.shape[0]} OFF',
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\run_onset_overall{}'.
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\run_onset_overall_Greys{}'.
+        format(ext),
+        dpi=300,
+        bbox_inches='tight'
+        )
+    
+fig, ax = plt.subplots(figsize=(2,2))
+
+ax.imshow(pop_mat, aspect='auto', cmap='coolwarm', interpolation='none',
+          extent=(-1, 4, 0, pop_mat.shape[0]))
+ax.set(title=f'{ON.shape[0]} ON, {OFF.shape[0]} OFF',
+       xlabel='time from run-onset (s)',
+       ylabel='cell #')
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\run_onset_overall_coolwarm{}'.
         format(ext),
         dpi=300,
         bbox_inches='tight'

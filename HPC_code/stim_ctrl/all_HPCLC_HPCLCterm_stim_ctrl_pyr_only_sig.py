@@ -167,9 +167,7 @@ plt.xticks(rotation=45)
     
 plt.show()
 
-fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_responsive_pyr_only_divided_bar.png',
-            dpi=500,
-            bbox_inches='tight')
-
-fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_responsive_pyr_only_divided_bar.pdf',
-            bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_responsive_pyr_only_divided_bar.png',
+                dpi=300,
+                bbox_inches='tight')

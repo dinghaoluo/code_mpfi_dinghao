@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 import pandas as pd
 import sys 
-from scipy.stats import ttest_rel, ranksums, wilcoxon
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -54,6 +53,8 @@ clu_list = list(cell_profiles.index)
 #%% MAIN 
 for cluname in clu_list:
     print(cluname)
+    identity = cell_profiles.loc[cluname]['identity']
+    
     rasters = all_rasters[cluname]
     trains = all_trains[cluname]
     
@@ -163,28 +164,16 @@ for cluname in clu_list:
         for p in ['top', 'right']:
             axs[i].spines[p].set_visible(False)
     
-    fig.suptitle(cluname)
+    fig.suptitle(f'{cluname}\n{identity}')
     
     fig.tight_layout()
     plt.show()
     
-    if cluname in tag_list:
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_earlyvlate_only\{}_tagged.png'.format(cluname),
-                    dpi=300,
-                    bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_earlyvlate_only\{}_tagged.pdf'.format(cluname),
-                    bbox_inches='tight')
-    elif cluname in put_list:
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_earlyvlate_only\{}_putative.png'.format(cluname),
-                    dpi=300,
-                    bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_earlyvlate_only\{}_putative.pdf'.format(cluname),
-                    bbox_inches='tight')
-    else:
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_earlyvlate_only\{}.png'.format(cluname),
-                    dpi=300,
-                    bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_by_first_licks_earlyvlate_only\{}.pdf'.format(cluname),
-                    bbox_inches='tight')
+    for ext in ['.png', '.pdf']:
+        fig.savefig(
+            r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitivity\rasters_by_first_licks_earlyvlate_only\{}{}'
+            .format(f'{cluname} {identity}', ext),
+            dpi=300,
+            bbox_inches='tight')
     
     plt.close(fig)
