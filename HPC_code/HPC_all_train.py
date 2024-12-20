@@ -53,14 +53,22 @@ else:
     print('GPU-acceleartion unavailable')
 
 
+#%% parameters 
+samp_freq = 1250  # Hz
+sigma_spike = samp_freq/10
+
+gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
+
+
 #%% main
-for pathname in paths:
-    all_info = {}
-    
-    t0 = time()
+for pathname in paths[:1]:
+    all_trains = {}
+    all_rasters = {}
     
     recname = pathname[-17:]
     print(recname)  # recnames are as such: 'Axxxr-202xxxxx-0x'
+    
+    t0 = time()
     
     filename = os.path.join(pathname, f'{pathname[-17:]}_DataStructure_mazeSection1_TrialType1')
     BehavLFP = mat73.loadmat('{}.mat'.format(
@@ -74,11 +82,6 @@ for pathname in paths:
     time_bef = spike_time_file['TimeBef']; time_aft = spike_time_file['Time']
     tot_clu = time_aft.shape[1]
     tot_trial = time_aft.shape[0]  # trial 1 is empty but tot_trial includes it for now
-    
-    samp_freq = 1250  # Hz
-    sigma_spike = samp_freq/10
-    
-    gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
         
     # spike reading
     spike_time_aft = np.empty(shape=(tot_clu, tot_trial), dtype='object')
@@ -95,10 +98,11 @@ for pathname in paths:
                 spike_time_bef[clu,trial] = [t for t in spike_time_file[time_bef[trial,clu]][0]]
                 
     # the convolution part is the only part where GPU acceleration is used (xp instead of np)
-    conv_spike = np.empty(shape=(tot_clu, tot_trial), dtype='object')  # contain the convolved spike trains of all neurones
+    rasters = np.empty(shape=(tot_clu, tot_trial), dtype='object')  # this is the output rasters file
+    trains = np.empty(shape=(tot_clu, tot_trial), dtype='object')  # contain the convolved spike trains of all neurones
     for clu in tqdm(range(tot_clu), desc='convolving spike trains'):
+        cluname = f'{pathname[-17:]} clu{clu+2} {int(shank[clu])} {int(localClu[clu])}'
         for trial in range(tot_trial):
-            
             # pre-post concatenation logic 
             if spike_time_bef[clu][trial]!=None and spike_time_aft[clu][trial]!=None:
                 spikes = np.concatenate([spike_time_bef[clu][trial],
@@ -108,25 +112,29 @@ for pathname in paths:
             elif spike_time_aft[clu][trial]!=None:
                 spikes = np.asarray(spike_time_aft[clu][trial])
             else:
-                conv_spike[clu][trial] = np.zeros(12500)  # default to 10 s of emptiness if no spikes in this trial
+                rasters[clu][trial] = np.zeros(12500)  # default to 10 s of emptiness if no spikes in this trial
+                trains[clu][trial] = np.zeros(12500)
                 continue
             
-            spikes = [int(s+3750) for s in spikes]  # aligning the spikes correctly, otherwise this 'spike_train_trial[spikes] = 1' makes no sense
+            # aligning the spikes correctly, otherwise spike_train_trial[spikes] 
+            #   would = 1 which makes no sense
+            spikes = [int(s+3750) for s in spikes]
             
-            if len(spikes)>0:
-                spike_train_trial = xp.zeros(spikes[-1]+1)  # +1 to ensure inclusion of the last spike 
-                spike_train_trial[spikes] = 1
-                spike_train_conv = xp.convolve(spike_train_trial, gaus_spike, mode='same')
-                conv_spike[clu][trial] = spike_train_conv.get() if GPU_AVAILABLE else spike_train_conv
+            spike_train_trial = xp.zeros(spikes[-1]+1)  # +1 to ensure inclusion of the last spike 
+            spike_train_trial[spikes] = 1
+            spike_train_conv = xp.convolve(spike_train_trial, gaus_spike, mode='same')
+            
+            rasters[clu][trial] = spike_train_trial.get() if GPU_AVAILABLE else spike_train_trial
+            trains[clu][trial] = spike_train_conv.get() if GPU_AVAILABLE else spike_train_conv
     
-    for clu in range(tot_clu):
-        cluname = f'{pathname[-17:]} clu{clu+2} {int(shank[clu])} {int(localClu[clu])}'
-        clu_conv_spike = conv_spike[clu]
-        all_info[cluname] = clu_conv_spike
+        all_trains[cluname] = trains[clu]
+        all_rasters[cluname] = rasters[clu]
     
     print('done; saving...')
-    outdirroot = r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}'.format(recname)
-    os.makedirs(outdirroot, exist_ok=True)
-    xp.save(r'{}\HPC_all_info_{}.npy'.format(outdirroot, recname), 
-            all_info)
-    print(f'saved to {outdirroot} ({str(timedelta(seconds=int(time() - t0)))})\n')
+    sess_folder = r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}'.format(recname)
+    os.makedirs(sess_folder, exist_ok=True)
+    np.save(r'{}\{}_all_trains.npy'.format(sess_folder, recname), 
+            all_trains)
+    np.save(r'{}\{}_all_rasters.npy'.format(sess_folder, recname), 
+            all_rasters)
+    print(f'saved to {sess_folder} ({str(timedelta(seconds=int(time() - t0)))})\n')

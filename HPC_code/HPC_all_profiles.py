@@ -10,6 +10,15 @@ genearte profiles for all pyramidal cells in hippocampus recordings,
 """
 
 
+#%% to-do 
+'''
+add depth to the dataframe? 
+    # depth 
+    depth = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_Depth.mat'.format(pathname, recname))['depthNeu'][0]
+    rel_depth = depth['relDepthNeu'][0][0]
+'''
+
+
 #%% imports 
 import mat73
 import scipy.io as sio
@@ -25,7 +34,7 @@ mpl_formatting()
 
 
 #%% dataframe initialisation/loading
-fname = r'Z:\Dinghao\code_dinghao\HPC_all\HPC_all_pyr_profiles.pkl'
+fname = r'Z:\Dinghao\code_dinghao\HPC_all\HPC_all_profiles.pkl'
 fname = ''
 if os.path.exists(fname):
     df = pd.read_pickle(fname)
@@ -36,6 +45,7 @@ else:
     sess = {
         'rectype': [],  # HPCLC, HPCLCterm
         'recname': [],  # Axxxr-202xxxxx-0x
+        'cell_identity': [],  # str, 'pyr' or 'int'
         'spike_rate': [],  # in Hz
         'place_cell': [],  # booleon
         'pre_post': [],  # post/pre ([.5:1.5]/[-1.5:-.5])
@@ -103,36 +113,12 @@ run_onset_inhibited_thres = 1.25
 
 
 #%% GPU acceleration
-try:
-    import cupy as cp 
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
-except ModuleNotFoundError:
-    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
-    GPU_AVAILABLE = False
-except Exception as e:
-    # catch any other unexpected errors and print a general message
-    print(f'An error occurred: {e}')
-    GPU_AVAILABLE = False
-
-if GPU_AVAILABLE:
-    # we are assuming that there is only 1 GPU device
-    xp = cp
-    import numpy as np
-    from common import sem_gpu as sem
-    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
-    print(f'GPU-acceleration with {str(name)} and cupy')
-else:
-    import numpy as np 
-    from scipy.stats import sem 
-    xp = np
-    print('GPU-acceleartion unavailable')
-    
 '''
 So far it seems that there is nothing to parallelise in this script for signi-
 ficant improvement in performance, so let's just stick to CPU computation
 '''
-print('not using GPU acceleration due to inefficiency')
-xp = np  # negate CuPy assignment
+print('not using GPU acceleration due to lack of available parallelisation\n')
+import numpy as np 
 GPU_AVAILABLE = False
 from scipy.stats import sem
 
@@ -140,36 +126,51 @@ from scipy.stats import sem
 #%% functions 
 def calculate_occupancy(speeds, dt, distance_bins):
     """
-    Calculate occupancy in spatial bins based on speed and time bins.
+    calculate occupancy in spatial bins based on speed and time bins.
 
-    Parameters:
-    - speed: array of speed values (in cm/s) at each time bin.
+    parameters:
+    - speeds: array of speed values (in cm/s) at each time bin.
     - dt: time interval for each bin (in seconds).
     - distance_bins: array defining the edges of spatial bins (in cm).
 
-    Returns:
+    returns:
     - occupancy: array of time spent in each spatial bin (in seconds).
     """
     # convert to array first 
-    speeds = xp.asarray(speeds)
+    speeds = np.asarray(speeds)
     
     # cumulative distance travelled at each time step
-    cumulative_distance = xp.cumsum(speeds * dt)
+    cumulative_distance = np.cumsum(speeds * dt)
 
     # assign each cumulative distance to a spatial bin
-    bin_indices = xp.digitize(cumulative_distance, distance_bins) - 1
+    bin_indices = np.digitize(cumulative_distance, distance_bins) - 1
 
     # compute occupancy by summing time intervals (dt) for each bin
-    occupancy = xp.bincount(bin_indices, minlength=len(distance_bins)) * dt
+    occupancy = np.bincount(bin_indices, minlength=len(distance_bins)) * dt
 
     return occupancy
 
 def classify_run_onset_activation_ratio(train, 
                                         run_onset_activated_thres,
-                                        run_onset_inhibited_thres, 
-                                        samp_freq=1250, run_onset_bin=3750):
-    pre = xp.nanmean(train[int(run_onset_bin-samp_freq*1.5):int(run_onset_bin-samp_freq*.5)])
-    post = xp.nanmean(train[int(run_onset_bin+samp_freq*.5):int(run_onset_bin+samp_freq*1.5)])
+                                        run_onset_inhibited_thres):
+    """
+    classify run-onset activation ratio based on pre- and post-run periods.
+
+    parameters:
+    - train: array of firing rates over time.
+    - run_onset_activated_thres: threshold for classifying activation.
+    - run_onset_inhibited_thres: threshold for classifying inhibition.
+    - samp_freq: sampling frequency in Hz, default is 1250.
+    - run_onset_bin: bin marking the run onset, default is 3750.
+
+    returns:
+    - ratio: pre/post activation ratio.
+    - ratiotype: string indicating the activation class ('ON', 'OFF', 'unresponsive').
+    """
+    global samp_freq, run_onset_bin 
+    
+    pre = np.nanmean(train[int(run_onset_bin-samp_freq*1.5):int(run_onset_bin-samp_freq*.5)])
+    post = np.nanmean(train[int(run_onset_bin+samp_freq*.5):int(run_onset_bin+samp_freq*1.5)])
     ratio = pre/post
     if ratio < run_onset_activated_thres:
         ratiotype = 'run-onset ON'
@@ -182,22 +183,35 @@ def classify_run_onset_activation_ratio(train,
 
 def compute_modulation_index(ctrl, stim, 
                              span=4):
+    """
+    compute the modulation index (MI) between control and stimulation data.
+
+    parameters:
+    - ctrl: array of control data (e.g., firing rates).
+    - stim: array of stimulation data (e.g., firing rates).
+    - span: duration of the analysis window (in seconds), default is 4.
+
+    returns:
+    - MI_full: modulation index computed over the full span.
+    - MI_early: modulation index computed for the early half of the span.
+    - MI_late: modulation index computed for the late half of the span.
+    """
     global samp_freq, run_onset_bin
     
     # first calculate MI over the full trial ({span} seconds)
-    ctrl_full = xp.nanmean(ctrl[run_onset_bin:run_onset_bin+samp_freq*span])
-    stim_full = xp.nanmean(stim[run_onset_bin:run_onset_bin+samp_freq*span])
+    ctrl_full = np.nanmean(ctrl[run_onset_bin:run_onset_bin+samp_freq*span])
+    stim_full = np.nanmean(stim[run_onset_bin:run_onset_bin+samp_freq*span])
     MI_full = (stim_full-ctrl_full) / (stim_full+ctrl_full)
     
     # demarcation 
     demarc = int(run_onset_bin+samp_freq*span/2)
     
     # next, early MI and late MI
-    ctrl_early = xp.nanmean(ctrl[run_onset_bin:demarc])
-    stim_early = xp.nanmean(stim[run_onset_bin:demarc])
+    ctrl_early = np.nanmean(ctrl[run_onset_bin:demarc])
+    stim_early = np.nanmean(stim[run_onset_bin:demarc])
     MI_early = (stim_early-ctrl_early) / (stim_early+ctrl_early)
-    ctrl_late = xp.nanmean(ctrl[demarc:run_onset_bin+samp_freq*span])
-    stim_late = xp.nanmean(stim[demarc:run_onset_bin+samp_freq*span])
+    ctrl_late = np.nanmean(ctrl[demarc:run_onset_bin+samp_freq*span])
+    stim_late = np.nanmean(stim[demarc:run_onset_bin+samp_freq*span])
     MI_late = (stim_late-ctrl_late) / (stim_late+ctrl_late)
     
     return MI_full, MI_early, MI_late
@@ -205,48 +219,62 @@ def compute_modulation_index(ctrl, stim,
 def compute_modulation_index_shuf(ctrl_matrix, stim_matrix,
                                   span=4,
                                   bootstrap=100):
+    """
+    compute the shuffled modulation index (MI) between control and stimulation data.
+
+    parameters:
+    - ctrl_matrix: matrix of control data, where rows represent trials and columns represent time points.
+    - stim_matrix: matrix of stimulation data, where rows represent trials and columns represent time points.
+    - span: duration of the analysis window (in seconds), default is 4.
+    - bootstrap: number of bootstrap iterations for shuffling, default is 100.
+
+    returns:
+    - MI_full: modulation index computed over the full span for shuffled data.
+    - MI_early: modulation index computed for the early half of the span for shuffled data.
+    - MI_late: modulation index computed for the late half of the span for shuffled data.
+    """
     global samp_freq, run_onset_bin
-    pooled_matrix = xp.vstack((ctrl_matrix, stim_matrix))
-    pooled_idx = xp.arange(ctrl_matrix.shape[0]+stim_matrix.shape[0])
-    shuf_ctrl_idx = xp.zeros((bootstrap, len(ctrl_idx)), dtype=int)
-    shuf_stim_idx = xp.zeros((bootstrap, len(ctrl_idx)), dtype=int)
+    pooled_matrix = np.vstack((ctrl_matrix, stim_matrix))
+    pooled_idx = np.arange(ctrl_matrix.shape[0]+stim_matrix.shape[0])
+    shuf_ctrl_idx = np.zeros((bootstrap, len(ctrl_idx)), dtype=int)
+    shuf_stim_idx = np.zeros((bootstrap, len(ctrl_idx)), dtype=int)
     for i in range(bootstrap):  # shuffle n times
-        shuf = xp.random.permutation(pooled_idx)
+        shuf = np.random.permutation(pooled_idx)
         shuf_ctrl_idx[i, :] = shuf[:len(ctrl_idx)]
         shuf_stim_idx[i, :] = shuf[len(ctrl_idx):]
     shuf_ctrl_mean = pooled_matrix[shuf_ctrl_idx, :].mean(axis=0).mean(axis=0)
     shuf_stim_mean = pooled_matrix[shuf_stim_idx, :].mean(axis=0).mean(axis=0)
     
     # first calculate MI over the full trial ({span} seconds)
-    ctrl_full = xp.nanmean(shuf_ctrl_mean[run_onset_bin:run_onset_bin+samp_freq*span])
-    stim_full = xp.nanmean(shuf_stim_mean[run_onset_bin:run_onset_bin+samp_freq*span])
+    ctrl_full = np.nanmean(shuf_ctrl_mean[run_onset_bin:run_onset_bin+samp_freq*span])
+    stim_full = np.nanmean(shuf_stim_mean[run_onset_bin:run_onset_bin+samp_freq*span])
     MI_full = (stim_full-ctrl_full) / (stim_full+ctrl_full)
     
     # demarcation 
     demarc = int(run_onset_bin+samp_freq*span/2)
     
     # next, early MI and late MI
-    ctrl_early = xp.nanmean(shuf_ctrl_mean[run_onset_bin:demarc])
-    stim_early = xp.nanmean(shuf_stim_mean[run_onset_bin:demarc])
+    ctrl_early = np.nanmean(shuf_ctrl_mean[run_onset_bin:demarc])
+    stim_early = np.nanmean(shuf_stim_mean[run_onset_bin:demarc])
     MI_early = (stim_early-ctrl_early) / (stim_early+ctrl_early)
-    ctrl_late = xp.nanmean(shuf_ctrl_mean[demarc:run_onset_bin+samp_freq*span])
-    stim_late = xp.nanmean(shuf_stim_mean[demarc:run_onset_bin+samp_freq*span])
+    ctrl_late = np.nanmean(shuf_ctrl_mean[demarc:run_onset_bin+samp_freq*span])
+    stim_late = np.nanmean(shuf_stim_mean[demarc:run_onset_bin+samp_freq*span])
     MI_late = (stim_late-ctrl_late) / (stim_late+ctrl_late)
     
     return MI_full, MI_early, MI_late  # this is shuffled 
 
 def compute_spatial_information(spike_counts, occupancy):
     """
-    Compute Skaggs spatial information for a single neuron.
-    
-    Parameters:
+    compute Skaggs spatial information for a single neuron.
+
+    parameters:
     - spike_counts: array of spike counts per spatial bin.
     - occupancy: array of time spent in each spatial bin (in seconds).
 
-    Returns:
-    - spatial_info: Spatial information in bits per spike.
+    returns:
+    - spatial_info: spatial information in bits per spike.
     """
-    # ensure spike_counts and occupancy are xp arrays
+    # ensure spike_counts and occupancy are np arrays
     if GPU_AVAILABLE:
         occupancy = occupancy.get()
     
@@ -276,16 +304,16 @@ def compute_spatial_information(spike_counts, occupancy):
 
 def compute_temporal_information(spike_times, bin_size_steps):
     """
-    Compute temporal information for a single neuron sampled at 1250 Hz.
+    compute temporal information for a single neuron sampled at 1250 Hz.
 
-    Parameters:
+    parameters:
     - spike_times: array of spike times (in 1/1250 seconds steps).
     - bin_size_steps: size of each temporal bin (in steps of 1/1250 seconds).
 
-    Returns:
-    - temporal_info: Temporal information in bits per spike.
+    returns:
+    - temporal_info: temporal information in bits per spike.
     """
-    # ensure spike_times is a xp array 
+    # ensure spike_times is a np array 
     spike_times = np.asarray(spike_times)
     
     # define temporal bins
@@ -315,13 +343,13 @@ def compute_temporal_information(spike_times, bin_size_steps):
 
 def compute_trial_by_trial_variability(train):
     """
-    Compute trial-by-trial variability for a neuron's spike trains.
-    
-    Parameters:
+    compute trial-by-trial variability for a neuron's spike trains.
+
+    parameters:
     - train: list of numpy arrays, each representing the firing vector of a trial.
 
-    Returns:
-    - variability_median: Variability as 1 - median of pairwise correlations.
+    returns:
+    - variability_median: variability as 1 - median of pairwise correlations.
     """
     if len(train)==0: 
         return np.nan
@@ -332,24 +360,51 @@ def compute_trial_by_trial_variability(train):
     
     # compute correlation matrix 
     num_trials = len(train)
-    corr_matrix = xp.full((num_trials, num_trials), xp.nan)  # initialise
+    corr_matrix = np.full((num_trials, num_trials), np.nan)  # initialise
     
     for i in range(num_trials):
         for j in range(i + 1, num_trials):  # only compute upper triangular
-            if xp.nanstd(train[i]) == 0 or xp.nanstd(train[j]) == 0:
+            if np.nanstd(train[i]) == 0 or np.nanstd(train[j]) == 0:
                 corr_matrix[i, j] = np.nan
             else:
-                corr_matrix[i, j] = xp.corrcoef(train[i], train[j])[0, 1]
+                corr_matrix[i, j] = np.corrcoef(train[i], train[j])[0, 1]
 
     # extract upper triangular correlations
-    corr_values = corr_matrix[xp.triu_indices(num_trials, k=1)]
+    corr_values = corr_matrix[np.triu_indices(num_trials, k=1)]
 
     # compute variability metrics
-    variability_median = 1 - xp.nanmedian(corr_values)  # median-based variability
+    variability_median = 1 - np.nanmedian(corr_values)  # median-based variability
 
     return variability_median
 
+def get_cell_info(info_filename):
+    """
+    get cell identities (pyramidal or interneuron) and their spike rates from the info file.
+
+    parameters:
+    - info_filename: path to the MATLAB info file.
+
+    returns:
+    - cell_identities: array indicating cell types (True for interneurons, False for pyramidal cells).
+    - spike_rates: array of spike rates for all cells.
+    """
+    rec_info =  sio.loadmat(info_filename)['rec'][0][0]
+    cell_identities = rec_info['isIntern'][0]
+    spike_rates = rec_info['firingRate'][0]
+    
+    return cell_identities, spike_rates
+
 def get_good_bad_idx(beh_series):
+    """
+    get indices of good and bad trials based on behaviour quality.
+
+    parameters:
+    - beh_series: behaviour data series containing trial quality information.
+
+    returns:
+    - good_idx: list of indices for good trials.
+    - bad_idx: list of indices for bad trials.
+    """
     bad_trial_map = beh_series['bad_trials']
     good_idx = [trial for trial, quality in enumerate(bad_trial_map) if not quality]
     bad_idx = [trial for trial, quality in enumerate(bad_trial_map) if quality]
@@ -357,6 +412,16 @@ def get_good_bad_idx(beh_series):
     return good_idx, bad_idx
 
 def get_good_bad_idx_MATLAB(beh_series):
+    """
+    get indices of good and bad trials based on MATLAB pipeline.
+
+    parameters:
+    - beh_series: behaviour data series containing MATLAB trial quality information.
+
+    returns:
+    - good_idx_matlab: list of indices for good trials.
+    - bad_idx_matlab: list of indices for bad trials.
+    """
     beh_parameter_file = sio.loadmat(
         f'{pathname}{pathname[-18:]}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
         )    
@@ -370,34 +435,59 @@ def get_good_bad_idx_MATLAB(beh_series):
     return good_idx_matlab, bad_idx_matlab
 
 def get_trial_matrix(trains, trialtype_idx, max_samples, clu):
+    """
+    get the trial matrix for a given cluster and trial type indices.
+
+    parameters:
+    - trains: list of spike trains for all clusters.
+    - trialtype_idx: list of trial indices to include.
+    - max_samples: maximum number of samples per trial.
+    - clu: cluster identifier.
+
+    returns:
+    - temp_matrix: matrix of spike trains for the specified trials and cluster.
+    """
     if len(trialtype_idx)==0:  # if there is no trial in the list 
         return np.nan
     
-    temp_matrix = xp.zeros((len(trialtype_idx), max_samples))
+    temp_matrix = np.zeros((len(trialtype_idx), max_samples))
     for idx, trial in enumerate(trialtype_idx):
         try:
             trial_length = len(trains[clu][trial])
         except TypeError:
             trial_length = 0
         if 0 < trial_length < max_samples:
-            temp_matrix[idx, :trial_length] = xp.asarray(trains[clu][trial][:])*samp_freq  # *samp_freq to convert to Hz
+            temp_matrix[idx, :trial_length] = np.asarray(trains[clu][trial][:])*samp_freq  # *samp_freq to convert to Hz
         elif trial_length > 0:
-            temp_matrix[idx, :] = xp.asarray(trains[clu][trial][:max_samples])*samp_freq
+            temp_matrix[idx, :] = np.asarray(trains[clu][trial][:max_samples])*samp_freq
     return temp_matrix
 
 def get_place_cell_idx(classification_filename):
+    """
+    get indices of place cells identified by the MATLAB pipeline.
+
+    parameters:
+    - classification_filename: path to the MATLAB classification file.
+
+    returns:
+    - place_cell_idx: array of indices for place cells.
+    """
     # get indices of place cells identifies by the MATLAB pipeline
     # -1 because the indices were 1-indexed, whereas get_pyr_info() uses 0-indexing
     return sio.loadmat(classification_filename)['fieldSpCorrSessNonStimGood'][0][0]['indNeuron'][0]-1
 
-def get_pyr_info(info_filename):
-    rec_info =  sio.loadmat(info_filename)['rec'][0][0]
-    pyr_idx = [i for i, clu in enumerate(rec_info['isIntern'][0]) if clu==False]
-    spike_rate = [rec_info['firingRate'][0][i] for i in pyr_idx]
-    
-    return pyr_idx, spike_rate
-
 def get_trialtype_idx(beh_filename):
+    """
+    get indices for baseline, stimulation, and control trials.
+
+    parameters:
+    - beh_filename: path to the MATLAB behaviour file.
+
+    returns:
+    - baseline_idx: indices for baseline trials.
+    - stim_idx: indices for stimulation trials.
+    - ctrl_idx: indices for control trials.
+    """
     behPar = sio.loadmat(beh_filename)
     stim_idx = np.where(behPar['behPar']['stimOn'][0][0][0]!=0)[0]
     
@@ -450,7 +540,7 @@ for pathname in paths:
     good_idx_matlab, bad_idx_matlab = get_good_bad_idx_MATLAB(pathname)
     
     # calculate occupancy
-    distance_bins = xp.arange(0, track_length + bin_size, bin_size)
+    distance_bins = np.arange(0, track_length + bin_size, bin_size)
     occupancy = [calculate_occupancy(s, dt=.02, distance_bins=distance_bins) for 
                  s in speeds]
     
@@ -465,8 +555,8 @@ for pathname in paths:
         r'{}\{}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess1_Run0.mat'.
         format(pathname, recname))
     
-    # get pyr_idx and corresponding spike rates
-    pyr_idx, pyr_spike_rate = get_pyr_info(
+    # get pyr and int ID's and corresponding spike rates
+    cell_identities, spike_rates = get_cell_info(
         r'{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.
         format(pathname, recname))
     
@@ -482,17 +572,19 @@ for pathname in paths:
         )
 
     # iterate over all pyramidal cells 
-    print('collecting profiles')
-    for i, pyr in tqdm(enumerate(pyr_idx)):
+    for clu in tqdm(range(len(cell_identities)), desc='collecting profiles'):
+        # pyr or int 
+        cell_identity = 'int' if cell_identities[clu] else 'pyr'
+        
         # spike-profile matrix
-        baseline_matrix = get_trial_matrix(trains, baseline_idx, max_samples, pyr)
-        ctrl_matrix = get_trial_matrix(trains, ctrl_idx, max_samples, pyr)
-        stim_matrix = get_trial_matrix(trains, stim_idx, max_samples, pyr)
+        baseline_matrix = get_trial_matrix(trains, baseline_idx, max_samples, clu)
+        ctrl_matrix = get_trial_matrix(trains, ctrl_idx, max_samples, clu)
+        stim_matrix = get_trial_matrix(trains, stim_idx, max_samples, clu)
         
         # mean profiles
-        baseline_mean = xp.nanmean(baseline_matrix, axis=0)
-        ctrl_mean = xp.nanmean(ctrl_matrix, axis=0)
-        stim_mean = xp.nanmean(stim_matrix, axis=0)
+        baseline_mean = np.nanmean(baseline_matrix, axis=0)
+        ctrl_mean = np.nanmean(ctrl_matrix, axis=0)
+        stim_mean = np.nanmean(stim_matrix, axis=0)
         
         # sem profiles 
         baseline_sem = sem(baseline_matrix, axis=0)
@@ -517,39 +609,39 @@ for pathname in paths:
         stim_var = compute_trial_by_trial_variability(stim_matrix)
         
         # spatial information
-        baseline_SI = [compute_spatial_information(trains_dist[pyr][trial], occupancy[trial]) for 
+        baseline_SI = [compute_spatial_information(trains_dist[clu][trial], occupancy[trial]) for 
                        trial in baseline_idx]
-        ctrl_SI = [compute_spatial_information(trains_dist[pyr][trial], occupancy[trial]) for 
+        ctrl_SI = [compute_spatial_information(trains_dist[clu][trial], occupancy[trial]) for 
                    trial in ctrl_idx]
-        stim_SI = [compute_spatial_information(trains_dist[pyr][trial], occupancy[trial]) for 
+        stim_SI = [compute_spatial_information(trains_dist[clu][trial], occupancy[trial]) for 
                    trial in stim_idx]
         
         # temporal information 
-        baseline_TI = [compute_temporal_information(trains[pyr][trial][samp_freq*3:],
+        baseline_TI = [compute_temporal_information(trains[clu][trial][samp_freq*3:],
                                                     bin_size_steps=1) for trial in baseline_idx 
-                       if trains[pyr][trial] is not None]
-        ctrl_TI = [compute_temporal_information(trains[pyr][trial][samp_freq*3:],
+                       if trains[clu][trial] is not None]
+        ctrl_TI = [compute_temporal_information(trains[clu][trial][samp_freq*3:],
                                                 bin_size_steps=1) for trial in ctrl_idx
-                   if trains[pyr][trial] is not None]
-        stim_TI = [compute_temporal_information(trains[pyr][trial][samp_freq*3:],
+                   if trains[clu][trial] is not None]
+        stim_TI = [compute_temporal_information(trains[clu][trial][samp_freq*3:],
                                                 bin_size_steps=1) for trial in stim_idx
-                   if trains[pyr][trial] is not None]
+                   if trains[clu][trial] is not None]
         
         # good/bad trial mean profiles 
-        good_matrix = get_trial_matrix(trains, good_idx, max_samples, pyr)
-        good_mean = xp.nanmean(good_matrix, axis=0) if good_idx else xp.array([])  # in case there is no bad trials
-        good_sem = sem(good_matrix, axis=0) if good_idx else xp.array([])
-        bad_matrix = get_trial_matrix(trains, bad_idx, max_samples, pyr)
-        bad_mean = xp.nanmean(bad_matrix, axis=0) if bad_idx else xp.array([])
-        bad_sem = sem(bad_matrix, axis=0) if bad_idx else xp.array([])
+        good_matrix = get_trial_matrix(trains, good_idx, max_samples, clu)
+        good_mean = np.nanmean(good_matrix, axis=0) if good_idx else np.array([])  # in case there is no bad trials
+        good_sem = sem(good_matrix, axis=0) if good_idx else np.array([])
+        bad_matrix = get_trial_matrix(trains, bad_idx, max_samples, clu)
+        bad_mean = np.nanmean(bad_matrix, axis=0) if bad_idx else np.array([])
+        bad_sem = sem(bad_matrix, axis=0) if bad_idx else np.array([])
         
         # good/bad trial mean profiles (MATLAB)
-        good_matrix_matlab = get_trial_matrix(trains, good_idx_matlab, max_samples, pyr)
-        good_mean_matlab = xp.nanmean(good_matrix_matlab, axis=0) if good_idx_matlab else xp.array([])
-        good_sem_matlab = sem(good_matrix_matlab, axis=0) if good_idx_matlab else xp.array([])
-        bad_matrix_matlab = get_trial_matrix(trains, bad_idx_matlab, max_samples, pyr)
-        bad_mean_matlab = xp.nanmean(bad_matrix_matlab, axis=0) if bad_idx_matlab else xp.array([])
-        bad_sem_matlab = sem(bad_matrix_matlab, axis=0) if bad_idx_matlab else xp.array([])
+        good_matrix_matlab = get_trial_matrix(trains, good_idx_matlab, max_samples, clu)
+        good_mean_matlab = np.nanmean(good_matrix_matlab, axis=0) if good_idx_matlab else np.array([])
+        good_sem_matlab = sem(good_matrix_matlab, axis=0) if good_idx_matlab else np.array([])
+        bad_matrix_matlab = get_trial_matrix(trains, bad_idx_matlab, max_samples, clu)
+        bad_mean_matlab = np.nanmean(bad_matrix_matlab, axis=0) if bad_idx_matlab else np.array([])
+        bad_sem_matlab = sem(bad_matrix_matlab, axis=0) if bad_idx_matlab else np.array([])
 
         # transfer stuff from VRAM back to RAM
         if GPU_AVAILABLE:
@@ -574,11 +666,12 @@ for pathname in paths:
             bad_mean_matlab = bad_mean_matlab.get()
             bad_sem_matlab = bad_sem_matlab.get()
         
-        cluname = clu_list[pyr]
+        cluname = clu_list[clu]
         df.loc[cluname] = np.array([prefix,  # rectype
                                     recname,  # recname 
-                                    pyr_spike_rate[i],  # spike_rate
-                                    pyr in place_cell_idx,  # place_cell
+                                    cell_identity,  # 'pyr' or 'int'
+                                    spike_rates[clu],  # spike_rate
+                                    clu in place_cell_idx,  # place_cell
                                     baseline_run_onset_ratio,  # pre_post
                                     stim_run_onset_ratio,  # pre_post_stim
                                     ctrl_run_onset_ratio,  # pre_post_ctrl
