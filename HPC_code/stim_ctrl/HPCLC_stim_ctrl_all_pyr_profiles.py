@@ -21,8 +21,7 @@ plt.rcParams['font.family'] = 'Arial'
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import normalise, normalise_to_all
 
 
@@ -31,7 +30,7 @@ from common import normalise, normalise_to_all
 argmax = 0
 
 # run HPC-LC or HPC-LCterm
-HPC_LC = 0
+HPC_LC = 1
 
 
 #%% load paths to recordings 
@@ -67,7 +66,7 @@ if argmax:
         #     continue
         # print('session has {} detected place cells'.format(tot_pc))
         
-        trains = list(np.load('Z:\Dinghao\code_dinghao\HPC_all\{}\HPC_all_info_{}.npy'.format(recname, recname), 
+        trains = list(np.load('Z:\Dinghao\code_dinghao\HPC_ephys\{}\{}_all_trains.npy'.format(recname, recname), 
                               allow_pickle=True).item().values())
         tot_trial = len(trains[0])
         
@@ -82,8 +81,8 @@ if argmax:
         info = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.format(pathname, recname))
         beh_info = info['beh'][0][0]
         behPar = sio.loadmat('{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.format(pathname, recname))
-        stimOn = behPar['behPar']['stimOn'][0][0][0][1:]
-        stim_trials = np.where(stimOn!=0)[0]+1
+        stimOn = behPar['behPar']['stimOn'][0][0][0]
+        stim_trials = np.where(stimOn!=0)[0]
         cont_trials = stim_trials+2
     
         # put each averaged profile into the separate lists
@@ -171,7 +170,7 @@ else:
         #     continue
         # print('session has {} detected place cells'.format(tot_pc))
         
-        trains = list(np.load('Z:\Dinghao\code_dinghao\HPC_all\{}\HPC_all_info_{}.npy'.format(recname, recname), 
+        trains = list(np.load(r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\{}_all_trains.npy'.format(recname, recname), 
                               allow_pickle=True).item().values())
         tot_trial = len(trains[0])
         
@@ -285,18 +284,18 @@ else:
     image_stim_cont = ax.imshow(im_mat_stim_cont_pp[:, 1250:], interpolation='none', cmap='Greys', aspect='auto', 
                                 extent=[-1, 4, 1, tot_clu-buffer_count_stim_cont])
     plt.colorbar(image_stim_cont, shrink=.5)
-    if HPC_LC:
-        # fig.suptitle('HPC_LC')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_all_pyr_pre_post_ratio.png',
-                    dpi=500, bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_all_pyr_pre_post_ratio.pdf',
-                    bbox_inches='tight')
-    elif not HPC_LC:
-        # fig.suptitle('HPC_LCterm')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_ctrl_all_pyr_pre_post_ratio.png',
-                    dpi=500, bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_ctrl_all_pyr_pre_post_ratio.pdf',
-                    bbox_inches='tight')
+    # if HPC_LC:
+    #     # fig.suptitle('HPC_LC')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_all_pyr_pre_post_ratio.png',
+    #                 dpi=500, bbox_inches='tight')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_ctrl_all_pyr_pre_post_ratio.pdf',
+    #                 bbox_inches='tight')
+    # elif not HPC_LC:
+    #     # fig.suptitle('HPC_LCterm')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_ctrl_all_pyr_pre_post_ratio.png',
+    #                 dpi=500, bbox_inches='tight')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_ctrl_all_pyr_pre_post_ratio.pdf',
+    #                 bbox_inches='tight')
         
     
     fig, ax = plt.subplots(figsize=(3,2.5))
@@ -305,15 +304,15 @@ else:
     image_stim = ax.imshow(im_mat_stim_pp[:, 1250:], interpolation='none', cmap='Greys', aspect='auto', 
                            extent=[-1, 4, 1, tot_clu-buffer_count_stim])
     plt.colorbar(image_stim, shrink=.5)
-    if HPC_LC:
-        # fig.suptitle('HPC_LC')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_pyr_pre_post_ratio.png',
-                    dpi=500, bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_pyr_pre_post_ratio.pdf',
-                    bbox_inches='tight')
-    elif not HPC_LC:
-        # fig.suptitle('HPC_LCterm')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_all_pyr_pre_post_ratio.png',
-                    dpi=500, bbox_inches='tight')
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_all_pyr_pre_post_ratio.pdf',
-                    bbox_inches='tight')
+    # if HPC_LC:
+    #     # fig.suptitle('HPC_LC')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_pyr_pre_post_ratio.png',
+    #                 dpi=500, bbox_inches='tight')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_pyr_pre_post_ratio.pdf',
+    #                 bbox_inches='tight')
+    # elif not HPC_LC:
+    #     # fig.suptitle('HPC_LCterm')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_all_pyr_pre_post_ratio.png',
+    #                 dpi=500, bbox_inches='tight')
+    #     fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_all_pyr_pre_post_ratio.pdf',
+    #                 bbox_inches='tight')

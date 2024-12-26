@@ -14,8 +14,6 @@ compare all HPC cell's spiking profile between baseline ctrl and stim
 
 #%% imports 
 import numpy as np 
-from time import time
-from tqdm import tqdm
 import matplotlib.pyplot as plt 
 import pandas as pd
 import sys 
@@ -43,13 +41,11 @@ prof_window = (run_onset_bin-samp_freq*time_bef, run_onset_bin+samp_freq*time_af
 
 #%% load dataframe 
 print('loading dataframe...')
-t0 = time()
 cell_profiles = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
-print(f'dataframe loaded in {time()-t0} s')
 
 
 #%% main 
-for cluname in tqdm(cell_profiles.index):
+for cluname in cell_profiles.index[:1]:
     recname = cluname[:17]
     print(recname)
     
@@ -100,14 +96,14 @@ for cluname in tqdm(cell_profiles.index):
     
     # pyr or int folder? 
     pyr_or_int_folder = \
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\ctrl_stim_pyr_profiles'.format(recname) \
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\profiles_ctrl_stim_pyr'.format(recname) \
             if cell_identity=='pyr' else \
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\ctrl_stim_int_profiles'.format(recname)
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\profiles_ctrl_stim_int'.format(recname)
     os.makedirs(pyr_or_int_folder, exist_ok=True)
-    for ext in ['.png', '.pdf']:
-        fig.savefig(
-            f'{pyr_or_int_folder}\{cluname}{ext}',
-            dpi=300,
-            bbox_inches='tight')
+    # for ext in ['.png', '.pdf']:
+    #     fig.savefig(
+    #         f'{pyr_or_int_folder}\{cluname}{ext}',
+    #         dpi=300,
+    #         bbox_inches='tight')
      
     plt.close(fig)

@@ -36,8 +36,7 @@ mpl_formatting()
 
 
 #%% dataframe initialisation/loading
-fname = r'Z:\Dinghao\code_dinghao\HPC_all\HPC_all_profiles.pkl'
-fname = ''
+fname = r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl'
 if os.path.exists(fname):
     df = pd.read_pickle(fname)
     print(f'df loaded from {fname}')
@@ -408,8 +407,10 @@ def get_good_bad_idx(beh_series):
     - bad_idx: list of indices for bad trials.
     """
     bad_trial_map = beh_series['bad_trials']
-    good_idx = [trial for trial, quality in enumerate(bad_trial_map) if not quality]
-    bad_idx = [trial for trial, quality in enumerate(bad_trial_map) if quality]
+    
+    # trial 1 is empty and not included in the spike train
+    good_idx = [trial-1 for trial, quality in enumerate(bad_trial_map) if not quality and trial>0]
+    bad_idx = [trial-1 for trial, quality in enumerate(bad_trial_map) if quality and trial>0]
     
     return good_idx, bad_idx
 
@@ -426,13 +427,15 @@ def get_good_bad_idx_MATLAB(beh_series):
     """
     beh_parameter_file = sio.loadmat(
         f'{pathname}{pathname[-18:]}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
-        )    
-    bad_idx_matlab = [trial for trial, quality 
+        )
+    
+    # same as the previous function
+    bad_idx_matlab = [trial-1 for trial, quality 
                       in enumerate(beh_parameter_file['behPar'][0]['indTrBadBeh'][0][0])
-                      if quality]
-    good_idx_matlab = [trial for trial, quality 
+                      if quality and trial>0]
+    good_idx_matlab = [trial-1 for trial, quality 
                        in enumerate(beh_parameter_file['behPar'][0]['indTrBadBeh'][0][0])
-                       if not quality]
+                       if not quality and trial>0]
     
     return good_idx_matlab, bad_idx_matlab
 
@@ -459,9 +462,9 @@ def get_trial_matrix(trains, trialtype_idx, max_samples, clu):
         except TypeError:
             trial_length = 0
         if 0 < trial_length < max_samples:
-            temp_matrix[idx, :trial_length] = np.asarray(trains[clu][trial][:])*samp_freq  # *samp_freq to convert to Hz
+            temp_matrix[idx, :trial_length] = np.asarray(trains[clu][trial][:])
         elif trial_length > 0:
-            temp_matrix[idx, :] = np.asarray(trains[clu][trial][:max_samples])*samp_freq
+            temp_matrix[idx, :] = np.asarray(trains[clu][trial][:max_samples])
     return temp_matrix
 
 def get_place_cell_idx(classification_filename):
@@ -504,7 +507,7 @@ def load_beh_series(df_filename, recname):
 def load_speeds(beh_series):
     speed_times = beh_series['speed_times']
     new_speed_times = []
-    for trial in range(len(speed_times)):
+    for trial in range(1, len(speed_times)):  # trial 1 is empty and not included in spike trains
         curr_speed_times = speed_times[trial]
         curr_aligned = [s[1] for s in curr_speed_times]
         new_speed_times.append(curr_aligned)
@@ -515,7 +518,11 @@ def load_train(npy_filename):
     return list(npy_file.keys()), list(npy_file.values())
 
 def load_dist_spike_array(dist_filename):
-    return mat73.loadmat(dist_filename)['filteredSpikeDistArrayRun']
+    dist_mat = mat73.loadmat(dist_filename)['filteredSpikeDistArrayRun']
+    trains_dist = []  # use a list to mirror the structure of trains.npy
+    for clu in range(len(dist_mat)):
+        trains_dist.append(dist_mat[clu][1:])  # trial 1 is empty
+    return trains_dist
 
 
 #%% MAIN
@@ -546,9 +553,9 @@ for pathname in paths:
     occupancy = [calculate_occupancy(s, dt=.02, distance_bins=distance_bins) for 
                  s in speeds]
     
-    # load spike trains as a list
+    # load spike trains as a list 
     clu_list, trains = load_train(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\HPC_all_info_{}.npy'.
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\{}_all_trains.npy'.
         format(recname, recname)
         )
     

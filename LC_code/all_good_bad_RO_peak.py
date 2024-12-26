@@ -110,7 +110,7 @@ p_good = {}; p_good_sem = {}  # single trials
 p_bad = {}; p_bad_sem = {}  # single trials
 max_length = 12500  # max length for trial analysis
 
-for pathname in pathLC:
+for pathname in pathLC[4:5]:
     recname = pathname[-17:]
     print(recname)
     
@@ -121,7 +121,7 @@ for pathname in pathLC:
     behPar = sio.loadmat(pathname+pathname[-18:]+
                          '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
     # -1 to account for MATLAB Python difference
-    bad_idx = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
+    bad_idx = np.where(behPar['behPar'][0]['indTrBadBeh'][0][0]==1)[0]-1
     # -1 to account for 0 being an empty trial
     good_idx = np.arange(behPar['behPar'][0]['indTrBadBeh'][0].shape[1]-1)
     good_idx = np.delete(good_idx, bad_idx)

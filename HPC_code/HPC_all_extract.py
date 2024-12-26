@@ -5,12 +5,20 @@ Created on Mon 10 July 10:02:32 2023
 pool all cells from all recording sessions
 modified 11 Dec 2024 to process with all trials (not skipping trial 0) and 
     added GPU support
+    - memory leakage problems on GPU, 20 Dec 2024 
+    - issue persisted, but I think the problem is that previously we used the 
+        same variable names for rasters, trains in VRAM and in RAM; I changed 
+        the GPU versions to rasters_gpu and trains_gpu, 26 Dec 2024 
+    - we may be able to circumvent this problem completely by wrapping the 
+        processing steps in a function since variable references are destroyed 
+        after function executations, 26 Dec 2024
 
 @author: Dinghao Luo
 """
 
 
-#%% imports 
+#%% imports
+import gc 
 import sys
 import h5py
 import mat73
@@ -43,6 +51,9 @@ if GPU_AVAILABLE:
     # we are assuming that there is only 1 GPU device
     xp = cp
     import cupyx.scipy.signal as cpss # for GPU
+    import numpy as np 
+    mempool = cp.get_default_memory_pool()
+    pinned_mempool = cp.get_default_pinned_memory_pool()
     name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
     print(f'GPU-acceleration with {str(name)} and cupy\n')
 else:
@@ -61,7 +72,7 @@ gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
 
 
 #%% main
-for pathname in paths:
+for pathname in paths[46:]:
     all_trains = {}
     all_rasters = {}
     
@@ -79,8 +90,8 @@ for pathname in paths:
     
     time_bef = spike_time_file['TimeBef']; time_aft = spike_time_file['Time']
     tot_clu = time_aft.shape[1]
-    tot_trial = time_aft.shape[0]  # trial 1 is empty but tot_trial includes it for now
-        
+    tot_trial = time_aft.shape[0]-1  # trial 1 is empty
+    
     # spike reading
     spike_time = np.empty((tot_clu, tot_trial), dtype='object')
     for clu in tqdm(range(tot_clu), desc='reading spike trains'):
@@ -93,7 +104,7 @@ for pathname in paths:
                 spike_time_file[time_aft[trial, clu]][0]
                 if not isinstance(spike_time_file[time_aft[trial, clu]][0], np.uint64) else []
             ))
-            for trial in range(tot_trial)
+            for trial in range(1, tot_trial+1)  # trial 1 is empty 
         ], dtype='object')
     
         # store the combined spike times
@@ -108,26 +119,36 @@ for pathname in paths:
     for better performance and less memory usage
     20 Dec 2024 Dinghao 
     '''
-    rasters = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
-    trains = xp.zeros_like(rasters)
-    for clu in tqdm(range(tot_clu), desc='generating spike array'):
-        for trial in range(tot_trial):
-            # adjust spike index alignment (no negative indices)
-            spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
-            spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
-            rasters[clu, trial, spikes] = 1  # set spike times to 1
+    if GPU_AVAILABLE:    
+        rasters_gpu = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
+        trains_gpu = xp.zeros_like(rasters_gpu)
+        for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
+            for trial in range(tot_trial):
+                # adjust spike index alignment (no negative indices)
+                spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
+                spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
+                rasters_gpu[clu, trial, spikes] = 1  # set spike times to 1
+    else:
+        rasters = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
+        trains = xp.zeros_like(rasters)
+        for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
+            for trial in range(tot_trial):
+                # adjust spike index alignment (no negative indices)
+                spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
+                spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
+                rasters[clu, trial, spikes] = 1  # set spike times to 1
     
     t0 = time()
     if GPU_AVAILABLE:
         # GPU-accelerated convolution using CuPy
-        trains = cpss.fftconvolve(rasters, gaus_spike[None, None, :], mode='same') * samp_freq
-        trains = trains.get()
-        rasters = rasters.get()
-        print(f'convolution on GPU done in {time()-t0} s')
+        trains_gpu = cpss.fftconvolve(rasters, gaus_spike[None, None, :], mode='same') * samp_freq
+        trains = trains_gpu.get()
+        rasters = rasters_gpu.get()
+        print(f'convolution on GPU done in {str(timedelta(seconds=int(time() - t0)))} s')
     else:
         # CPU convolution using SciPy's FFT-based convolution for better performance
         trains = fftconvolve(rasters, gaus_spike[None, None, :], mode='same')
-        print(f'convolution on CPU done in {time()-t0} s')
+        print(f'convolution on CPU done in {str(timedelta(seconds=int(time() - t0)))} s')
     
     for clu in range(tot_clu):
         cluname = f'{recname} clu{clu+2} {int(shank[clu])} {int(localClu[clu])}'
@@ -142,3 +163,12 @@ for pathname in paths:
     np.save(r'{}\{}_all_rasters.npy'.format(sess_folder, recname), 
             all_rasters)
     print(f'saved to {sess_folder} ({str(timedelta(seconds=int(time() - t0)))})\n')
+    
+    # free memory pool if GPU
+    if GPU_AVAILABLE:
+        del rasters_gpu, trains_gpu
+        mempool.free_all_blocks()
+        pinned_mempool.free_all_blocks()
+    del rasters, trains, spike_time, all_trains, all_rasters
+    spike_time_file.close()  # Close HDF5 file
+    gc.collect()
