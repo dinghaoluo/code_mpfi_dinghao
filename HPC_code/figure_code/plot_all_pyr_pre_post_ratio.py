@@ -4,6 +4,7 @@ Created on Fri 13 Dec 08:59:31 2024
 
 plot profiles of run-onset ON/OFF cells
 plot profiles in good trials versus bad trials 
+plot profiles in ctrl trials versus stim trials, 26 Dec 2024
 
 @author: Dinghao Luo
 """
@@ -18,7 +19,7 @@ import sys
 
 
 #%% load dataframe 
-df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_pyr_profiles.pkl')
+df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
 
 
 #%% functions
@@ -235,3 +236,28 @@ plot_violin_with_scatter(OFF_good_index_filt, OFF_bad_index_filt, 'purple', 'gre
                          ylim=(0, 5),
                          save=True, 
                          savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\OFF_index_violinplot')
+
+
+#%% comparing ctrl versus stim 
+df_sorted_ctrl = df.sort_values(by='pre_post_ctrl')
+df_sorted_stim = df.sort_values(by='pre_post_stim')
+
+ctrl_profiles = df_sorted_ctrl['prof_ctrl_mean'].to_numpy()
+ctrl_profiles = [normalise(cell[2500:2500+5*1250]) for cell in ctrl_profiles]
+
+stim_profiles = df_sorted_stim['prof_stim_mean'].to_numpy()
+stim_profiles = [normalise(cell[2500:2500+5*1250]) for cell in stim_profiles]
+
+fig, axs = plt.subplots(1, 2, figsize=(4,2.2))
+axs[0].imshow(ctrl_profiles, extent=(-1, 4, 0, len(ctrl_profiles)),
+              aspect='auto', cmap='coolwarm', interpolation='none')
+axs[0].set(title='ctrl.')
+axs[1].imshow(stim_profiles, extent=(-1, 4, 0, len(ctrl_profiles)),
+              aspect='auto', cmap='coolwarm', interpolation='none')
+axs[1].set(title='stim.')
+
+for i in [0,1]:
+    axs[i].set(xlabel='time from run-onset (s)',
+               ylabel='cell #')
+    
+fig.tight_layout()

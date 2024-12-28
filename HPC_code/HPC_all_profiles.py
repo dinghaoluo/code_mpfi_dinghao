@@ -47,6 +47,7 @@ else:
         'rectype': [],  # HPCLC, HPCLCterm
         'recname': [],  # Axxxr-202xxxxx-0x
         'cell_identity': [],  # str, 'pyr' or 'int'
+        'depth': [],  # depth relative to layer centre
         'spike_rate': [],  # in Hz
         'place_cell': [],  # booleon
         'pre_post': [],  # post/pre ([.5:1.5]/[-1.5:-.5])
@@ -439,6 +440,10 @@ def get_good_bad_idx_MATLAB(beh_series):
     
     return good_idx_matlab, bad_idx_matlab
 
+def get_relative_depth(pathname):
+    depth_struct = sio.loadmat(pathname)['depthNeu'][0]
+    return depth_struct['relDepthNeu'][0][0]  # a list 
+
 def get_trial_matrix(trains, trialtype_idx, max_samples, clu):
     """
     get the trial matrix for a given cluster and trial type indices.
@@ -555,24 +560,33 @@ for pathname in paths:
     
     # load spike trains as a list 
     clu_list, trains = load_train(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\{}_all_trains.npy'.
-        format(recname, recname)
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\{}_all_trains.npy'
+        .format(recname, recname)
         )
     
     # load spike trains (in distance) as a list
     trains_dist = load_dist_spike_array(
-        r'{}\{}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess1_Run0.mat'.
-        format(pathname, recname))
+        r'{}\{}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess1_Run0.mat'
+        .format(pathname, recname)
+        )
     
     # get pyr and int ID's and corresponding spike rates
     cell_identities, spike_rates = get_cell_info(
-        r'{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'.
-        format(pathname, recname))
+        r'{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'
+        .format(pathname, recname)
+        )
     
     # get place cell indices 
     place_cell_idx = get_place_cell_idx(
-        r'{}\{}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run1_Run0.mat'.
-        format(pathname, recname))
+        r'{}\{}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run1_Run0.mat'
+        .format(pathname, recname)
+        )
+    
+    # get cell depth 
+    depths = get_relative_depth(
+        r'{}\{}_DataStructure_mazeSection1_TrialType1_Depth.mat'
+        .format(pathname, recname)
+        )
     
     # behaviour parameters
     baseline_idx, stim_idx, ctrl_idx = get_trialtype_idx(
@@ -584,6 +598,9 @@ for pathname in paths:
     for clu in tqdm(range(len(cell_identities)), desc='collecting profiles'):
         # pyr or int 
         cell_identity = 'int' if cell_identities[clu] else 'pyr'
+        
+        # depth 
+        depth = depths[clu]
         
         # spike-profile matrix
         baseline_matrix = get_trial_matrix(trains, baseline_idx, max_samples, clu)
@@ -679,6 +696,7 @@ for pathname in paths:
         df.loc[cluname] = np.array([prefix,  # rectype
                                     recname,  # recname 
                                     cell_identity,  # 'pyr' or 'int'
+                                    depth,  # int, relative to layer centre
                                     spike_rates[clu],  # spike_rate
                                     clu in place_cell_idx,  # place_cell
                                     baseline_run_onset_ratio,  # pre_post

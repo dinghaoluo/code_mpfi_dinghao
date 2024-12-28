@@ -45,7 +45,7 @@ cell_profiles = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profi
 
 
 #%% main 
-for cluname in cell_profiles.index[:1]:
+for cluname in cell_profiles.index:
     recname = cluname[:17]
     print(recname)
     
@@ -60,7 +60,7 @@ for cluname in cell_profiles.index[:1]:
     stim_sem = cell['prof_stim_sem']
     
     # plotting 
-    fig, ax = plt.subplots(figsize=(2,1.4))
+    fig, ax = plt.subplots(figsize=(2,1.8))
         
     ctrlln, = ax.plot(
         xaxis, 
@@ -86,10 +86,10 @@ for cluname in cell_profiles.index[:1]:
         frameon=False, fontsize=6)
     for p in ['top', 'right']:
         ax.spines[p].set_visible(False)
-    fig.suptitle(cluname)
-    ax.set(title=ratiotype,
-                 xlabel='time from run-onset (s)', ylabel='spike rate (Hz)',
-                 xlim=(-time_bef, time_aft))
+    ax.set(title=f'{cluname}\n{ratiotype}',
+           xlabel='time from run-onset (s)', ylabel='spike rate (Hz)',
+           xlim=(-time_bef, time_aft), xticks=(0,2,4))
+    ax.title.set_fontsize(10)
     
     fig.tight_layout()
     plt.show()
@@ -100,10 +100,10 @@ for cluname in cell_profiles.index[:1]:
             if cell_identity=='pyr' else \
         r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\profiles_ctrl_stim_int'.format(recname)
     os.makedirs(pyr_or_int_folder, exist_ok=True)
-    # for ext in ['.png', '.pdf']:
-    #     fig.savefig(
-    #         f'{pyr_or_int_folder}\{cluname}{ext}',
-    #         dpi=300,
-    #         bbox_inches='tight')
+    for ext in ['.png', '.pdf']:
+        fig.savefig(
+            f'{pyr_or_int_folder}\{cluname}{ext}',
+            dpi=300,
+            bbox_inches='tight')
      
     plt.close(fig)

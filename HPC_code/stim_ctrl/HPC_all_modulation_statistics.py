@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Mar 28 9:37:55 2024
+Modified on Thu 26 Dec 2024:
+    - now uses the updated HPC recording dataframe
+    - merged depth analysis into this
 
 Quantify significantly responding cells for both HPCLC and HPCLCterm activation
 
@@ -11,24 +14,15 @@ Quantify significantly responding cells for both HPCLC and HPCLCterm activation
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
-from scipy.stats import sem
 import pandas as pd
-from ast import literal_eval
 
 
 #%% load data
-df = pd.read_csv('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_int_only.csv') 
-df_term = pd.read_csv('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_diff_profiles_int_only.csv')
+cell_profiles = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
 
+HPCLC_profiles = cell_profiles[cell_profiles['rectype']=='HPCLC']
+HPCLCterm_profiles = cell_profiles[cell_profiles['rectype']=='HPCLCterm']
 
-#%% initialisation of global variables
-tot_excited = []
-tot_inhibited = []
-tot_clu = []
-
-tot_excited_term = []
-tot_inhibited_term = []
-tot_clu_term = []
 
 
 #%% iterate over all (HPCLC)
@@ -38,6 +32,7 @@ excited = 0
 inhibited = 0
 clu = 0
 
+regulated = []
 for cluname, row in df.iterrows():
     
     # if new recording session, first save counters to tot_ lists, and then reset all counters
@@ -58,10 +53,17 @@ for cluname, row in df.iterrows():
     if n_bins > 300:
         if row['excited']:
             excited+=1
+            regulated.append('up')
         else:
             inhibited+=1
+            regulated.append('down')
+    else:
+        regulated.append('none')
             
     clu+=1
+    
+df['regulated'] = regulated
+df.to_csv('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_stimcont_diff_profiles_pyr_only.csv')
     
 
 #%% iterate over all (HPCLCterm)
@@ -71,6 +73,7 @@ excited = 0
 inhibited = 0
 clu = 0
 
+regulated = []
 for cluname, row in df_term.iterrows():
     
     # if new recording session, first save counters to tot_ lists, and then reset all counters
@@ -91,10 +94,17 @@ for cluname, row in df_term.iterrows():
     if n_bins > 300:
         if row['excited']:
             excited+=1
+            regulated.append('up')
         else:
             inhibited+=1
+            regulated.append('down')
+    else:
+        regulated.append('none')
             
     clu+=1
+    
+df_term['regulated'] = regulated
+df_term.to_csv('Z:\Dinghao\code_dinghao\HPC_all\HPC_LCterm_stim_stimcont_diff_profiles_pyr_only.csv')
     
 
 #%% proportions
@@ -144,16 +154,14 @@ ax.scatter([4]*len(prop_inhibited_term)+jitter_inh_term, prop_inhibited_term, s=
 # styling 
 ax.set(ylim=(0,.55), xlim=(.5, 4.5),
        xticks=[1,2,3,4], xticklabels=['upmod.','downmod.','upmod. (term.)','downmod. (term.)'])
-fig.suptitle('modulation by LC activation (int)')
+fig.suptitle('modulation by LC activation (pyr)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 plt.xticks(rotation=45)
     
 plt.show()
 
-fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_responsive_int_only_divided_bar.png',
-            dpi=500,
-            bbox_inches='tight')
-
-fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_responsive_int_only_divided_bar.pdf',
-            bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig('Z:\Dinghao\code_dinghao\HPC_all\HPC_LC_stim_all_responsive_pyr_only_divided_bar.png',
+                dpi=300,
+                bbox_inches='tight')
