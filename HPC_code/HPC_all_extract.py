@@ -72,7 +72,7 @@ gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
 
 
 #%% main
-for pathname in paths[46:]:
+for pathname in paths:
     all_trains = {}
     all_rasters = {}
     
