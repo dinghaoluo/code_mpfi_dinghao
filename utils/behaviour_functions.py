@@ -79,7 +79,7 @@ def process_behavioural_data(txtfile: str,
     data['movie_times'] = correct_overflow(data['movie_times'], 'movie')
     data['trial_statements'] = correct_overflow(data['trial_statements'], 'trial_statement')
     frame_times = correct_overflow(data['frame_times'], 'frame')
-
+    
     # define common time and distance bases
     common_distance_base = np.linspace(0, max_distance, int(max_distance / distance_resolution))
     
@@ -211,7 +211,8 @@ def process_behavioural_data(txtfile: str,
         'trial_statements': trial_statements,
         'full_stops': full_stops,
         'bad_trials': bad_trials,
-        'frame_times': frame_times  # this was actually added just to prevent np.array(... type='object) from automatically producing a 2D array, 6 Dec 2024
+        'frame_times': frame_times,  # this was actually added just to prevent np.array(... type='object) from automatically producing a 2D array, 6 Dec 2024
+        'reward_omissions': data['reward_omissions'] # Jingyu, 1/10/2025
     }
 
 def process_behavioural_data_imaging(txtfile: str, 
@@ -301,6 +302,67 @@ def process_behavioural_data_imaging(txtfile: str,
     })
 
     return behavioural_data
+
+def process_behavioural_data_immobile(txtfile: str) -> dict:
+    '''
+    processes behavioural data for immobile experiments, aligning lick, reward events, and start cue times.
+
+    parameters:
+    - txtfile: path to the behaviour text file to process.
+    
+    returns:
+    - dict: a dictionary containing trial-wise data for:
+        - 'lick_times': list of lists, each containing lick event timestamps for each trial.
+        - 'start_cue_times': list of lists, each containing timestamps of start cues.
+        - 'reward_times': list of lists, each containing reward delivery timestamps.
+        - 'trial_statements': list of trial-specific metadata and protocols.
+    
+    notes:
+    - assumes the experiment involves immobile animals.
+    - file format must adhere to specific `$TR`, `$NT`-type headers.
+    '''
+    # load and parse the txt file
+    data = process_txt_immobile(txtfile)  # uses user's custom `process_txt` function
+    
+    # correct for overflow in the data
+    data['lick_times'] = correct_overflow(data['lick_times'], 'lick')
+    data['pump_times'] = correct_overflow(data['pump_times'], 'pump')
+    data['movie_times'] = correct_overflow(data['movie_times'], 'movie')
+    data['trial_statements'] = correct_overflow(data['trial_statements'], 'trial_statement')
+    
+    # initialise lists for storing data across trials
+    lick_times = []
+    start_cue_times, reward_times = [], []
+    trial_statements = []
+    
+    # process each trial
+    for trial_idx, (lick_trial, movie_trial, reward_trial) in enumerate(
+        zip(data['lick_times'], data['movie_times'], data['pump_times'])
+    ):
+        # process licks
+        lick_times_trial = [event[0] for event in lick_trial]
+        
+        # process lick data
+        lick_times_trial = [event[0] for event in lick_trial]
+        lick_times.append(lick_times_trial)
+    
+        # process reward data
+        reward_times.append(reward_trial)
+    
+        # extract start cue times
+        start_cue_times.append([m[0] for m in movie_trial if m[1] == 2])
+    
+        # trial statement times and optogenetic protocol
+        trial_statement = data['trial_statements'][trial_idx]
+        trial_statements.append(trial_statement)
+    
+    # structure the result
+    return {
+        'lick_times': lick_times,
+        'start_cue_times': start_cue_times,
+        'reward_times': reward_times,
+        'trial_statements': trial_statements,
+    }
 
 
 #%% utils 
@@ -451,6 +513,65 @@ def process_txt(txtfile):
     curr_logfile['trial_statements'] = trial_statements
     curr_logfile['pulse_descriptions'] = pulse_command_list
     curr_logfile['reward_omissions'] = reward_omissions  # jingyu, 8/14/2024
+    return curr_logfile
+
+def process_txt_immobile(txtfile):
+    '''
+    parses a behaviour text file and extracts trial-related data for immobile experiments.
+
+    parameters:
+    - txtfile: path to the behaviour text file to process.
+    
+    returns:
+    - dict: a dictionary containing trial-wise data for:
+        - 'movie_times': timestamps and events from movie sequences.
+        - 'lick_times': lick event timestamps.
+        - 'pump_times': reward delivery timestamps.
+        - 'trial_statements': trial-specific metadata and protocols.
+    
+    notes:
+    - each trial's data is reset and processed sequentially.
+    - file format must adhere to specific `$TR`, `$NT`-type headers.
+    '''
+    curr_logfile = {} 
+    file = open(txtfile, 'r')
+    
+    line = ['']
+    while line[0] != '$TR':
+        line = get_next_line(file)
+        
+    lick_times = []
+    pump_times = []
+    movie_times = []
+    
+    lt_trial = []
+    pt_trial = []
+    mv_trial = []
+    
+    trial_statements = []
+    
+    while line[0].find('$') == 0:
+        if line[0] == '$TR': 
+            trial_statements.append(line)
+        if line[0] == '$MV':
+            mv_trial.append([float(line[1]), float(line[2])])
+        if line[0] == '$LE' and line[3] == '1':
+            lt_trial.append([float(line[1]), float(line[2])]) 
+        if line[0] == '$PE' and line[3] == '1':
+            pt_trial.append(float(line[1]))    
+        if line[0] == '$NT':
+            lick_times.append(lt_trial)
+            movie_times.append(mv_trial)
+            pump_times.append(pt_trial)
+            lt_trial = []
+            mv_trial = []
+            pt_trial = []
+        line = get_next_line(file)
+        
+    curr_logfile['movie_times'] = movie_times
+    curr_logfile['lick_times'] = lick_times
+    curr_logfile['pump_times'] = pump_times
+    curr_logfile['trial_statements'] = trial_statements
     return curr_logfile
 
 def get_next_line(file):

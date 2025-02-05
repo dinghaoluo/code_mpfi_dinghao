@@ -45,14 +45,24 @@ cell_profiles = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profi
 
 
 #%% main 
+recname = cell_profiles.index[0]
 for cluname in cell_profiles.index:
-    recname = cluname[:17]
-    print(recname)
+    if cluname[:17]!=recname:
+        recname = cluname[:17]
+        print(recname)
+        
+    clu_n = cluname.split(' ')[1]  # for plot titles 
     
     cell = cell_profiles.loc[cluname]
     
     cell_identity = cell['cell_identity']  # 'pyr' or 'int'
     ratiotype = cell['class']  # run-onset activated etc.
+    if ratiotype=='run-onset ON':
+        rt = 'RO-ON'
+    elif ratiotype=='run-onset OFF':
+        rt = 'RO-OFF'
+    else:
+        rt = 'unresp.'
     
     ctrl_mean = cell['prof_ctrl_mean']
     ctrl_sem = cell['prof_ctrl_sem']
@@ -60,7 +70,7 @@ for cluname in cell_profiles.index:
     stim_sem = cell['prof_stim_sem']
     
     # plotting 
-    fig, ax = plt.subplots(figsize=(2,1.8))
+    fig, ax = plt.subplots(figsize=(1.6,1.2))
         
     ctrlln, = ax.plot(
         xaxis, 
@@ -86,12 +96,12 @@ for cluname in cell_profiles.index:
         frameon=False, fontsize=6)
     for p in ['top', 'right']:
         ax.spines[p].set_visible(False)
-    ax.set(title=f'{cluname}\n{ratiotype}',
+    ax.set(title=f'{recname}\n{clu_n} {rt}',
            xlabel='time from run-onset (s)', ylabel='spike rate (Hz)',
            xlim=(-time_bef, time_aft), xticks=(0,2,4))
     ax.title.set_fontsize(10)
     
-    fig.tight_layout()
+    # fig.tight_layout()
     plt.show()
     
     # pyr or int folder? 
@@ -105,5 +115,5 @@ for cluname in cell_profiles.index:
             f'{pyr_or_int_folder}\{cluname}{ext}',
             dpi=300,
             bbox_inches='tight')
-     
+
     plt.close(fig)

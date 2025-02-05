@@ -26,7 +26,7 @@ df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from plotting_functions import plot_violin_with_scatter
 from common import normalise, normalise_to_all, mpl_formatting 
-mpl_formatting
+mpl_formatting()
 
 def compute_mean_and_sem(arr):
     '''take a 2D matrix'''
@@ -71,23 +71,25 @@ ax.set(title=f'{ON.shape[0]} ON, {OFF.shape[0]} OFF',
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\run_onset_overall_Greys{}'.
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_run_onset_Greys{}'.
         format(ext),
         dpi=300,
         bbox_inches='tight'
         )
     
-fig, ax = plt.subplots(figsize=(2,2))
+fig, ax = plt.subplots(figsize=(2.4,1.9))
 
-ax.imshow(pop_mat, aspect='auto', cmap='coolwarm', interpolation='none',
+cw = ax.imshow(pop_mat, aspect='auto', cmap='coolwarm', interpolation='none',
           extent=(-1, 4, 0, pop_mat.shape[0]))
 ax.set(title=f'{ON.shape[0]} ON, {OFF.shape[0]} OFF',
        xlabel='time from run-onset (s)',
        ylabel='cell #')
 
+plt.colorbar(cw, shrink=.5)
+
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\run_onset_overall_coolwarm{}'.
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_run_onset_coolwarm{}'.
         format(ext),
         dpi=300,
         bbox_inches='tight'
@@ -102,7 +104,29 @@ ON_mat = ON['prof_mean'].to_numpy()
 ON_mat = np.asarray([normalise(cell[2500:2500+5*1250]) for cell in ON_mat])
 
 
-#%% plotting 
+#%% plotting  (ON and OFF)
+fig, axs = plt.subplots(1, 2, figsize=(5,2))
+plt.subplots_adjust(wspace=.5)
+
+axs[0].imshow(ON_mat, aspect='auto', cmap='Greys', interpolation='none',
+              extent=(-1, 4, 0, ON_mat.shape[0]))
+axs[1].imshow(OFF_mat, aspect='auto', cmap='Greys', interpolation='none',
+              extent=(-1, 4, 0, OFF_mat.shape[0]))
+
+axs[0].set(title='run-onset ON')
+axs[1].set(title='run-onset OFF')
+for ax in axs:
+    ax.set(xlabel='time from run-onset (s)', 
+           ylabel='cell #')
+    
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_run_onset_ON_OFF_Greys{}'.
+        format(ext),
+        dpi=300, 
+        bbox_inches='tight'
+        )
+
 fig, axs = plt.subplots(1, 2, figsize=(5,2))
 plt.subplots_adjust(wspace=.5)
 
@@ -111,15 +135,15 @@ axs[0].imshow(ON_mat, aspect='auto', cmap='coolwarm', interpolation='none',
 axs[1].imshow(OFF_mat, aspect='auto', cmap='coolwarm', interpolation='none',
               extent=(-1, 4, 0, OFF_mat.shape[0]))
 
-axs[0].set(title='run-onset act.')
-axs[1].set(title='run-onset inh.')
+axs[0].set(title='run-onset ON')
+axs[1].set(title='run-onset OFF')
 for ax in axs:
     ax.set(xlabel='time from run-onset (s)', 
            ylabel='cell #')
     
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\run_onset_ON_OFF{}'.
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_run_onset_ON_OFF_coolwarm{}'.
         format(ext),
         dpi=300, 
         bbox_inches='tight'
@@ -137,19 +161,33 @@ ON_bad_index = [compute_response_index(i, 'ON') for i in ON['prof_bad_mean']]
 OFF_good_index = [compute_response_index(i, 'OFF') for i in OFF['prof_good_mean']]
 OFF_bad_index = [compute_response_index(i, 'OFF') for i in OFF['prof_bad_mean']]
 
-ON_good_mat = [cell[2500:2500+1250*5] for cell in ON['prof_good_mean'].to_numpy()]
-ON_bad_mat = [cell[2500:2500+1250*5] for cell in ON['prof_bad_mean'].to_numpy()]
+ON_empty_mask = [good.size!=0 and bad.size!=0 for good, bad 
+                 in zip(ON['prof_good_mean'].to_numpy(), ON['prof_bad_mean'].to_numpy())]
+
+ON_good_mat = [cell[2500:2500+1250*5] for cell, valid 
+               in zip(ON['prof_good_mean'].to_numpy(), ON_empty_mask)
+               if valid]
+ON_bad_mat = [cell[2500:2500+1250*5] for cell, valid 
+              in zip(ON['prof_bad_mean'].to_numpy(), ON_empty_mask)
+              if valid]
 
 for i in range(len(ON_good_mat)):
     temp_pool = np.concatenate((ON_good_mat[i], ON_bad_mat[i]))
     ON_good_mat[i] = normalise_to_all(ON_good_mat[i], temp_pool)
     ON_bad_mat[i] = normalise_to_all(ON_bad_mat[i], temp_pool)
-
+    
 ON_good_mean, ON_good_error = compute_mean_and_sem(ON_good_mat)
 ON_bad_mean, ON_bad_error = compute_mean_and_sem(ON_bad_mat)
 
-OFF_good_mat = [cell[2500:2500+1250*5] for cell in OFF['prof_good_mean'].to_numpy()]
-OFF_bad_mat = [cell[2500:2500+1250*5] for cell in OFF['prof_bad_mean'].to_numpy()]
+OFF_empty_mask = [good.size!=0 and bad.size!=0 for good, bad 
+                  in zip(OFF['prof_good_mean'].to_numpy(), OFF['prof_bad_mean'].to_numpy())]
+
+OFF_good_mat = [cell[2500:2500+1250*5] for cell, valid 
+                in zip(OFF['prof_good_mean'].to_numpy(), OFF_empty_mask)
+                if valid]
+OFF_bad_mat = [cell[2500:2500+1250*5] for cell, valid 
+               in zip(OFF['prof_bad_mean'].to_numpy(), OFF_empty_mask) 
+               if valid]
 
 for i in range(len(OFF_good_mat)):
     temp_pool = np.concatenate((OFF_good_mat[i], OFF_bad_mat[i]))
@@ -176,18 +214,20 @@ axs[0].fill_between(xaxis, ON_bad_mean+ON_bad_error,
 
 axs[0].legend([lg, lb], ['good trials', 'bad trials'], frameon=False, fontsize=5)
 
-axs[1].plot(xaxis, OFF_good_mean, c='purple', zorder=10)
+lg, = axs[1].plot(xaxis, OFF_good_mean, c='purple', zorder=10)
 axs[1].fill_between(xaxis, OFF_good_mean+OFF_good_error,
                            OFF_good_mean-OFF_good_error,
                     color='purple', edgecolor='none', alpha=.2, zorder=10)
 
-axs[1].plot(xaxis, OFF_bad_mean, c='grey')
+lb, = axs[1].plot(xaxis, OFF_bad_mean, c='grey')
 axs[1].fill_between(xaxis, OFF_bad_mean+OFF_bad_error,
                            OFF_bad_mean-OFF_bad_error,
                     color='grey', edgecolor='none', alpha=.2)
 
-axs[0].set(ylim=(.23,.7))
-axs[1].set(ylim=(.28,.5))
+axs[1].legend([lg, lb], ['good trials', 'bad trials'], frameon=False, fontsize=5)
+
+axs[0].set(ylim=(.19,.67))
+axs[1].set(ylim=(.27,.5))
 for ax in axs:
     ax.set(xlabel='time from run-onset (s)', xticks=(0,2,4),
            ylabel='norm. spike rate')
@@ -196,7 +236,7 @@ for ax in axs:
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ON_OFF_good_bad{}'.
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_ON_OFF_good_bad{}'.
         format(ext),
         dpi=300, 
         bbox_inches='tight'
@@ -218,8 +258,9 @@ plot_violin_with_scatter(ON_good_index_filt, ON_bad_index_filt, 'firebrick', 'gr
                          ylabel='response index',
                          showscatter=False, plot_statistics=True,
                          ylim=(0, 5),
+                         figsize=(1.4, 2),
                          save=True, 
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ON_index_violinplot')
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_ON_good_bad_index_violinplot')
 
 outlier_mask = [1 if 
                 not (0 < good < 10) or 
@@ -234,13 +275,22 @@ plot_violin_with_scatter(OFF_good_index_filt, OFF_bad_index_filt, 'purple', 'gre
                          ylabel='response index',
                          showscatter=False, plot_statistics=True,
                          ylim=(0, 5),
+                         figsize=(1.4, 2),
                          save=True, 
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\OFF_index_violinplot')
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_OFF_good_bad_index_violinplot')
 
 
-#%% comparing ctrl versus stim 
-df_sorted_ctrl = df.sort_values(by='pre_post_ctrl')
-df_sorted_stim = df.sort_values(by='pre_post_stim')
+#%% extract seperate experiments 
+df_HPCLC = df[(df['rectype']=='HPCLC') & (df['cell_identity']=='pyr')]
+df_HPCLCterm = df[(df['rectype']=='HPCLCterm') & (df['cell_identity']=='pyr')]
+
+
+#%% plot HPCLC
+count_ctrl_ON = (df_HPCLC['pre_post_ctrl']<.8).sum()
+count_stim_ON = (df_HPCLC['pre_post_stim']<.8).sum()
+
+df_sorted_ctrl = df_HPCLC.sort_values(by='pre_post_ctrl')
+df_sorted_stim = df_HPCLC.sort_values(by='pre_post_stim')
 
 ctrl_profiles = df_sorted_ctrl['prof_ctrl_mean'].to_numpy()
 ctrl_profiles = [normalise(cell[2500:2500+5*1250]) for cell in ctrl_profiles]
@@ -248,16 +298,132 @@ ctrl_profiles = [normalise(cell[2500:2500+5*1250]) for cell in ctrl_profiles]
 stim_profiles = df_sorted_stim['prof_stim_mean'].to_numpy()
 stim_profiles = [normalise(cell[2500:2500+5*1250]) for cell in stim_profiles]
 
-fig, axs = plt.subplots(1, 2, figsize=(4,2.2))
+fig, axs = plt.subplots(1, 2, figsize=(4.4,2.5))
 axs[0].imshow(ctrl_profiles, extent=(-1, 4, 0, len(ctrl_profiles)),
-              aspect='auto', cmap='coolwarm', interpolation='none')
+              aspect='auto', cmap='Greys', interpolation='none')
 axs[0].set(title='ctrl.')
 axs[1].imshow(stim_profiles, extent=(-1, 4, 0, len(ctrl_profiles)),
-              aspect='auto', cmap='coolwarm', interpolation='none')
+              aspect='auto', cmap='Greys', interpolation='none')
 axs[1].set(title='stim.')
 
 for i in [0,1]:
     axs[i].set(xlabel='time from run-onset (s)',
                ylabel='cell #')
     
+fig.suptitle(f'ctrl. ON: {count_ctrl_ON}, stim. ON: {count_stim_ON}')
+
 fig.tight_layout()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLC_run_onset_ctrl_stim{}'
+        .format(ext),
+        dpi=300)
+
+
+#%% percentage of ON cells within sessions 
+perc_ON_ctrl_per_session = df_HPCLC.groupby('recname')['pre_post_ctrl'].apply(
+    lambda x: (x < 0.8).mean() * 100  # mean of booleans = percentage of True values
+).to_numpy()
+perc_ON_stim_per_session = df_HPCLC.groupby('recname')['pre_post_stim'].apply(
+    lambda x: (x < 0.8).mean() * 100
+).to_numpy()
+
+plot_violin_with_scatter(perc_ON_ctrl_per_session, perc_ON_stim_per_session,
+                         'grey', 'firebrick',
+                         paired=True,
+                         alpha=.25,
+                         dpi=300,
+                         xticklabels=('ctrl.', 'stim.'),
+                         title='ON',
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLC_ON_perc_sess')
+
+perc_OFF_ctrl_per_session = df_HPCLC.groupby('recname')['pre_post_ctrl'].apply(
+    lambda x: (x > 1.25).mean() * 100  # mean of booleans = percentage of True values
+).to_numpy()
+perc_OFF_stim_per_session = df_HPCLC.groupby('recname')['pre_post_stim'].apply(
+    lambda x: (x > 1.25).mean() * 100
+).to_numpy()
+
+plot_violin_with_scatter(perc_OFF_ctrl_per_session, perc_OFF_stim_per_session,
+                         'grey', 'purple',
+                         paired=True,
+                         alpha=.25,
+                         dpi=300,
+                         xticklabels=('ctrl.', 'stim.'),
+                         title='OFF',
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLC_OFF_perc_sess')
+
+
+#%% plot HPCLCterm
+count_ctrl_term_ON = (df_HPCLCterm['pre_post_ctrl']<.8).sum()
+count_stim_term_ON = (df_HPCLCterm['pre_post_stim']<.8).sum()
+
+df_sorted_ctrl_term = df_HPCLCterm.sort_values(by='pre_post_ctrl')
+df_sorted_stim_term = df_HPCLCterm.sort_values(by='pre_post_stim')
+
+ctrl_term_profiles = df_sorted_ctrl_term['prof_ctrl_mean'].to_numpy()
+ctrl_term_profiles = [normalise(cell[2500:2500+5*1250]) for cell in ctrl_term_profiles]
+
+stim_term_profiles = df_sorted_stim_term['prof_stim_mean'].to_numpy()
+stim_term_profiles = [normalise(cell[2500:2500+5*1250]) for cell in stim_term_profiles]
+
+fig, axs = plt.subplots(1, 2, figsize=(4.4,2.5))
+axs[0].imshow(ctrl_term_profiles, extent=(-1, 4, 0, len(ctrl_term_profiles)),
+              aspect='auto', cmap='Greys', interpolation='none')
+axs[0].set(title='ctrl.')
+axs[1].imshow(stim_term_profiles, extent=(-1, 4, 0, len(ctrl_term_profiles)),
+              aspect='auto', cmap='Greys', interpolation='none')
+axs[1].set(title='stim.')
+
+for i in [0,1]:
+    axs[i].set(xlabel='time from run-onset (s)',
+               ylabel='cell #')
+    
+fig.suptitle(f'ctrl. ON: {count_ctrl_term_ON}, stim. ON: {count_stim_term_ON}')
+    
+fig.tight_layout()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLCterm_run_onset_ctrl_stim{}'
+        .format(ext),
+        dpi=300)
+
+
+#%% percentage of ON cells within sessions 
+perc_ON_ctrl_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_ctrl'].apply(
+    lambda x: (x < 0.8).mean() * 100  # mean of booleans = percentage of True values
+).to_numpy()
+perc_ON_stim_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_stim'].apply(
+    lambda x: (x < 0.8).mean() * 100
+).to_numpy()
+
+plot_violin_with_scatter(perc_ON_ctrl_term_per_session, perc_ON_stim_term_per_session,
+                         'grey', 'firebrick',
+                         paired=True,
+                         alpha=.25,
+                         dpi=300,
+                         xticklabels=('ctrl.', 'stim.'),
+                         title='ON',
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLCterm_ON_perc_sess')
+
+perc_OFF_ctrl_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_ctrl'].apply(
+    lambda x: (x > 1.25).mean() * 100  # mean of booleans = percentage of True values
+).to_numpy()
+perc_OFF_stim_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_stim'].apply(
+    lambda x: (x > 1.25).mean() * 100
+).to_numpy()
+
+plot_violin_with_scatter(perc_OFF_ctrl_term_per_session, perc_OFF_stim_term_per_session,
+                         'grey', 'purple',
+                         paired=True,
+                         alpha=.25,
+                         dpi=300,
+                         xticklabels=('ctrl.', 'stim.'),
+                         title='OFF',
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLCterm_OFF_perc_sess')

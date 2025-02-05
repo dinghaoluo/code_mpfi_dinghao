@@ -26,7 +26,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              showscatter=True, showmainline=True,
                              showmeans=False, showmedians=True, showextrema=False,
                              print_statistics=True, plot_statistics=True,
-                             save=False, savepath=' ', dpi=120):
+                             save=False, savepath=' ', dpi=120,
+                             figsize=(1.8,2.4)):
     """
     plot half-violins with optional scatter and statistical comparisons
 
@@ -80,6 +81,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         path to save the plot (default: ' ')
     dpi : int, optional
         resolution for the saved image (default: 120)
+    figsize  : tuple, optional 
+        figure size (default: (1.8, 2.4))
 
     returns
     -------
@@ -93,7 +96,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     - violins are coloured based on `colour0` and `colour1`
     - saves the plot in both .png and .pdf formats if `save=True`
     """
-    fig, ax = plt.subplots(figsize=(1.8,2.4))
+    fig, ax = plt.subplots(figsize=figsize)
     
     vp = ax.violinplot([data0, data1],
                        positions=[1,2],
@@ -152,6 +155,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     
     if xlim is not None:
         ax.set(xlim=xlim)
+    else:
+        ax.set(xlim=(.5, 2.5))
     if ylim is not None:
         ax.set(ylim=ylim)
         y_range = (ylim[1], ylim[0])
@@ -179,7 +184,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
             ax.text(1.5, y_range[0]+y_range_tot*.05, 'ranksums_p={}\nttest_p={}'.format(round(rank_p, 5), round(ttest_p, 5)), 
                     ha='center', va='bottom', color='k', fontsize=8)
         
-    ax.set(xticks=[1,2], xticklabels=xticklabels, xlim=(.5, 2.5),
+    ax.set(xticks=[1,2], xticklabels=xticklabels,
            ylabel=ylabel,
            title=title)
     
