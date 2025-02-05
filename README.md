@@ -226,9 +226,9 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 
 ## pre-processing
 ### 2-photon imaging
-2-photon imaging data were pre-processed using [suite2p](https://github.com/MouseLand/suite2p)
+2-photon imaging data were pre-processed using [suite2p](https://github.com/MouseLand/suite2p)  
 axon-GCaMP data were pre-processed with a custom-tuned parameter set optimised for identifying neuronal processes
 ### hippocampus ephys data 
-ephys data were spike-sorted using kilosort for pre-processing and manual curation, after which the .res and .clu files were used for trial truncation with a custom MATLAB pipeline. `HPC_all_extract.py` then runs through all hippocampus recordings regardless of whether each recording has been processed, extracting information from the .mat files produced in the previous step; the end results are a smoothed-spike-train file and a raster file for each recording session
-`HPC_all_waveforms.py` is used to extract the waveform of each cluster; this is rarely used 
+ephys data were spike-sorted using kilosort for pre-processing and manual curation, after which the .res and .clu files were used for trial truncation with a custom MATLAB pipeline. `HPC_all_extract.py` then runs through all hippocampus recordings regardless of whether each recording has been processed, extracting information from the .mat files produced in the previous step; the end results are a smoothed-spike-train file and a raster file for each recording session  
+`HPC_all_waveforms.py` is used to extract the waveform of each cluster; this is rarely used  
 `HPC_all_profiles.py` summarises information on each cluster, including but not limited to `cell_identity` (pyramidal or interneurone), `place_cell` (Boolean), `pre_post` (pre-run-onset/post-run-onset ratio, used to measure the run-onset response), `SI` (spatial info.), `TI` (temporal info.), `prof_mean` (spike rate profile mean)
