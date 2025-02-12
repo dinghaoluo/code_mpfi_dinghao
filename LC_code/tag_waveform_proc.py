@@ -3,8 +3,9 @@
 Created on Mon Aug  1 18:43:47 2022
 update:
     25 Jan 2023, input rec_list
+    11 Feb 2025, modified to include all cells
     
-criterion: line 166, 0.33 and <20 Hz
+criterion: 0.33 response rate and <20 Hz
 
 saves the average and tagged waveforms of all recordings in rec_list, pathLC
 @author: Dinghao Luo
@@ -17,17 +18,14 @@ import numpy as np
 from random import sample
 import scipy.io as sio
 import matplotlib.pyplot as plt
-import matplotlib as plr
 from scipy.stats import sem
 
-
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
-from common import normalise
+sys.path.append(r'Z:\Dinghao\code_dinghao\common')
+from common import normalise, mpl_formatting
 from param_to_array import param2array, get_clu
+mpl_formatting()
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 pathLC = rec_list.pathLC
 
@@ -72,11 +70,6 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
     av_spks = np.zeros([tot_spks, n_spk_samp])
     max_spks = np.zeros([tot_spks, n_spk_samp])
     
-    # added 29 Aug
-    eg_spks = np.zeros([number_eg_spk, n_spk_samp])
-    ind_eg = np.random.randint(0, tot_spks, number_eg_spk)
-    eg_count = 0
-    
     for i in range(tot_spks):
         spk_single = np.matrix(spks_wfs[i, :, :])
         spk_diff = np.zeros(n_chan)
@@ -85,10 +78,6 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
             spk_max = np.argmax(spk_diff)
         max_spks[i, :] = spk_single[spk_max, :]  # wf w/ highest amplitude
         av_spks[i, :] = spk_single.mean(0)  # wf of averaged amplitude (channels)
-        
-        if i in ind_eg and spikes_to_load!=[]:
-            eg_spks[eg_count, :] = av_spks[i, :]
-            eg_count+=1
     
     norm_spks = np.zeros([tot_spks, n_spk_samp])
     for i in range(tot_spks):
@@ -102,33 +91,38 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
     for i in range(32):
         spk_sem[i] = sem(norm_spks[:, i])
         
-    return av_spk, spk_sem, eg_spks;
+    return av_spk, spk_sem
 
 
 #%% MAIN
-for pathname in pathLC:    
-    file_stem = pathname
-    loc_A = file_stem.rfind('A')
-    file_name = file_stem + '\\' + file_stem[loc_A:loc_A+17]
+for pathname in pathLC:
+    recname = pathname[-17:]
+    print(recname)
     
     # processing only begins if there exist not *already* the session .npy files
     # if os.path.isfile('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy')==False:
     if 1==1:
         # header
-        print('\n\nProcessing {}'.format(pathname))
+        print('\n\nProcessing {}'.format(recname))
         
         # load .mat
-        mat_BTDT = sio.loadmat(file_name + 'BTDT.mat')
+        mat_BTDT = sio.loadmat(
+            r'{}/{}BTDT.mat'
+            .format(pathname, recname)
+            )
         behEvents = mat_BTDT['behEventsTdt']
-        spInfo = sio.loadmat(file_name + '_DataStructure_mazeSection1_TrialType1_SpInfo_Run0')
+        spInfo = sio.loadmat(
+            r'{}/{}_DataStructure_mazeSection1_TrialType1_SpInfo_Run0'
+            .format(pathname, recname)
+            )
         spike_rate = spInfo['spatialInfoSess'][0][0]['meanFR'][0][0][0]
         
         # global vars
         n_chan = 32  # need to change if using other probes
         n_spk_samp = 32  # arbitrary, equals to 1.6ms, default window in kilosort
         
-        clu = param2array(file_name + '.clu.1')  # load .clu
-        res = param2array(file_name + '.res.1')  # load .res
+        clu = param2array(r'{}/{}.clu.1'.format(pathname, recname))  # load .clu
+        res = param2array(r'{}/{}.res.1'.format(pathname, recname))  # load .res
         
         clu = np.delete(clu, 0)  # delete 1st element (noise clusters)
         all_clus = np.delete(np.unique(clu), [0, 1])
@@ -136,21 +130,17 @@ for pathname in pathLC:
         all_clus = all_clus[all_clus>=2]
         tot_clus = len(all_clus)
         
-        fspk = open(file_name + '.spk.1', 'rb')  # load .spk into a byte bufferedreader
+        fspk = open(r'{}/{}.spk.1'.format(pathname, recname), 'rb')  # load .spk into a byte bufferedreader
     
         # tagged
         stim_tp = np.zeros([60, 1])  # hard-coded for LC stim protocol
-        if file_stem=='Z:\Dinghao\MiceExp\ANMD060r\A060r-20230530\A060r-20230530-02':
+        if recname=='A060r-20230530-02':
             stim_tp = np.zeros([120, 1]) 
         tag_id = 0
         for i in range(behEvents['stimPulse'][0, 0].shape[0]):
             i = int(i)
             if behEvents['stimPulse'][0, 0][i, 3]<10:  # ~5ms tagged pulses
-                # temp = (behEvents['stimPulse'][0, 0][i, 0] 
-                #         + (behEvents['stimPulse'][0, 0][i, 1])/10000000)  # pulse time with highest precision
                 temp = behEvents['stimPulse'][0, 0][i, 0]
-                # temp_s = round(temp/20000, 4)  # f[sampling] = 20kHz
-                # print('%s%s%s%s%s%s%s' % ('pulse ', i+1, ': ', temp_s, 's (', temp, ')'))  # print pulse time
                 stim_tp[tag_id] = temp
                 tag_id += 1
         if tag_id not in [60, 120] : raise Exception('not enough tag pulses (expected 60 or 120)')
@@ -184,69 +174,48 @@ for pathname in pathLC:
         
         tot_tagged = sum(tagged[:, 1])
         
-        tagged_spk_dict = {}
-        tagged_sem_dict = {}
-        tagged_eg_spk_dict = {}
         for iclu in range(tot_clus):
-            if tagged[iclu, 1] == 1:
-                tagged_clu = int(tagged[iclu, 0])
+            if tagged[iclu, 1]:
+                tagged_clu = int(tagged[iclu,0])
                 tagged_spikes = if_tagged_spks[tagged_clu-2, :]
                 tagged_spikes = [int(x) for x in tagged_spikes]
                 tagged_spikes = [spike for spike in tagged_spikes if spike!=0]
-                tagged_spk, tagged_sem, tagged_eg_spks = spk_w_sem(fspk, clu, tagged_clu, tagged_spikes)
+                tagged_spk, tagged_sem = spk_w_sem(fspk, clu, tagged_clu, tagged_spikes)
+            
+                spont_mean, spont_sem = spk_w_sem(fspk, clu, iclu)
                 
-                tagged_spk_dict[str(tagged_clu)] = tagged_spk
-                tagged_sem_dict[str(tagged_clu)] = tagged_sem
-        
-        
-        #---plotting---#
-        time_ax = [x*50 for x in range(n_spk_samp)]  # time ticks in *u*s
-        
-        tot_plots = tot_clus
-        col_plots = 4
-        
-        row_plots = tot_plots // col_plots
-        if tot_plots % col_plots != 0:
-            row_plots += 1
+                fig, axs = plt.subplots(1,2,figsize=(2.1,1.4))
+                axs[0].plot(spont_mean, 'k')
+                axs[1].plot(tagged_spk)
+                
+                for i in range(2):
+                    for s in ('top', 'right', 'bottom', 'left'):
+                        axs[i].spines[s].set_visible(False)
+                    axs[i].set(xticks=[], yticks=[])
+                
+                fig.suptitle(f'{recname} clu{iclu}')
+                fig.tight_layout()
+                
+                for ext in ['.png', '.pdf']:
+                    fig.savefig(
+                        r'Z:\Dinghao\code_dinghao\LC_ephys\single_cell_waveform\{} clu{} tagged{}'
+                        .format(recname, iclu+2, ext))
+                
+            else:
+                spont_mean, spont_sem = spk_w_sem(fspk, clu, iclu)
+                tagged_clu = False
             
-        plr.rcParams['figure.figsize'] = (4*2, row_plots*2.5)
-        
-        plot_pos = np.arange(1, tot_plots+1)
-        
-        fig = plt.figure(1)
-        
-        avg_spk_dict = {}
-        avg_sem_dict = {}
-        avg_eg_spk_dict = {}
-        
-        for i in range(tot_clus):
-            nth_clu = i + 2
-            av_spk, spk_sem, eg_spks = spk_w_sem(fspk, clu, nth_clu)
-            
-            avg_spk_dict[str(nth_clu)] = av_spk
-            avg_sem_dict[str(nth_clu)] = spk_sem
-            avg_eg_spk_dict[str(nth_clu)] = eg_spks
-            
-            ax = fig.add_subplot(row_plots, col_plots, plot_pos[i])
-            ax.set_title('%s%s' % ('clu ', nth_clu), fontsize = 10)
-            ax.plot(time_ax, av_spk)
-            ax.fill_between(time_ax, av_spk+spk_sem, av_spk-spk_sem, color='lightblue')
-            for tgd in list(tagged_spk_dict.keys()):
-                tgd_clu = int(tgd)
-                if nth_clu == tgd_clu:
-                    ax.plot(time_ax, tagged_spk_dict[tgd], color='k')
-                    ax.fill_between(time_ax, tagged_spk_dict[tgd]+tagged_sem_dict[tgd],
-                                    tagged_spk_dict[tgd]-tagged_sem_dict[tgd], 
-                                    color='grey')
-            ax.axis('off')
-        
-        plt.subplots_adjust(hspace = 0.4)
-        plt.show()
-        
-        out_directory = r'Z:\Dinghao\code_dinghao\LC_tagged_by_sess'
-        fig.savefig(out_directory + '/' + file_name[42:60] + '_waveforms' + '.png')
-        
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy', tagged_spk_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_sem.npy', tagged_sem_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_avg_spk.npy', avg_spk_dict)
-        np.save('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_avg_sem.npy', avg_sem_dict)
+                fig, ax = plt.subplots(figsize=(1.3, 1.4))
+                ax.plot(spont_mean, 'k')
+                
+                for s in ('top', 'right', 'bottom', 'left'):
+                    ax.spines[s].set_visible(False)
+                    ax.set(xticks=[], yticks=[])
+                
+                fig.suptitle(f'{recname} clu{iclu+2}')
+                fig.tight_layout()
+                
+                for ext in ['.png', '.pdf']:
+                    fig.savefig(
+                        r'Z:\Dinghao\code_dinghao\LC_ephys\single_cell_waveform\{} clu{}{}'
+                        .format(recname, iclu+2, ext))

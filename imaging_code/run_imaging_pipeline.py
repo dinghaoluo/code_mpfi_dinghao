@@ -60,8 +60,8 @@ if roi_switch=='1':
     
 if roi_switch=='2':
     # how many pixels x/y for each grid
-    stride = int(496/2/2/2/2)
-    # stride = 496
+    # stride = int(496/2/2/2/2)
+    stride = 496
     border = 8  # ignore how many pixels at the border (1 side)
     # border = 6
     fit = ipf.check_stride_border(stride, border)
@@ -126,11 +126,11 @@ print(printout)
 #%% run
 print('loading behaviour dataframe...')
 try:
-    df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_GRABNE_sessions.pkl')
+    df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_HPCGRABNE_sessions.pkl')
 except FileNotFoundError:
     print('loading failed: no behavioural dataframe found\n')
 
-for rec_path in pathGRABNE[102:]:
+for rec_path in pathGRABNE[68:]:
     if 'Dinghao' in rec_path:
         reg_path = rec_path+r'\processed\suite2p\plane0'
         recname = rec_path[-17:]

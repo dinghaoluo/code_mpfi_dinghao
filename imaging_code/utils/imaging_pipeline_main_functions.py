@@ -223,7 +223,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
             pump_frames.append(ipf.find_nearest(pumps[trial], frame_times))
             
         # find cue frames 
-        cues = [t for t in movie_times if t>first_frame and t<last_frame]
+        cues = [t[0][0] for t in movie_times if t[0][0]>first_frame and t[0][0]<last_frame]
         cue_frames = []
         for trial in range(len(cues)):
             cue_frames.append(ipf.find_nearest(cues[trial], frame_times))
@@ -242,8 +242,8 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
     else:  # if behaviour has been processed 
         print('unpacking behaviour file...')
         run_frames = beh['run_onset_frames']
-        pump_frames = beh['pump_frames']
-        cue_frames = beh['cue_frames']
+        pump_frames = beh['reward_frames']
+        cue_frames = beh['start_cue_frames']
         frame_times = beh['frame_times']
         for i in range(len(run_frames)-1, -1, -1):  # filter out the no-clear-onset trials
             if run_frames[i]==-1:

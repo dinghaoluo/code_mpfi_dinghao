@@ -555,6 +555,8 @@ def process_txt_immobile(txtfile):
             trial_statements.append(line)
         if line[0] == '$MV':
             mv_trial.append([float(line[1]), float(line[2])])
+        if line[0] == '$LE':
+            if len(line)<4: print(line)
         if line[0] == '$LE' and line[3] == '1':
             lt_trial.append([float(line[1]), float(line[2])]) 
         if line[0] == '$PE' and line[3] == '1':

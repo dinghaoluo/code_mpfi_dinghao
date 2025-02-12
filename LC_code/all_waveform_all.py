@@ -14,13 +14,11 @@ import matplotlib.pyplot as plt
 import matplotlib as plc
 import sys
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 pathLC = rec_list.pathLC
 
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
+sys.path.append('Z:\Dinghao\code_dinghao\common')
 from common import normalise
 
 
