@@ -30,36 +30,40 @@ pathLC = rec_list.pathLC
 
 
 #%% load data 
-all_train = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
-                    allow_pickle=True).item()
-cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+all_train = np.load(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_trains.npy',
+    allow_pickle=True
+    ).item()
+cell_prop = pd.read_pickle(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
+    )
 
 
 #%% specify RO peaking putative Dbh cells
-RO_peaking_keys = []
+all_clus = []
 for cell in cell_prop.index:
-    up = cell_prop['peakness'][cell]  # union-peakness
-    pt = cell_prop['putative'][cell]  # putative
-    tg = cell_prop['tagged'][cell]
+    run_on_burst = cell_prop['run_onset_peak'][cell]
+    identity = cell_prop['identity'][cell]
     
-    if up and pt:
-        RO_peaking_keys.append(cell)
-    if up and tg:  # since putative does not include tagged
-        RO_peaking_keys.append(cell)
+    if run_on_burst and identity!='other':
+        all_clus.append(cell)
 
 
 #%% MAIN
 all_ro_rb = {}
 
 avg_ro = []; avg_rb = []
-pk_ro = []; pk_rb = []
+
 s2n_run_onset = []
 s2n_run_bout = []
+
+peak_run_onset = []
+peak_run_bout = []
 
 for clu in list(all_train.items()):
     cluname = clu[0]
     
-    if cluname not in RO_peaking_keys:
+    if cluname not in all_clus:
         continue
     
     print('processing {}'.format(cluname))
@@ -84,12 +88,17 @@ for clu in list(all_train.items()):
     
     curr_spike_all = clu[1]
     curr_spike_good = curr_spike_all[ind_good_beh]
-    run_onset_mean = np.mean([trial[1250:8750]*1250 for trial in curr_spike_good if len(trial)>=8750], 
+    run_onset_mean = np.mean([trial[:8750]*1250 for trial in curr_spike_good if len(trial)>=8750], 
                              axis=0)
-    run_onset_sem = sem([trial[1250:8750]*1250 for trial in curr_spike_good if len(trial)>=8750],
+    run_onset_sem = sem([trial[:8750]*1250 for trial in curr_spike_good if len(trial)>=8750],
                         axis=0)
-    bl_run_onset = (np.mean(run_onset_mean[625:1875])+np.mean(run_onset_mean[5625:6875]))/2
-    s2n_run_onset.append(run_onset_mean[3750]/bl_run_onset)
+    
+    # signal to noise calculation
+    run_onset_peak = max(run_onset_mean[int(3750-.25*1250):int(3750+.25*1250)])  # peak
+    run_onset_baseline = np.mean(run_onset_mean[int(3750+1250*.75):int(3750+1250*1.25)])  # .75~1.25 s after RO
+    
+    peak_run_onset.append(run_onset_peak)
+    s2n_run_onset.append(run_onset_peak/run_onset_baseline)
     
     # for speed matching
     filename = pathname + pathname[-18:] + '_DataStructure_mazeSection1_TrialType1'
@@ -142,18 +151,17 @@ for clu in list(all_train.items()):
     if fsa.shape[0]==9201 or len(matched_bouts)<=10:
         pass
     else:
-        fsa_mean = np.mean(fsa[matched_bouts, 400:2800], axis=0)  # 2s around bout-onset
-        fsa_sem = sem(fsa[matched_bouts, 400:2800], axis=0)
+        fsa_mean = np.mean(fsa[matched_bouts, :2800], axis=0)
+        fsa_sem = sem(fsa[matched_bouts, :2800], axis=0)
         all_ro_rb[cluname] = [run_onset_mean, run_onset_sem, fsa_mean, fsa_sem]
         avg_ro.append(run_onset_mean)
         avg_rb.append(fsa_mean)
-        # pk_ro.append(np.mean(run_onset_mean[1875:3125]))
-        # pk_rb.append(np.mean(fsa_mean[600:1000]))
-        pk_ro.append(run_onset_mean[2500])
-        pk_rb.append(fsa_mean[800])
     
-    bl_run_bout = (np.mean(fsa_mean[200:600])+np.mean(fsa_mean[1000:1400]))/2
-    s2n_run_bout.append(fsa_mean[800]/bl_run_bout)
+    run_bout_peak = max(fsa_mean[int(1200-400*.25):int(1200+400*.25)])
+    run_bout_baseline = np.mean(fsa_mean[int(1200+400*.75):int(1200+400*1.25)])
+    
+    peak_run_bout.append(run_bout_peak)
+    s2n_run_bout.append(run_bout_peak/run_bout_baseline)
 
 
 #%% speed matching finished

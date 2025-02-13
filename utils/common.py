@@ -283,4 +283,3 @@ def sem_gpu(arr, axis=0, ddof=1):
     arr_gpu = cp.array(arr)  # move to VRAM
     s = cp.std(arr_gpu, axis=axis, ddof=ddof) / cp.sqrt(n)
     return s
-

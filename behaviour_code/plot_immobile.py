@@ -19,7 +19,7 @@ from behaviour_functions import process_behavioural_data_immobile
 
 #%% main 
 # unpack the file
-animal = 'ANMD108'
+animal = 'ANMD107'
 recname = f'A{animal[-3:]}-20250212-01'
 
 file = process_behavioural_data_immobile(f'Z:/Dinghao/MiceExp/{animal}/{recname}T.txt')

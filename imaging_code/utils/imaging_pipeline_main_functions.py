@@ -282,7 +282,8 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
             else:
                 break
         tot_trunc = head + (len(filtered_run_frames)-tail)
-        run_aligned = np.zeros((tot_grid, tot_run-tot_trunc, (bef+aft)*30))  # grid x trial x frame bin
+        
+        run_aligned = np.zeros((tot_grid, tot_run-tot_trunc, (bef+aft)*30))
         run_aligned_ch2 = np.zeros((tot_grid, tot_run-tot_trunc, (bef+aft)*30))
         for i, r in enumerate(filtered_run_frames[head:tail]):
             run_aligned[:, i, :] = grid_traces[:, r-bef*30:r+aft*30]
@@ -347,9 +348,9 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
                 trace_gpu = cp.array(curr_grid_trace)
                 trace_gpu_ch2 = cp.array(curr_grid_trace_ch2)
                 mean_trace = cp.mean(trace_gpu, axis=0).get()
-                mean_trace_ch2 = np.mean(trace_gpu_ch2, axis=0).get()
-                sem_trace = sem_gpu(curr_grid_trace, axis=0)
-                sem_trace_ch2 = sem_gpu(curr_grid_trace_ch2, axis=0)
+                mean_trace_ch2 = cp.mean(trace_gpu_ch2, axis=0).get()
+                sem_trace = sem_gpu(curr_grid_trace, axis=0).get()
+                sem_trace_ch2 = sem_gpu(curr_grid_trace_ch2, axis=0).get()
             else:
                 mean_trace = np.mean(curr_grid_trace, axis=0)
                 mean_trace_ch2 = np.mean(curr_grid_trace_ch2, axis=0)
@@ -390,7 +391,7 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
             if GPU_AVAILABLE:
                 trace_gpu = cp.array(curr_grid_trace)
                 mean_trace = np.mean(trace_gpu, axis=0).get()
-                sem_trace = sem_gpu(curr_grid_trace, axis=0)
+                sem_trace = sem_gpu(curr_grid_trace, axis=0).get()
             else:
                 mean_trace = np.mean(curr_grid_trace, axis=0)
                 sem_trace = sem(curr_grid_trace, axis=0)
@@ -494,9 +495,9 @@ def run_grid_pipeline(rec_path, recname, reg_path, txt_path, beh,
                 trace_gpu = cp.array(curr_grid_trace)
                 trace_gpu_ch2 = cp.array(curr_grid_trace_ch2)
                 mean_trace = cp.mean(trace_gpu, axis=0).get()
-                mean_trace_ch2 = np.mean(trace_gpu_ch2, axis=0).get()
-                sem_trace = sem_gpu(curr_grid_trace, axis=0)
-                sem_trace_ch2 = sem_gpu(curr_grid_trace_ch2, axis=0)
+                mean_trace_ch2 = cp.mean(trace_gpu_ch2, axis=0).get()
+                sem_trace = sem_gpu(curr_grid_trace, axis=0).get()
+                sem_trace_ch2 = sem_gpu(curr_grid_trace_ch2, axis=0).get()
             else:
                 mean_trace = np.mean(curr_grid_trace, axis=0)
                 mean_trace_ch2 = np.mean(curr_grid_trace_ch2, axis=0)

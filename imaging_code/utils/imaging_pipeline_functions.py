@@ -152,7 +152,13 @@ def calculate_dFF(F_array, window=1800, sigma=300, GPU_AVAILABLE=False):
     baseline = rolling_max(baseline, window, GPU_AVAILABLE)
     
     if GPU_AVAILABLE: F_array = cp.array(F_array)  # if GPU_AVAILABLE, baseline will remain on GPU
-    return (F_array-baseline)/baseline
+    
+    dFF = (F_array-baseline)/baseline
+    
+    if GPU_AVAILABLE:
+        return dFF.get()
+    else:
+        return dFF
 
 def filter_outlier(F_array, std_threshold=10):
     means = F_array.mean(axis=1)  # mean of each ROI trace
