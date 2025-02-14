@@ -278,8 +278,8 @@ for rec_path in pathHPCLCGCaMP:
     # behaviour file
     beh = df.loc[recname]
     run_frames = beh['run_onset_frames']
-    pump_frames = beh['pump_frames']
-    cue_frames = beh['cue_frames']
+    pump_frames = beh['reward_frames']
+    cue_frames = beh['start_cue_frames']
     frame_times = beh['frame_times']
     run_frames = [frame for frame in run_frames if frame != -1]  # filter out the no-clear-onset trials
     pump_frames = [frame for frame in pump_frames if frame != -1]  # filter out the no-rew trials
@@ -370,8 +370,9 @@ for rec_path in pathHPCLCGCaMP:
         
         fig.suptitle('ROI {} run-onset-aligned'.format(roi))
         
-        fig.savefig(r'{}\roi_{}.png'.format(run_path, roi),
-                    dpi=300)
+        for ext in ('.png', '.pdf'):
+            fig.savefig(r'{}\roi_{}{}'.format(run_path, roi, ext),
+                        dpi=300)
         plt.close(fig)
 
     np.save(r'{}\RO_aligned_dict.npy'.format(proc_path), all_mean_run_dict)
@@ -442,8 +443,9 @@ for rec_path in pathHPCLCGCaMP:
         
         fig.suptitle('ROI {} rew-aligned'.format(roi))
         
-        fig.savefig(r'{}\roi_{}.png'.format(rew_path, roi),
-                    dpi=300)
+        for ext in ('.png', '.pdf'):
+            fig.savefig(r'{}\roi_{}{}'.format(rew_path, roi, ext),
+                        dpi=300)
         plt.close(fig)
             
         

@@ -103,7 +103,7 @@ for pathname in paths:
         print(recname)
     else:
         print(f'{recname} has already been processed...\n')
-        # continue  # comment out this line to re-process everything
+        continue  # comment out this line to re-process everything
 
     start = time()
 

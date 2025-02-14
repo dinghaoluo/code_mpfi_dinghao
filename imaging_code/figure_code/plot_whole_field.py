@@ -102,6 +102,7 @@ for rec_path in pathGRABNE:
         
     plt.close(fig)
     
+    # plot correlagram based on dFF
     fig, ax = plt.subplots(figsize=(3,3))
     
     ax.plot(lags[int(len(lags)/2-600):int(len(lags)/2+600)], corr[int(len(lags)/2-600):int(len(lags)/2+600)])

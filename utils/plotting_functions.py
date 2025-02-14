@@ -96,6 +96,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     - violins are coloured based on `colour0` and `colour1`
     - saves the plot in both .png and .pdf formats if `save=True`
     """
+    
+    print(data1)
     fig, ax = plt.subplots(figsize=figsize)
     
     vp = ax.violinplot([data0, data1],

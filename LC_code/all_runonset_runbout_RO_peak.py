@@ -148,7 +148,7 @@ for clu in list(all_train.items()):
     times = run_bout_file['timeStepRun']
     fsa = run_bout_file['filteredSpikeArrayRunBoutOnSet'][clunum]  # bout x time
     
-    if fsa.shape[0]==9201 or len(matched_bouts)<=10:
+    if fsa.shape[0]==9201 or len(matched_bouts)<=10:  # to prevent contamination
         pass
     else:
         fsa_mean = np.mean(fsa[matched_bouts, :2800], axis=0)
@@ -162,6 +162,12 @@ for clu in list(all_train.items()):
     
     peak_run_bout.append(run_bout_peak)
     s2n_run_bout.append(run_bout_peak/run_bout_baseline)
+
+
+#%% we need to filter out the inf's first 
+s2n_run_onset, s2n_run_bout = zip(*[
+    (ro, rb) for ro, rb in zip(s2n_run_onset, s2n_run_bout) if np.isfinite(ro) and np.isfinite(rb)
+])  # this gives tuples though, so keep that in mind
 
 
 #%% speed matching finished
@@ -228,25 +234,25 @@ ro_xaxis = np.arange(-1250, 5000)/1250
 
 
 #%% plotting average
-w_res = wilcoxon(pk_ro, pk_rb)[1]
+w_res = wilcoxon(peak_run_bout, peak_run_onset)[1]
 
 print('plotting average spiking profiles...')
 fig, ax = plt.subplots(figsize=(2,1.4))
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 
-avg_ro_plot = avg_ro[1250:7500]
-sem_ro_plot = sem_ro[1250:7500]
-avg_rb_plot = avg_rb[400:2400]
-sem_rb_plot = sem_rb[400:2400]
+avg_ro_plot = avg_ro[3750-1250:3750+1250*4]
+sem_ro_plot = sem_ro[3750-1250:3750+1250*4]
+avg_rb_plot = avg_rb[1200-400:1200+400*4]
+sem_rb_plot = sem_rb[1200-400:1200+400*4]
 
-avg_ro_ln, = ax.plot(ro_xaxis, avg_ro_plot, color='navy')
+avg_ro_ln, = ax.plot(ro_xaxis, avg_ro_plot, color='navy', zorder=10)
 avg_rb_ln, = ax.plot(rb_xaxis, avg_rb_plot, color='grey')
 ax.fill_between(ro_xaxis,
                 avg_ro_plot+sem_ro_plot,
                 avg_ro_plot-sem_ro_plot,
                 color='royalblue',
-                alpha=.1, edgecolor='none')
+                alpha=.1, edgecolor='none', zorder=10)
 ax.fill_between(rb_xaxis,
                 avg_rb_plot+sem_rb_plot,
                 avg_rb_plot-sem_rb_plot,
@@ -254,19 +260,19 @@ ax.fill_between(rb_xaxis,
                 alpha=.1, edgecolor='none')
 # ax.vlines(0, 0, 10, color='grey', linestyle='dashed', alpha=.1)
 ax.set(xlim=(-1,4), xticks=[0,2,4],
-       ylim=(1.5,8.5), yticks=[3,5,7], 
+       ylim=(2.2,5.8), yticks=[3,5], 
        title='RO v Rb-onset (all Dbh+)',
        xlabel='time (s)',
        ylabel='spike rate (Hz)')
 ax.legend([avg_ro_ln, avg_rb_ln], ['trial run onset', 'run-bout onset'], frameon=False, fontsize=8)
 
-plt.plot([-.5,.5], [8.05,8.05], c='k', lw=.5)
-plt.text(0, 8.05, 'p={}'.format(round(w_res, 8)), ha='center', va='bottom', color='k', fontsize=5)
+plt.plot([-.5,.5], [5.55,5.55], c='k', lw=.5)
+plt.text(0, 5.55, 'p={}'.format(round(w_res, 8)), ha='center', va='bottom', color='k', fontsize=5)
 
 plt.show()
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_allDbh_ROpeaking{}'.format(ext),
+    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_rovrb_avg_allDbh_ROpeaking{}'.format(ext),
                 dpi=300, bbox_inches='tight')
 
 
@@ -276,6 +282,6 @@ pf.plot_violin_with_scatter(s2n_run_onset, s2n_run_bout,
                             paired=True, 
                             xticklabels=['run-onset', 'run-bout\nonset'], 
                             ylabel='run-onset burst SNR', 
-                            title='LC RO-SNR', 
-                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_all\LC_all_rovrb_avg_allDbh_ROpeaking_violin', 
+                            title='LC SNR', 
+                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_rovrb_avg_allDbh_ROpeaking_violin', 
                             dpi=300)

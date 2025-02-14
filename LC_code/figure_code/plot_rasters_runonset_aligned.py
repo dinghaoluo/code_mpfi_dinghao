@@ -55,7 +55,7 @@ for clu in clu_list:
     if clu in tag_list: suffix=' tgd'
     if clu in put_list: suffix=' put'
 
-    ax.set(xlim=(-1, 4), xlabel='time (s)', xticks=[0, 2, 4],
+    ax.set(xlim=(-1, 4), xlabel='time from run-onset (s)', xticks=[0, 2, 4],
            ylim=(-1, tot_trial+1), ylabel='trial #',
            title='{}\nrun-onset aligned'.format(clu+suffix))
     axt = ax.twinx(); axt.set(ylabel='spike rate\n(Hz)')
@@ -80,9 +80,11 @@ for clu in clu_list:
     fig.tight_layout()
     plt.show()
     
-    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_w_curve\{}.png'.format(clu+suffix),
-                dpi=200, bbox_inches='tight')
-    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\single_cell_raster_w_curve\{}.pdf'.format(clu+suffix),
-                bbox_inches='tight')
+    for ext in ('.png', '.pdf'):
+        fig.savefig(
+            r'Z:\Dinghao\code_dinghao\LC_ephys\single_cell_rasters\single_cell_raster_w_curve\{}{}'
+            .format(clu+suffix, ext),
+            dpi=300, 
+            bbox_inches='tight')
     
     plt.close()

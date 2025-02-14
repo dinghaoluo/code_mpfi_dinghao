@@ -71,7 +71,7 @@ all_train = np.load('Z:/Dinghao/code_dinghao/LC_ephys/LC_all_info.npy',
 print('all spike trains loaded')
 
 
-#%% shuffle function 
+#%% function 
 def cir_shuf(train, num_shuf=single_trial_num_shuf):
     tot_t = len(train)
     if GPU_AVAILABLE: 
@@ -171,7 +171,7 @@ for cluname in OFF:
                 ax.axhspan(mean_shuf+.001, mean_shuf-.001, color='grey', alpha=.5)
                 ax.axvspan((co-tlick-1)/1250, (co-tlick+1)/1250, color='r')
                 ax.set(title='trial {}'.format(trial+1))
-                outdir = r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitive_cutoff_point_analysis_shufbased\{}\trial{}.png'.format(cluname+' OFF', trial+1)
+                outdir = r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitivity\lick_sensitive_cutoff_point_analysis_shufbased\{}\trial{}.png'.format(cluname+' OFF', trial+1)
                 os.makedirs(os.path.dirname(outdir), exist_ok=True)
                 fig.savefig(outdir,
                             dpi=100, bbox_inches='tight')
