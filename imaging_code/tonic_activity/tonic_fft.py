@@ -54,14 +54,10 @@ for path in pathGRABNE:
     tot_grids = traces_grids.shape[0]
     
     # session-specific parameters 
-    T = (traces_whole_field.shape[0]-sigma*2)*dt  # total rec time in seconds
+    T = (traces_whole_field.shape[0])*dt  # total rec time in seconds
     df = 1/T  # freq resolution 
     fNQ = 1/dt/2  # Nyquist 
     faxis = np.arange(0, fNQ, df)
-    
-    
-    ## whole-field
-    F_conv_whole_field = np.convolve(traces_whole_field, gaussian_filter, mode='same')
     
     fft_whole_field = fft(traces_whole_field - traces_whole_field.mean())  # fft of the centralised trace
     spectrum = 2 * dt ** 2 / T * (fft_whole_field * fft_whole_field.conj())  # get power 

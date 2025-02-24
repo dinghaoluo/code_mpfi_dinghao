@@ -25,7 +25,7 @@ save_every = 5  # save every n trials
 
 
 #%% load data 
-exp_name = 'HPCLCterm'  # HPCLC, HPCLCterm, LC, HPCGRABNE, HPCLCGCaMP
+exp_name = 'HPCLCGCaMP'  # HPCLC, HPCLCterm, LC, HPCGRABNE, HPCLCGCaMP
 df = pd.read_pickle(r'Z:/Dinghao/code_dinghao/behaviour/all_{}_sessions.pkl'.format(
     exp_name))
 

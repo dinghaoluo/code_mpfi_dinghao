@@ -49,7 +49,8 @@ ax.set(xlabel='time from run-onset (s)',
 ax.set_aspect('equal')
 fig.suptitle('LC-CA1 GCaMP')
 
-im_ordered = ax.imshow(im_matrix, cmap='viridis', aspect='auto', extent=(-1, 4, 0, tot_rois))
+im_ordered = ax.imshow(im_matrix, 
+                       cmap='viridis', aspect='auto', extent=(-1, 4, 0, tot_rois))
 plt.colorbar(im_ordered, shrink=.5, ticks=[0,1], label='norm. dF/F')
 
 for ext in ['.png', '.pdf']:
