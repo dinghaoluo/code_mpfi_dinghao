@@ -23,6 +23,11 @@ import peak_detection_functions as pdf  # once i imported this as pd... stupid
 import alignment_functions as af
 from common import gaussian_kernel_unity
 
+# rec list 
+sys.path.append(r'Z:\Dinghao\code_dinghao')
+import rec_list
+paths = rec_list.pathLC
+
 
 #%% dataframe initialisation/loading
 fname = r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
@@ -78,37 +83,7 @@ else:
     print('GPU-acceleartion unavailable')
 
 
-#%% load data 
-print('loading data...')
-all_rasters = np.load(
-    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_rasters.npy',
-    allow_pickle=True
-    ).item()
-all_trains = np.load(
-    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_trains.npy',
-    allow_pickle=True
-    ).item()
-tagged_waveforms = np.load(
-    r'Z:\Dinghao\code_dinghao\LC_ephys\tagged_only_analysis\LC_all_waveforms.npy',
-    allow_pickle=True
-    ).item()
-kmeans = np.load(
-    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_UMAP_kmeans.npy',
-    allow_pickle=True
-    )  # this is for putative cell classification
-
-clu_list = list(all_rasters.keys())
-tag_list = list(tagged_waveforms.keys())
-
-
-#%% parameters
-global loadnew  # if a new session starts 
-global spike_rate_file, beh_file, align_run_file, speed_trunc
-global first_licks, trial_list, tot_trial_good_nonstim
-
-global samp_freq
-samp_freq = 1250
-
+#%% plotting 
 xaxis = np.arange(6 * samp_freq) / samp_freq - 3  # in seconds, since sampling freq is 1250 Hz 
 
 
@@ -303,49 +278,43 @@ def compute_speed_rate_corr(cluname, trains):
     return np.mean(rate_speed_corr[:,0]), np.mean(rate_speed_corr[:,1])
 
 def get_identity(cluname: str, 
-                 tag_list: list, 
-                 kmeans: list, 
-                 spike_rates: float) -> str:
+                 tagged_keys: list, 
+                 kmeans: dict, 
+                 spike_rate: float) -> str:
     """
-    Determines the identity of a cell based on tagging, clustering, and its spike rate.
+    determine the identity of a cell based on tagging, clustering, and its spike rate.
 
-    Parameters:
-    - cluname (str): The unique identifier for the cell.
-    - tag_list (list): List of tagged cell identifiers.
-    - kmeans (list): KMeans clustering results, where '1' signifies non-putative.
-    - spike_rate (float): The cell's spike rate.
+    parameters:
+    - cluname: the unique identifier for the cell.
+    - tagged_keys: list of tagged cell identifiers.
+    - kmeans: kmeans clustering results, where '1' signifies non-putative.
+    - spike_rate: the cell's spike rate.
 
-    Returns:
-    - str: The identity of the cell as 'tagged', 'putative', or 'other'.
+    returns:
+    - the identity of the cell as 'tagged', 'putative', or 'other'.
     """
-    if cluname in tag_list:
+    if cluname in tagged_keys:
         return 'tagged'
-    for i, e in enumerate(kmeans):  # only executes if the cell is not tagged 
-        if e==1:
+    else:
+        if kmeans[cluname]==0:
+            if spike_rate<=10:
+                return 'putative'
+            else:  # filters out cells with a high spike rate
+                return 'other'
+        elif kmeans[cluname]==1:
             return 'other'
-        elif spike_rate>=10:  # filters out cells with a high spike rate
-            return 'other'
-        else:
-            return 'putative'
 
-def get_spike_rate(cluname: str) -> float:
+def get_spike_rate(cluname: str, spike_rate_file: np.ndarray()) -> float:
     """
-    Retrieves the spike rate for a given cell from the corresponding data file.
+    get the spike rate for a given cell from the corresponding data file.
 
-    Parameters:
-    - cluname (str): The unique identifier for the cell, in the format "Axxxr-202xxxxx-0x clu xx x".
+    parameters:
+    - cluname: the unique identifier for the cell, in the format "Axxxr-202xxxxx-0x clu xx x".
+    - spike_rate_file: the data file containing spike rate information.
 
-    Returns:
-    - float: The spike rate of the cell.
+    returns:
+    - the spike rate of the cell.
     """
-    global loadnew, spike_rate_file
-    if loadnew:  # if a new session starts
-        spike_rate_file = sio.loadmat(
-            r'Z:\Dinghao\MiceExp\ANMD{}\{}\{}\{}_DataStructure_mazeSection1_TrialType1_FR_Ctrl_Run0_mazeSess1'
-            .format(
-                cluname[1:5], cluname[:14], cluname[:17], cluname[:17]
-                )
-            )
     spike_rate_ctrl = spike_rate_file['mFRStructSessCtrl']['mFR'][0][0][0]
     clu_id = int(cluname.split('clu')[1])
     return spike_rate_ctrl[clu_id-2]
@@ -426,77 +395,118 @@ def plot_lick_sensitivity(cluname,
     fig.tight_layout()
     plt.show()
     
+    
+    idstring = f'{cluname} {identity} {suffix}'
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            r'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitivity\rasters_first_lick_aligned\{}{}'
-            .format(f'{cluname} {identity} {suffix}', ext),
+            rf'Z:\Dinghao\code_dinghao\LC_ephys\lick_sensitivity\rasters_first_lick_aligned\{idstring}{ext}',
             dpi=300
             )
 
 
 #%% main loop 
-sessname = ''
-
-for cluname in clu_list:
-    print(f'\n{cluname}')
-    trains = all_trains[cluname]
-    rasters = all_rasters[cluname]
+def main():
     
-    if cluname[:17]==sessname:
-        sessname = cluname[:17]
-        loadnew = False
-    else:  # if a new session starts, load new files
-        loadnew = True
+    # global parameters 
+    samp_freq = 1250  # Hz 
     
-    # spike rate 
-    spike_rate = get_spike_rate(cluname)
+    # load UMAP results
+    kmeans = np.load(
+        r'Z:\Dinghao\code_dinghao\LC_ephys\UMAP\LC_all_UMAP_kmeans.npy',
+        allow_pickle=True
+        ).item()  # this is for putative cell classification
     
-    # cell identity ('tagged', 'putative' or 'other')
-    identity = get_identity(cluname, tag_list, kmeans, spike_rate)
-    
-    # we don't need the single-trial parameters, but we do need the first stim
-    # to identify the baseline for run-onset burst detection
-    first_stim = get_first_stim_idx(cluname)
-    
-    # run-onset burst detection 
-    peak, mean_prof, shuf_prof = pdf.peak_detection(
-        trains,
-        first_stim=first_stim,
-        peak_width=2,  # try 2 seconds to include some of the slightly offset peaks 
-        bootstrap=5000,
-        GPU_AVAILABLE=GPU_AVAILABLE)
-    pdf.plot_peak_v_shuf(cluname, mean_prof, shuf_prof, peak,
-                         peak_width=2,
-                         savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\peak_detection\{}'
-                         .format(f'{cluname} {identity} {peak}')
-                         )  # plot the detected peaks and save to ...
-    
-    # rate-speed correlation
-    speed_rate_r, speed_rate_p = compute_speed_rate_corr(cluname, trains)
-    
-    # lick alignment 
-    lick_sensitive, lick_sensitivity_type, lick_sensitivyt_signif = compute_lick_sensitivity(
-        cluname,
-        trains, 
-        rasters,
-        identity,
-        bootstrap=5000,
-        GPU_AVAILABLE=GPU_AVAILABLE
-        )
-
-    df.loc[cluname] = np.array(
-        [sessname,
-         identity,
-         spike_rate,
-         peak,
-         speed_rate_r,
-         speed_rate_p,
-         lick_sensitive,
-         lick_sensitivity_type,
-         lick_sensitivyt_signif],
-        dtype='object'
-        )
+    for path in paths:
+        recname = path[-17:]
+        print(f'\nprocessing {recname}...')
         
-#%% save dataframe 
-df.to_pickle(fname)
-print('\ndataframe saved')
+        # load data 
+        all_trains = np.load(
+            rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions'
+            rf'\{recname}\{recname}_all_trains.npy',
+            allow_pickle=True
+            ).item()
+        all_rasters = np.load(
+            rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions'
+            rf'\{recname}\{recname}_all_rasters.npy',
+            allow_pickle=True
+            ).item()
+        all_identities = np.load(
+            rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions'
+            rf'\{recname}\{recname}_all_identities.npy',
+            allow_pickle=True
+            ).item()
+        spike_rate_file = sio.loadmat(
+            rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}\{recname[:14]}'
+            rf'\{recname}\{recname}'
+            '_DataStructure_mazeSection1_TrialType1_FR_Ctrl_Run0_mazeSess1.mat'
+            )
+        
+        # get list of clunames 
+        keys = [*all_trains]
+        
+        # get list of tagged cell cluname(s)
+        tagged_keys = [clu for clu in all_identities
+                       if all_identities[clu]==1]
+        
+        for cluname in keys:
+            print(f'{cluname}')
+            trains = all_trains[cluname]
+            rasters = all_rasters[cluname]
+        
+            # spike rate 
+            spike_rate = get_spike_rate(cluname, spike_rate_file)
+        
+            # cell identity ('tagged', 'putative' or 'other')
+            identity = get_identity(cluname, tagged_keys, kmeans, spike_rate)
+        
+        # we don't need the single-trial parameters, but we do need the first stim
+        # to identify the baseline for run-onset burst detection
+        first_stim = get_first_stim_idx(cluname)
+        
+        # run-onset burst detection 
+        peak, mean_prof, shuf_prof = pdf.peak_detection(
+            trains,
+            first_stim=first_stim,
+            around=4,  # check baseline on a higher threshold
+            peak_width=2,  # try 2 seconds to include some of the slightly offset peaks 
+            bootstrap=5000,
+            GPU_AVAILABLE=GPU_AVAILABLE)
+        pdf.plot_peak_v_shuf(cluname, mean_prof, shuf_prof, peak,
+                             peak_width=2,
+                             savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\peak_detection\{}'
+                             .format(f'{cluname} {identity} {peak}')
+                             )  # plot the detected peaks and save to ...
+        
+        # rate-speed correlation
+        speed_rate_r, speed_rate_p = compute_speed_rate_corr(cluname, trains)
+        
+        # lick alignment 
+        lick_sensitive, lick_sensitivity_type, lick_sensitivyt_signif = compute_lick_sensitivity(
+            cluname,
+            trains, 
+            rasters,
+            identity,
+            bootstrap=5000,
+            GPU_AVAILABLE=GPU_AVAILABLE
+            )
+    
+        df.loc[cluname] = np.array(
+            [sessname,
+             identity,
+             spike_rate,
+             peak,
+             speed_rate_r,
+             speed_rate_p,
+             lick_sensitive,
+             lick_sensitivity_type,
+             lick_sensitivyt_signif],
+            dtype='object'
+            )
+            
+    ## save dataframe 
+    df.to_pickle(fname)
+    print('\ndataframe saved')
+    
+if __name__ == '__main__':
+    main()

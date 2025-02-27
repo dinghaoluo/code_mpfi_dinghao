@@ -47,13 +47,12 @@ def neu_shuffle(trains,
     tot_trials = trains.shape[0]
     shuf_mean_arr = xp.zeros([bootstrap, samp_freq * around])
     
-    # pre-generate random shifts for all trials
-    rand_shift = xp.random.randint(1, samp_freq * around, tot_trials)
-    
     # create an index array for shifts
     indices = xp.arange(samp_freq * around)
     
     for shuf in tqdm(range(bootstrap), desc=f'peak detection ({device})'):
+        rand_shift = xp.random.randint(1, samp_freq * around, tot_trials)
+        
         # shift all trials in parallel
         shifted_indices = (indices[None, :] - rand_shift[:, None]) \
             % (samp_freq * around)  # modulo here is to wrap the negative indices to the back (e.g. -5%9=4)
@@ -121,10 +120,10 @@ def peak_detection(trains,
     peak_window = [int(centre_bin - samp_freq * (peak_width / 2)),
                    int(centre_bin + samp_freq * (peak_width / 2))]
     
-    shuf_sig_95_around = shuf_sigs[2][peak_window[0]:peak_window[1]] * samp_freq  # use alpha=.05 (shuf_sigs[2]) 
+    shuf_sig_99_around = shuf_sigs[1][peak_window[0]:peak_window[1]] * samp_freq  # use alpha=.01 (shuf_sigs[1]) 
     mean_train_around = np.mean(baseline_trains, axis=0)[peak_window[0]:peak_window[1]] * samp_freq
 
-    diffs_mean_shuf = mean_train_around - shuf_sig_95_around
+    diffs_mean_shuf = mean_train_around - shuf_sig_99_around
     idx_diffs = [diff>0 for diff in diffs_mean_shuf]
 
     # detect consecutive truths
@@ -138,7 +137,7 @@ def peak_detection(trains,
             # if this group is not the head/tail groups and if consecutively more truths are detected than before
             max_truths = consecutive_truths  # set the consecutive truths in this group as the new max count 
     
-    return max_truths > int(min_peak * samp_freq), mean_train_around, shuf_sig_95_around
+    return max_truths > int(min_peak * samp_freq), mean_train_around, shuf_sig_99_around
 
 def plot_peak_v_shuf(cluname,
                      mean_prof, 

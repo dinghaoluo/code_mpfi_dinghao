@@ -54,9 +54,14 @@ def scan_directory_tree(path, indent='', is_first_level=True):
 #%% plot formatting
 def mpl_formatting():
     import matplotlib
-    matplotlib.rcParams['font.family'] = 'Arial'
-    matplotlib.rcParams['pdf.fonttype'] = 42
-    matplotlib.rcParams['ps.fonttype'] = 42
+    matplotlib.rcParams.update({
+        'font.family': 'Arial',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42,
+        'axes.labelsize': 10,
+        'xtick.labelsize': 9,
+        'ytick.labelsize': 9
+        })
 
 
 #%% normalisation

@@ -17,6 +17,8 @@ import sys
 import numpy as np
 from random import sample
 import scipy.io as sio
+import mat73
+import os 
 import matplotlib.pyplot as plt
 from scipy.stats import sem
 
@@ -33,9 +35,27 @@ number_eg_spk = 100  # how many example spks to store
 
 
 #%% main function
-def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
+def get_ccgs(pathname: str) -> np.ndarray:
+    """
+    Retrieves the cross-correlogram (CCG) for a specified cell from a MATLAB file.
+
+    Parameters:
+    - pathname (str)
+
+    Returns:
+    - np.ndarray: The autocorrelogram for the specified cell, extracted as ACGval[:, cell_index, cell_index]
+      from the 'CCGSess' structure in the MATLAB file.
+    """
+    ccg_file = mat73.loadmat(
+        rf'{pathname}\{pathname[-17:]}_DataStructure_mazeSection1_TrialType1_CCG_Ctrl_Run0_mazeSess1.mat'
+        )
+        
+    return ccg_file['CCGSessCtrl']['ccgVal']
+
+def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[], n_chan=32, n_spk_samp=32):
     
-    clu_n_id = [int(x) for x in np.transpose(get_clu(nth_clu, clu))]  # ID of every single spike of clu
+    # get ID of every single spike of clu
+    clu_n_id = [int(x.item()) for x in np.transpose(get_clu(nth_clu, clu))]
     
     rnd_samp_size = 1000
     if spikes_to_load==[]:
@@ -95,15 +115,13 @@ def spk_w_sem(fspk, clu, nth_clu, spikes_to_load=[]):
 
 
 #%% MAIN
-for pathname in pathLC:
-    recname = pathname[-17:]
-    print(recname)
-    
-    # processing only begins if there exist not *already* the session .npy files
-    # if os.path.isfile('Z:\Dinghao\code_dinghao\LC_tagged_by_sess'+file_name[42:60]+'_tagged_spk.npy')==False:
-    if 1==1:
-        # header
+def main():
+    for pathname in pathLC:
+        recname = pathname[-17:]
         print('\n\nProcessing {}'.format(recname))
+        
+        sess_folder = rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions\{recname}'
+        os.makedirs(sess_folder, exist_ok=True)
         
         # load .mat
         mat_BTDT = sio.loadmat(
@@ -117,9 +135,9 @@ for pathname in pathLC:
             )
         spike_rate = spInfo['spatialInfoSess'][0][0]['meanFR'][0][0][0]
         
-        # global vars
-        n_chan = 32  # need to change if using other probes
-        n_spk_samp = 32  # arbitrary, equals to 1.6ms, default window in kilosort
+        # these have been offloaded to the function above; need to change if using other probes
+        # n_chan = 32  # need to change if using other probes
+        # n_spk_samp = 32  # arbitrary, equals to 1.6ms, default window in kilosort
         
         clu = param2array(r'{}/{}.clu.1'.format(pathname, recname))  # load .clu
         res = param2array(r'{}/{}.res.1'.format(pathname, recname))  # load .res
@@ -151,7 +169,7 @@ for pathname in pathLC:
         
         for iclu in range(tot_clus):
             nth_clu = iclu + 2
-            clu_n_id = np.transpose(get_clu(nth_clu, clu))
+            clu_n_id = [int(x) for x in np.transpose(get_clu(nth_clu, clu))]
             
             tagged[iclu, 0] = nth_clu
             
@@ -171,9 +189,7 @@ for pathname in pathLC:
                 print('%s%s%s%s%s' % ('clu ', nth_clu, ' tag rate = ', tag_rate[iclu], ', tagged'))
             else:
                 print('%s%s%s%s' % ('clu ', nth_clu, ' tag rate = ', tag_rate[iclu]))
-        
-        tot_tagged = sum(tagged[:, 1])
-        
+                
         for iclu in range(tot_clus):
             if tagged[iclu, 1]:
                 tagged_clu = int(tagged[iclu,0])
@@ -219,3 +235,20 @@ for pathname in pathLC:
                     fig.savefig(
                         r'Z:\Dinghao\code_dinghao\LC_ephys\single_cell_waveform\{} clu{}{}'
                         .format(recname, iclu+2, ext))
+                
+        # keys for saving dictionaries 
+        keys = [f'{recname} clu{nth_clu}' for nth_clu in range(2, tot_clus+2)]
+        
+        # get and save ACGs
+        CCGs = get_ccgs(pathname)
+        ACGs_dict = {keys[i]: CCGs[:,i,i] for i in range(len(keys))}
+        np.save(rf'{sess_folder}\{recname}_all_ACGs.npy',
+                ACGs_dict)  
+            
+        # save tagged identities
+        tagged_dict = {keys[i]: tagged[i,1] for i in range(len(keys))}  # tagged[n,0] is just the clu index
+        np.save(rf'{sess_folder}\{recname}_all_identities.npy',
+                tagged_dict)
+        
+if __name__ == '__main__':
+    main()

@@ -21,118 +21,35 @@ mpl_formatting()
 
 
 #%% load data
-avg_profile = np.load('Z:/Dinghao/code_dinghao/LC_all/LC_all_avg_sem.npy',
-                      allow_pickle=True).item()['all avg']
+avg_profile = np.load(
+    r'Z:/Dinghao/code_dinghao/LC_ephys/LC_all_avg_sem.npy',
+    allow_pickle=True).item()['all avg']
 
-cell_prop = pd.read_pickle('Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+cell_profiles = pd.read_pickle(
+    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
+    )
 
 
 #%% specify RO peaking putative Dbh cells
-putative_keys = []
-for cell in cell_prop.index:
-    pt = cell_prop['putative'][cell]  # putative
-    
-    if pt:
-        putative_keys.append(cell)
+putative_keys = cell_profiles.index[cell_profiles['identity']=='putative'].tolist()
+tagged_keys = cell_profiles.index[cell_profiles['identity']=='tagged'].tolist()
 
 
 #%% data wrangling
-max_pt = {}  # argmax for average for all cells
-for key in putative_keys:
-    max_pt[key] = np.argmax(avg_profile[key])
+putative_keys_sorted = sorted(
+    putative_keys, 
+    key=lambda cluname: np.argmax(avg_profile[cluname])
+    )
+putative_im_matrix = np.stack(
+    [normalise(avg_profile[cluname][2500:2500+1250*4]) for cluname in putative_keys_sorted]
+    )
 
-def sort_helper(x):
-    return max_pt[x]
-putative_keys = sorted(putative_keys, key=sort_helper)
-
-im_matrix = np.zeros((len(putative_keys), 1250*8))
-for i, key in enumerate(putative_keys):
-    im_matrix[i, :] = normalise(avg_profile[key][:1250*8])
-
-
-#%% plotting 
-fig, ax = plt.subplots(figsize=(4, 3.8))
-ax.set(xlabel='time (s)',
-       ylabel='cell #')
-fig.suptitle('putative Dbh+ cells')
-
-im_ordered = ax.imshow(im_matrix, aspect='auto',
-                       extent=[-3, 5, len(putative_keys), 0])
-plt.colorbar(im_ordered, shrink=.5)
-
-fig.tight_layout()
-plt.show()
-
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_putDbh_ordered_heatmap.pdf',
-            bbox_inches='tight')
-
-plt.close(fig)
-
-
-#%% specify RO peaking tagged Dbh cells
-tagged_keys = []
-for cell in cell_prop.index:
-    tg = cell_prop['tagged'][cell]  # putative
-    
-    if tg:
-        tagged_keys.append(cell)
-        
-        
-#%% data wrangling
-tagged_max_pt = {}  # argmax for average for all cells
-for key in tagged_keys:
-    tagged_max_pt[key] = np.argmax(avg_profile[key])
-
-def tagged_sort_helper(x):
-    return tagged_max_pt[x]
-tagged_keys = sorted(tagged_keys, key=tagged_sort_helper)
-
-tagged_im_matrix = np.zeros((len(tagged_keys), 1250*8))
-for i, key in enumerate(tagged_keys):
-    tagged_im_matrix[i, :] = normalise(avg_profile[key][:1250*8])
-
-
-#%% plotting 
-fig, ax = plt.subplots(figsize=(4, 3.8))
-ax.set(xlabel='time (s)',
-       ylabel='cell #')
-fig.suptitle('tagged Dbh+ cells')
-
-tagged_im_ordered = ax.imshow(tagged_im_matrix, aspect='auto',
-                              extent=[-3, 5, len(tagged_keys), 0])
-plt.colorbar(tagged_im_ordered, shrink=.5)
-
-fig.tight_layout()
-plt.show()
-
-fig.savefig('Z:\Dinghao\code_dinghao\LC_all_tagged\LC_tagged_ordered_heatmap.pdf',
-            bbox_inches='tight')
-
-plt.close(fig)
-
-
-#%% all tagged and putative
-keys = []
-for cell in cell_prop.index:
-    tg = cell_prop['tagged'][cell]
-    pt = cell_prop['putative'][cell]
-    
-    if tg or pt:
-        keys.append(cell)
-        
-        
-#%% data wrangling
-max_pt = {}  # argmax for average for all cells
-for key in keys:
-    max_pt[key] = np.argmax(avg_profile[key])
-
-def sort_helper(x):
-    return max_pt[x]
-keys = sorted(keys, key=sort_helper)
-
-im_matrix = np.zeros((len(keys), 1250*5))
-for i, key in enumerate(keys):
-    im_matrix[i, :] = normalise(avg_profile[key][2500:1250*4+3750])
+tagged_keys_sorted = sorted(
+    tagged_keys,
+    key=lambda cluname: np.argmax(avg_profile[cluname])
+    )
+tagged_im_matrix = np.stack(
+    [normalise(avg_profile[cluname][2500:2500+1250*4]) for cluname in tagged_keys_sorted])
 
 
 #%% plotting 
@@ -140,18 +57,44 @@ fig, ax = plt.subplots(figsize=(2.6,2.1))
 ax.set(xlabel='time from run-onset (s)',
        ylabel='cell #')
 ax.set_aspect('equal')
-fig.suptitle('Dbh+ cells')
+fig.suptitle('putative Dbh+ cells')
 
-im_ordered = ax.imshow(im_matrix, aspect='auto',
-                       extent=[-1, 4, 1, len(keys)], cmap='Greys')
-plt.colorbar(im_ordered, shrink=.5, ticks=[0,1], label='norm. spike rate')
+image = ax.imshow(putative_im_matrix, 
+                  aspect='auto', cmap='Greys', interpolation='none',
+                  extent=[-1, 4, 1, len(putative_keys_sorted)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
 
-ax.set(yticks=[1, 100, 200])
+ax.set(yticks=[1, 100, 200, 300])
 
 plt.show()
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\LC_all\LC_pooled_ordered_heatmap{}'.format(ext),
-                dpi=300, bbox_inches='tight')
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\LC_putative_Dbh_ordered_heatmap{ext}',
+        dpi=300,
+        bbox_inches='tight')
+
+plt.close(fig)
+
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from run-onset (s)',
+       ylabel='cell #')
+ax.set_aspect('equal')
+fig.suptitle('tagged Dbh+ cells')
+
+image = ax.imshow(tagged_im_matrix, 
+                  aspect='auto', cmap='Greys', interpolation='none',
+                  extent=[-1, 4, 1, len(tagged_im_matrix)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
+
+ax.set(yticks=[1, 50])
+
+plt.show()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\LC_tagged_Dbh_ordered_heatmap{ext}',
+        dpi=300,
+        bbox_inches='tight')
 
 plt.close(fig)
