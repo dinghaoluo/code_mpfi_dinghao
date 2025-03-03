@@ -87,19 +87,19 @@ def main():
     
     ## plotting
     fig, ax = plt.subplots(figsize=(3,2.6))
-    umap_scatter = ax.scatter(acg_embedding[:, 0], acg_embedding[:, 1], s=5,
+    umap_scatter = ax.scatter(acg_embedding[:, 0], acg_embedding[:, 1], s=10,
                               c=dist2mean_cmap, alpha=.75, ec='none')
     umap_scatter_tagged = ax.scatter(acg_embedding[tagged_idx, 0], acg_embedding[tagged_idx, 1], 
-                                     s=5, color='orange', ec='none')
+                                     s=10, color='orange', ec='none')
     umap_scatter_tgcom = ax.scatter(tagged_med[0], tagged_med[1],
                                     s=20, color='darkred')
     ax.legend([umap_scatter_tagged, umap_scatter_tgcom], ['tgd. $\it{Dbh}$+', 'tgd. $\it{Dbh}$+ CoM'], 
               frameon=False, loc='upper left', fontsize=8)
     
-    xlower = min(acg_embedding[:,0])-.5
-    xupper = max(acg_embedding[:,0])+.5
-    ylower = min(acg_embedding[:,1])-.5
-    yupper = max(acg_embedding[:,1])+.5
+    xlower = min(acg_embedding[:,0])-1.2
+    xupper = max(acg_embedding[:,0])+1.2
+    ylower = min(acg_embedding[:,1])-.8
+    yupper = max(acg_embedding[:,1])+.8
     ax.set(title='UMAP embedding of ACGs',
            xlabel='1st dim.', ylabel='2nd dim.',
            xticks=[], yticks=[],
@@ -120,7 +120,7 @@ def main():
     umap_scatter_grey = ax.scatter(acg_embedding[:,0], acg_embedding[:,1], s=10,
                                    c='grey', alpha=.5, ec='none')
     umap_scatter_tg_grey = ax.scatter(acg_embedding[tagged_idx, 0], acg_embedding[tagged_idx,1],
-                                      s=5, c='royalblue', ec='none')
+                                      s=10, c='royalblue', ec='none')
     ax.legend([umap_scatter_tg_grey, umap_scatter_grey], ['tagged', 'non-tagged'],
               frameon=False, loc='upper left', fontsize=7)
     ax.set(title='UMAP embedding of ACGs',
@@ -202,22 +202,22 @@ def main():
     colours = []
     for i in labels:
         if i==1:  # these are supposedly interneurones
-            colours.append('lightsteelblue')
+            colours.append('orange')
         else:
             colours.append('grey')
     
     ax.scatter(acg_embedding[:,0], acg_embedding[:,1], 
-               c=colours, s=10, ec='k', linewidth=.1, alpha=.8)
+               c=colours, s=20, ec='k', linewidth=.1, alpha=.8)
     ax.scatter(acg_embedding[tagged_idx, 0], acg_embedding[tagged_idx, 1],
-               s=10, c='royalblue', ec='k', linewidth=.1, alpha=.8)
+               s=20, c='royalblue', ec='k', linewidth=.1, alpha=.8)
     
     # for legend
     ntgcolor = ax.scatter([], [], 
-                          s=10, ec='k', c='grey', linewidth=.1, alpha=.8)
+                          s=20, ec='k', c='grey', linewidth=.1, alpha=.8)
     tgcolor = ax.scatter([], [], 
-                         s=10, ec='k', c='royalblue', linewidth=.1, alpha=.8)
+                         s=20, ec='k', c='royalblue', linewidth=.1, alpha=.8)
     ptcolor = ax.scatter([], [], 
-                         s=10, c='lightsteelblue', linewidth=.1, alpha=.8)
+                         s=20, c='orange', linewidth=.1, alpha=.8)
     
     ax.legend([tgcolor, ptcolor, ntgcolor], 
               ['tagged Dbh+', 'putative Dbh+', 'putative Dbh-'], 
@@ -231,11 +231,43 @@ def main():
     fig.tight_layout()
     
     for ext in ('.png', '.pdf'):
-        fig.savefig(rf'Z:\Dinghao\code_dinghao\LC_ephys\UMAP\LC_all_UMAP_kmeans_categorised{ext}',
+        fig.savefig(r'Z:\Dinghao\code_dinghao\LC_ephys\UMAP'
+                    rf'\LC_all_UMAP_kmeans_categorised{ext}',
                     dpi=300,
                     bbox_inches='tight')
     
     plt.close(fig)
+    
+    # ## below is for interactive plotting 
+    # # imports 
+    # import umap.plot as umap_plot  # to avoid shadowing global import of umap
+    # import pandas as pd 
+    
+    # # mapper for plotting 
+    # mapper = reducer.fit(scaled_acg_arr)
+
+    # umap_plot.connectivity(mapper, show_points=True, width=1400, height=1200)
+    # umap_plot.connectivity(mapper, edge_bundling='hammer', width=1400, height=1200)
+    # umap_plot.diagnostic(mapper, diagnostic_type='pca')
+    # umap_plot.diagnostic(mapper, diagnostic_type='vq', width=1400, height=1400)
+    # umap_plot.diagnostic(mapper, diagnostic_type='local_dim', width=1400, height=1200)
+    # umap_plot.diagnostic(mapper, diagnostic_type='neighborhood', width=1400, height=1200)
+    
+    # # interactive (text only)
+    # hover_dict = {key: identities[idx]
+    #               for idx, key in enumerate(keys)}
+    # hover_arr = np.array([*hover_dict.values()])
+
+    # hover_data = pd.DataFrame({'index': np.arange(len(keys)),
+    #                            'label': keys})
+    # hover_data['item'] = hover_data.label.map(hover_dict)
+
+    # umap.plot.output_file(
+    #     r'Z:\Dinghao\code_dinghao\LC_ephys\UMAP\interactive_UMAP.html'
+    #     )
+
+    # p = umap.plot.interactive(mapper, labels=hover_arr, hover_data=hover_data, point_size=10)
+    # umap.plot.show(p)
     
 if __name__ == '__main__':
     main()

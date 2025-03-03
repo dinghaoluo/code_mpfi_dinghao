@@ -190,6 +190,7 @@ def main():
             else:
                 print('%s%s%s%s' % ('clu ', nth_clu, ' tag rate = ', tag_rate[iclu]))
                 
+        waveforms = []
         for iclu in range(tot_clus):
             if tagged[iclu, 1]:
                 tagged_clu = int(tagged[iclu,0])
@@ -198,7 +199,8 @@ def main():
                 tagged_spikes = [spike for spike in tagged_spikes if spike!=0]
                 tagged_spk, tagged_sem = spk_w_sem(fspk, clu, tagged_clu, tagged_spikes)
             
-                spont_mean, spont_sem = spk_w_sem(fspk, clu, iclu)
+                spont_mean, spont_sem = spk_w_sem(fspk, clu, tagged_clu)  # be careful that here is tagged_clu, which is iclu+2
+                waveforms.append(spont_mean)
                 
                 fig, axs = plt.subplots(1,2,figsize=(2.1,1.4))
                 axs[0].plot(spont_mean, 'k')
@@ -209,18 +211,23 @@ def main():
                         axs[i].spines[s].set_visible(False)
                     axs[i].set(xticks=[], yticks=[])
                 
-                fig.suptitle(f'{recname} clu{iclu}')
+                fig.suptitle(f'{recname} clu{tagged_clu}')
                 fig.tight_layout()
                 
-                for ext in ['.png', '.pdf']:
+                for ext in ('.png', '.pdf'):
                     fig.savefig(
-                        r'Z:\Dinghao\code_dinghao\LC_ephys\single_cell_waveform\{} clu{} tagged{}'
-                        .format(recname, iclu+2, ext))
+                        r'Z:\Dinghao\code_dinghao\LC_ephys'
+                        r'\single_cell_waveform'
+                        rf'\{recname} clu{tagged_clu} tagged{ext}',
+                        dpi=300,
+                        bbox_inches='tight')
                 
             else:
-                spont_mean, spont_sem = spk_w_sem(fspk, clu, iclu)
-                tagged_clu = False
-            
+                nontagged_clu = iclu+2  # corresponds to tagged_clu above 
+                
+                spont_mean, spont_sem = spk_w_sem(fspk, clu, nontagged_clu)
+                waveforms.append(spont_mean)
+                            
                 fig, ax = plt.subplots(figsize=(1.3, 1.4))
                 ax.plot(spont_mean, 'k')
                 
@@ -228,16 +235,24 @@ def main():
                     ax.spines[s].set_visible(False)
                     ax.set(xticks=[], yticks=[])
                 
-                fig.suptitle(f'{recname} clu{iclu+2}')
+                fig.suptitle(f'{recname} clu{nontagged_clu}')
                 fig.tight_layout()
                 
-                for ext in ['.png', '.pdf']:
+                for ext in ('.png', '.pdf'):
                     fig.savefig(
-                        r'Z:\Dinghao\code_dinghao\LC_ephys\single_cell_waveform\{} clu{}{}'
-                        .format(recname, iclu+2, ext))
+                        r'Z:\Dinghao\code_dinghao\LC_ephys'
+                        r'\single_cell_waveform'
+                        rf'\{recname} clu{nontagged_clu}{ext}',
+                        dpi=300,
+                        bbox_inches='tight')
                 
         # keys for saving dictionaries 
         keys = [f'{recname} clu{nth_clu}' for nth_clu in range(2, tot_clus+2)]
+        
+        # save waveforms
+        waveforms_dict = {keys[i]: waveforms[i] for i in range(len(keys))}
+        np.save(rf'{sess_folder}\{recname}_all_waveforms.npy',
+                waveforms_dict)
         
         # get and save ACGs
         CCGs = get_ccgs(pathname)
@@ -246,7 +261,7 @@ def main():
                 ACGs_dict)  
             
         # save tagged identities
-        tagged_dict = {keys[i]: tagged[i,1] for i in range(len(keys))}  # tagged[n,0] is just the clu index
+        tagged_dict = {keys[i]: int(tagged[i,1]) for i in range(len(keys))}  # tagged[n,0] is just the clu index
         np.save(rf'{sess_folder}\{recname}_all_identities.npy',
                 tagged_dict)
         
