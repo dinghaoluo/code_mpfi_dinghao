@@ -220,8 +220,8 @@ def plot_roi_overlays(ref_im, ref_ch2_im, stat, valid_rois, recname, proc_path):
         ax.set_aspect('equal')
     
     # custom color maps for channels 1 and 2
-    colors_ch1 = plt.cm.Reds(np.linspace(0, 0.8, 256))
-    colors_ch2 = plt.cm.Greens(np.linspace(0, 0.8, 256))
+    colors_ch1 = plt.cm.Greens(np.linspace(0, 0.8, 256))
+    colors_ch2 = plt.cm.Reds(np.linspace(0, 0.8, 256))
     custom_cmap_ch1 = LinearSegmentedColormap.from_list('mycmap_ch1', colors_ch1)
     custom_cmap_ch2 = LinearSegmentedColormap.from_list('mycmap_ch2', colors_ch2)
     

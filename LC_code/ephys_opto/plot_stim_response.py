@@ -23,9 +23,11 @@ from common import mpl_formatting
 mpl_formatting()
 
 behaviour = pd.read_pickle(
-    r'Z:/Dinghao/code_dinghao/behaviour/all_LC_sessions.pkl')
+    r'Z:/Dinghao/code_dinghao/behaviour/all_LC_sessions.pkl'
+    )
 cell_profiles = pd.read_pickle(
-    r'Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profiles.pkl')
+    r'Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profiles.pkl'
+    )
 
 
 #%% create stim rasters 
@@ -51,46 +53,66 @@ for path in paths:
             curr_stim_spike_map = [spike_map for trial, spike_map 
                                    in enumerate(rasters[clu]) 
                                    if stim_conds[trial]!='0']
+            curr_ctrl_spike_map = [spike_map for trial, spike_map
+                                   in enumerate(rasters[clu][2:])
+                                   if stim_conds[trial-2]!='0']
+            
             curr_stim_trains_prof = np.mean([train for trial, train
                                              in enumerate(trains[clu])
                                              if stim_conds[trial]!='0'],
                                             axis=0)
+            curr_ctrl_trains_prof = np.mean([train for trial, train
+                                             in enumerate(trains[clu][2:])
+                                             if stim_conds[trial-2]!='0'],
+                                            axis=0)
             
-            fig, ax = plt.subplots(figsize=(2.3, 1.55))
+            fig, axs = plt.subplots(2, 1, figsize=(2.4, 2.8))
             
             for idx in range(len(curr_stim_spike_map)):
-                curr_stim_out_raster = [s/1250-3 for s, spike
-                                        in enumerate(curr_stim_spike_map[idx])
-                                        if spike and (s<3750 or s>3750+1250)]
-                curr_stim_in_raster = [s/1250-3 for s, spike
-                                       in enumerate(curr_stim_spike_map[idx])
-                                       if spike and 3750<s<3750+1250]
-                ax.scatter(curr_stim_out_raster,
-                           [idx+1]*len(curr_stim_out_raster), 
-                           color='grey', s=1, ec='none')
-                ax.scatter(curr_stim_in_raster,
-                           [idx+1]*len(curr_stim_in_raster), 
-                           color='royalblue', s=1, ec='none')
+                curr_stim_raster = [s/1250-3 for s, spike
+                                    in enumerate(curr_stim_spike_map[idx])
+                                    if spike]
+                axs[0].scatter(curr_stim_raster,
+                               [idx+1]*len(curr_stim_raster), 
+                               color='lightsteelblue', s=1, ec='none')
+                
+            for idx in range(len(curr_ctrl_spike_map)):
+                curr_ctrl_raster = [s/1250-3 for s, spike
+                                    in enumerate(curr_ctrl_spike_map[idx])
+                                    if spike]
+                axs[1].scatter(curr_ctrl_raster,
+                               [idx+1]*len(curr_ctrl_raster), 
+                               color='grey', s=1, ec='none')
             
-            axt = ax.twinx()
-            axt.plot(np.arange(-3750, 12500-3750)/1250,
-                     curr_stim_trains_prof, 
-                     color='royalblue')
+            axt0 = axs[0].twinx()
+            axt0.plot(np.arange(-3750, 12500-3750)/1250,
+                      curr_stim_trains_prof, 
+                      color='royalblue')
+            axt0.set(ylabel='spike rate\n(Hz)')
+            axs[0].set(xlabel='time from run-onset (s)', xlim=(-1, 4), xticks=(0, 2, 4),
+                     ylabel='trial #',
+                     title='{}\nstim.'.format(clu))
             
-            axt.set(ylabel='spike rate\n(Hz)')
+            axt1 = axs[1].twinx()
+            axt1.plot(np.arange(-3750, 12500-3750)/1250,
+                      curr_ctrl_trains_prof, 
+                      color='k')
+            axt1.set(ylabel='spike rate\n(Hz)')
+            axs[1].set(xlabel='time from run-onset (s)', xlim=(-1, 4), xticks=(0, 2, 4),
+                     ylabel='trial #',
+                     title='ctrl.')
             
-            ax.set(xlabel='time from run-onset (s)', xlim=(-1, 4), xticks=(0, 2, 4),
-                   ylabel='trial #',
-                   title='{}\nrun-onset aligned'.format(clu))
+            axs[0].spines['top'].set_visible(False)
+            axt0.spines['top'].set_visible(False)
             
-            ax.spines['top'].set_visible(False)
-            axt.spines['top'].set_visible(False)
+            axs[1].spines['top'].set_visible(False)
+            axt1.spines['top'].set_visible(False)
             
             fig.tight_layout()
             
             for ext in ('.png', '.pdf'):
                 fig.savefig(
-                    r'Z:\Dinghao\code_dinghao\LC_ephys\tagged_stim_rasters\{}{}'
-                    .format(clu, ext),
+                    r'Z:\Dinghao\code_dinghao\LC_ephys\tagged_stim_rasters'
+                    rf'\{clu}{ext}',
                     dpi=300,
                     bbox_inches='tight')
