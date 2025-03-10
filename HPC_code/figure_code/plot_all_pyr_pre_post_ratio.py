@@ -202,27 +202,27 @@ OFF_bad_mean, OFF_bad_error = compute_mean_and_sem(OFF_bad_mat)
 fig, axs = plt.subplots(1, 2, figsize=(3.6,1.2))
 plt.subplots_adjust(wspace=.5)
 
-lg, = axs[0].plot(xaxis, ON_good_mean, c='firebrick', zorder=10)
+lg, = axs[0].plot(xaxis, ON_good_mean, c='firebrick', linewidth=1, zorder=10)
 axs[0].fill_between(xaxis, ON_good_mean+ON_good_error,
                            ON_good_mean-ON_good_error,
-                    color='firebrick', edgecolor='none', alpha=.2, zorder=10)
+                    color='firebrick', edgecolor='none', alpha=.35, zorder=10)
 
-lb, = axs[0].plot(xaxis, ON_bad_mean, c='grey')
+lb, = axs[0].plot(xaxis, ON_bad_mean, c='grey', linewidth=1)
 axs[0].fill_between(xaxis, ON_bad_mean+ON_bad_error,
                            ON_bad_mean-ON_bad_error,
-                    color='grey', edgecolor='none', alpha=.2)
+                    color='grey', edgecolor='none', alpha=.35)
 
 axs[0].legend([lg, lb], ['good trials', 'bad trials'], frameon=False, fontsize=5)
 
-lg, = axs[1].plot(xaxis, OFF_good_mean, c='purple', zorder=10)
+lg, = axs[1].plot(xaxis, OFF_good_mean, c='purple', linewidth=1, zorder=10)
 axs[1].fill_between(xaxis, OFF_good_mean+OFF_good_error,
                            OFF_good_mean-OFF_good_error,
-                    color='purple', edgecolor='none', alpha=.2, zorder=10)
+                    color='purple', edgecolor='none', alpha=.35, zorder=10)
 
-lb, = axs[1].plot(xaxis, OFF_bad_mean, c='grey')
+lb, = axs[1].plot(xaxis, OFF_bad_mean, c='grey', linewidth=1)
 axs[1].fill_between(xaxis, OFF_bad_mean+OFF_bad_error,
                            OFF_bad_mean-OFF_bad_error,
-                    color='grey', edgecolor='none', alpha=.2)
+                    color='grey', edgecolor='none', alpha=.35)
 
 axs[1].legend([lg, lb], ['good trials', 'bad trials'], frameon=False, fontsize=5)
 

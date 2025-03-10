@@ -78,7 +78,7 @@ for pathname in paths:
     
     recname = pathname[-17:]
     print(recname)  # recnames are as such: 'Axxxr-202xxxxx-0x'
-        
+    
     filename = os.path.join(pathname, f'{pathname[-17:]}_DataStructure_mazeSection1_TrialType1')
     BehavLFP = mat73.loadmat('{}.mat'.format(
         os.path.join(pathname, f'{pathname[-17:]}_BehavElectrDataLFP')))
@@ -141,13 +141,17 @@ for pathname in paths:
     t0 = time()
     if GPU_AVAILABLE:
         # GPU-accelerated convolution using CuPy
-        trains_gpu = cpss.fftconvolve(rasters, gaus_spike[None, None, :], mode='same') * samp_freq
+        trains_gpu = cpss.fftconvolve(
+            rasters, gaus_spike[None, None, :], mode='same'
+            ) * samp_freq
         trains = trains_gpu.get()
         rasters = rasters_gpu.get()
         print(f'convolution on GPU done in {str(timedelta(seconds=int(time() - t0)))} s')
     else:
         # CPU convolution using SciPy's FFT-based convolution for better performance
-        trains = fftconvolve(rasters, gaus_spike[None, None, :], mode='same')
+        trains = fftconvolve(
+            rasters, gaus_spike[None, None, :], mode='same'
+            )
         print(f'convolution on CPU done in {str(timedelta(seconds=int(time() - t0)))} s')
     
     for clu in range(tot_clu):
