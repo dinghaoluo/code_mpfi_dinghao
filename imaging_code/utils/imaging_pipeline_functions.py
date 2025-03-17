@@ -13,6 +13,8 @@ modified: added GPU acceleration using cupy, 1 Nov 2024 Dinghao
 #%% imports 
 import numpy as np
 import os 
+import cupyx.scipy.ndimage as cpximg
+import scipy.ndimage
 from time import time 
 from datetime import timedelta
 import gc
@@ -42,95 +44,136 @@ def sum_mat(matrix):
     """
     return sum(map(sum, matrix))
 
-def gaussian_kernel_unity(sigma):
+def convolve_gaussian(
+        arr, 
+        sigma,
+        t_axis=0,
+        GPU_AVAILABLE=False
+        ):
     """
-    Calculates a 1D Gaussian convolution kernel that sums to unity
+    convolve an array with a gaussian kernel along a specified axis.
+
+    parameters:
+    - arr: numpy array
+        input array to convolve (1D or multi-dimensional).
+    - sigma: float
+        standard deviation of the gaussian kernel.
+    - t_axis: int, default=0
+        axis along which convolution is performed.
+    - GPU_AVAILABLE: bool, default=False
+        whether to perform convolution on GPU using cupy.
+
+    returns:
+    - convolved array: numpy array
+        gaussian-convolved array with same shape as input.
     """
-    kernel_size = int(6 * sigma + 1)
-    x = np.arange(kernel_size) - (kernel_size // 2)
-    kernel = np.exp(-(x**2 / (2 * sigma**2)))
-    kernel /= kernel.sum()  # normalisation to ensure the unity sum
-    return kernel
-
-def convolve_gaussian(arr, sigma, GPU_AVAILABLE):
-    kernel = gaussian_kernel_unity(sigma) 
-    pad_width = len(kernel) // 2  # pad symmetrically at the edges to eliminate edge effects 
-
     if GPU_AVAILABLE:
-        kernel = cp.array(kernel)  # move to VRAM
-        if len(arr.shape)>1:  # more than 1 ROIs
-            arr_gpu_padded = cp.pad(cp.array(arr), ((0, 0), (pad_width, pad_width)), mode='reflect')
-            # apply convolution across axis 1 without explicit looping
-            return cp.apply_along_axis(lambda x: cp.convolve(x, kernel, mode='same'), 
-                                       axis=1, 
-                                       arr=arr_gpu_padded)[:, pad_width:-pad_width]  # do not need to .get() since GPU_AVAILABLE doesn't change 
-        else:  # 1 ROI
-            arr_gpu_padded = cp.pad(cp.array(arr), (pad_width, pad_width), mode='reflect')
-            return cp.convolve(arr_gpu_padded, kernel, mode='same')[pad_width:-pad_width]
+        arr_gpu = cp.array(arr)
+        convolved = cpximg.gaussian_filter1d(arr_gpu, sigma, axis=t_axis, mode='reflect')
+        return convolved.get()
     else:
-        if len(arr.shape)>1:  # more than 1 ROIs
-            arr_padded = np.pad(arr, ((0, 0), (pad_width, pad_width)), mode='reflect')
-            return np.apply_along_axis(lambda x: np.convolve(x, kernel, mode='same'), 
-                                       axis=1, 
-                                       arr=arr_padded)[:, pad_width:-pad_width]
-        else:  # 1 ROI
-            arr_padded = np.pad(arr, (pad_width, pad_width), mode='reflect')
-            return np.convolve(arr_padded, kernel, mode='same')[pad_width:-pad_width]
+        return scipy.ndimage.gaussian_filter1d(arr, sigma, axis=t_axis, mode='reflect')
 
-def rolling_min(arr, win, GPU_AVAILABLE):
-    if len(arr.shape)>1:  # 2D
-        length = arr.shape[1]
-    else:  # 1D
-        length = arr.shape[0]
+def rolling_min(
+        arr, 
+        win, 
+        t_axis=0,
+        GPU_AVAILABLE=False
+        ):
+    """
+    calculate rolling minimum along a specified axis of an array.
+
+    parameters:
+    - arr: numpy array
+        input array (1D or multi-dimensional).
+    - win: int
+        size of the rolling window.
+    - t_axis: int, default=0
+        axis along which rolling minimum is computed.
+    - GPU_AVAILABLE: bool, default=False
+        whether to perform computation on GPU using cupy.
+
+    returns:
+    - minimum-filtered array: numpy array
+        rolling minimum array with same shape as input.
+    """
+    if GPU_AVAILABLE:
+        arr_gpu = cp.array(arr)
+        filtered = cpximg.minimum_filter1d(arr_gpu, size=win, axis=t_axis, mode='reflect')
+        return filtered
+    else:
+        return scipy.ndimage.minimum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
+
+def rolling_max(
+        arr, 
+        win, 
+        t_axis=0,
+        GPU_AVAILABLE=False
+        ):
+    """
+    calculate rolling maximum along a specified axis of an array.
+
+    parameters:
+    - arr: numpy array
+        input array (1D or multi-dimensional).
+    - win: int
+        size of the rolling window.
+    - t_axis: int, default=0
+        axis along which rolling maximum is computed.
+    - GPU_AVAILABLE: bool, default=False
+        whether to perform computation on GPU using cupy.
+
+    returns:
+    - maximum-filtered array: numpy array
+        rolling maximum array with same shape as input.
+    """
+    if GPU_AVAILABLE:
+        arr_gpu = cp.array(arr)
+        filtered = cpximg.maximum_filter1d(arr_gpu, size=win, axis=t_axis, mode='reflect')
+        return filtered
+    else:
+        return scipy.ndimage.maximum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
+
+
+def calculate_dFF(
+        F_array, 
+        sigma=300,
+        t_axis=0,
+        GPU_AVAILABLE=False
+        ):
+    """
+    calculate dFF for fluorescence traces using Gaussian smoothing and rolling 
+        min-max baseline calculation.
+
+    parameters:
+    - F_array: numpy array
+        fluorescence traces for each ROI, can be 1D or multi-dimensional.
+    - sigma: int, default=300
+        sigma value for Gaussian smoothing.
+    - t_axis: int, default=0
+        the axis corresponding to the time dimension.
+    - GPU_AVAILABLE: bool, default=False
+        indicates whether GPU acceleration via CuPy should be used.
+
+    returns:
+    - dFF: numpy array
+        array containing the computed dFF for each ROI.
+    """
+    window = sigma*6  # 6 times sigma for the total duration of rolling windows 
+
+    baseline = convolve_gaussian(F_array, sigma, t_axis, GPU_AVAILABLE)
+    baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE)
+    baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE)
+    
+    if GPU_AVAILABLE: F_array = cp.array(F_array)  # if GPU_AVAILABLE, baseline will remain on GPU
+    dFF = (F_array-baseline)/baseline
     
     if GPU_AVAILABLE:
-        half_win = int(cp.ceil(win/2))
-        arr_gpu = cp.array(arr)  # move to VRAM
-        if len(arr.shape)>1:
-            array_padding = cp.hstack((arr_gpu[:,:half_win], arr_gpu, arr_gpu[:,-half_win:length]))
-            output = cp.array([cp.min(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
-        else:
-            array_padding = cp.hstack((arr_gpu[:half_win], arr_gpu, arr_gpu[-half_win:length]))
-            output = cp.array([cp.min(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
-        return output
+        return dFF.get()
     else:
-        half_win = int(np.ceil(win/2))
-        if len(arr.shape)>1:
-            array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
-            output = np.array([np.min(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
-        else:
-            array_padding = np.hstack((arr[:half_win], arr, arr[-half_win:length]))
-            output = np.array([np.min(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
-        return output
-
-def rolling_max(arr, win, GPU_AVAILABLE):
-    if len(arr.shape)>1:  # 2D
-        length = arr.shape[1]
-    else:  # 1D
-        length = arr.shape[0]
+        return dFF
     
-    if GPU_AVAILABLE:
-        half_win = int(cp.ceil(win/2))
-        arr_gpu = cp.array(arr)  # move to VRAM
-        if len(arr.shape)>1:
-            array_padding = cp.hstack((arr_gpu[:,:half_win], arr_gpu, arr_gpu[:,-half_win:length]))
-            output = cp.array([cp.max(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
-        else:
-            array_padding = cp.hstack((arr_gpu[:half_win], arr_gpu, arr_gpu[-half_win:length]))
-            output = cp.array([cp.max(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
-        return output
-    else:
-        half_win = int(np.ceil(win/2))
-        if len(arr.shape)>1:
-            array_padding = np.hstack((arr[:,:half_win], arr, arr[:,-half_win:length]))
-            output = np.array([np.max(array_padding[:,i:i+win], axis=1) for i in range(half_win,length+half_win)]).T
-        else:
-            array_padding = np.hstack((arr[:half_win], arr, arr[-half_win:length]))
-            output = np.array([np.max(array_padding[i:i+win]) for i in range(half_win,length+half_win)]).T
-        return output
-
-
-def calculate_dFF(F_array, window=1800, sigma=300, GPU_AVAILABLE=False):
+def calculate_dFF_abs(F_array, window=1800, sigma=300, GPU_AVAILABLE=False): # Jingyu, 3/16/25 for testing std, cv and dFF
     """
     Parameters
     ----------
@@ -153,7 +196,7 @@ def calculate_dFF(F_array, window=1800, sigma=300, GPU_AVAILABLE=False):
     
     if GPU_AVAILABLE: F_array = cp.array(F_array)  # if GPU_AVAILABLE, baseline will remain on GPU
     
-    dFF = (F_array-baseline)/baseline
+    dFF = cp.abs((F_array-baseline)/baseline)
     
     if GPU_AVAILABLE:
         return dFF.get()

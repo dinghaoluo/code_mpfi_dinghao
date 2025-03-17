@@ -11,7 +11,6 @@ standard deviation map of session to compare local/global signal fluctuations
 #%% imports 
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 import sys
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
@@ -53,16 +52,18 @@ binfile = reg_path+r'\data.bin'
 data = np.memmap(binfile, dtype='int16', mode='r', shape=shape)[:2000]
 
 # calculate dFF
-if GPU_AVAILABLE:
-    pixel_std = cp.zeros((shape[1], shape[2]))
-else:
-    pixel_std = np.zeros((shape[1], shape[2]))
-for row in tqdm(range(shape[1])):
-    curr_row = ipf.calculate_dFF(data[:, row, :], GPU_AVAILABLE=GPU_AVAILABLE)
-    pixel_std[row, :] = np.std(curr_row, axis=0)
-    
-if GPU_AVAILABLE:
-    pixel_std = pixel_std.get()
+from time import time 
+from datetime import timedelta
+
+t0 = time()
+dFF = ipf.calculate_dFF(data, t_axis=0, GPU_AVAILABLE=GPU_AVAILABLE)
+
+print(f'dFF calculation finished... ({timedelta(seconds=int(time()-t0))})')
+
+t0 = time()
+pixel_std = np.std(dFF, axis=0)
+
+print(f'std calculation finished... ({timedelta(seconds=int(time()-t0))})')
 
 
 #%% plotting

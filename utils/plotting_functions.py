@@ -111,16 +111,16 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         vp['cmeans'].set_color('k')
         vp['cmeans'].set_linewidth(2)
         ax.scatter(1.1, np.mean(data0), 
-                   s=30, c=colour0, ec='none', lw=.5, zorder=2)
+                   s=30, c=colour0, ec='none', lw=.5, zorder=3)
         ax.scatter(1.9, np.mean(data1), 
-                   s=30, c=colour1, ec='none', lw=.5, zorder=2)
-        if paired and showscatter:
+                   s=30, c=colour1, ec='none', lw=.5, zorder=3)
+        if paired:
             ax.plot([1.1, 1.9], 
                     [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)
         if showmainline:
             ax.plot([1.1, 1.9], [np.mean(data0), np.mean(data1)],
-                    color='k', linewidth=2, zorder=1)
+                    color='k', linewidth=2, zorder=2)
     if showmedians:
         vp['cmedians'].set_color('k')
         vp['cmedians'].set_linewidth(2)
@@ -128,7 +128,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                    s=30, c=colour0, ec='none', lw=.5, zorder=2)
         ax.scatter(1.9, np.median(data1), 
                    s=30, c=colour1, ec='none', lw=.5, zorder=2)
-        if paired and showscatter:
+        if paired:
             ax.plot([1.1, 1.9], 
                     [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)

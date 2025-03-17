@@ -68,7 +68,7 @@ def main():
 
     # parameters 
     samp_freq = 1250  # Hz
-    sigma_spike = samp_freq/10
+    sigma_spike = samp_freq * 0.03  # 30 ms
     max_length = 12500  # samples 
     
     gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)

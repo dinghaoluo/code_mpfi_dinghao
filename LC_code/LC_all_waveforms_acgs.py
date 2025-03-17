@@ -152,10 +152,16 @@ def main():
             rf'{pathname}/{recname}.res.1'
             )  # load .res
         
-        all_clu = [int(c) for c in np.unique(clu)
-                   if c not in ('', '0', '1') and
-                   len(np.where(clu==c)[0]) != 1]  
-        # edge case prevention: sometimes (e.g. in A032-20220726-02) a clu only has one spike 
+        # all_clu = [int(c) for c in np.unique(clu)
+        #            if c not in ('', '0', '1') and
+        #            len(np.where(clu==c)[0]) != 1]  
+        # # edge case prevention: sometimes (e.g. in A032-20220726-02) a clu only has one spike 
+        # tot_clu = len(all_clu)
+        
+        clu = np.delete(clu, 0)  # delete 1st element (noise clusters)
+        all_clu = np.delete(np.unique(clu), [0, 1])
+        all_clu = np.array([int(x) for x in all_clu])
+        all_clu = all_clu[all_clu>=2]
         tot_clu = len(all_clu)
         
         with open(rf'{pathname}\{recname}.spk.1', 'rb') as fspk:  # load .spk into a byte bufferedreader
@@ -205,10 +211,10 @@ def main():
                     print('%s%s%s%s' % ('clu ', nth_clu, ' tag rate = ', tag_rate[iclu]))
                     
             waveforms = []
-            print('plotting waveforms...')
+            # print('plotting waveforms...')
             for iclu in range(tot_clu):
                 if tagged[iclu, 1]:
-                    tagged_clu = int(tagged[iclu,0])
+                    tagged_clu = iclu+2
                     tagged_spikes = if_tagged_spks[tagged_clu-2, :]
                     tagged_spikes = [int(x) for x in tagged_spikes]
                     tagged_spikes = [spike for spike in tagged_spikes if spike!=0]
@@ -217,25 +223,25 @@ def main():
                     spont_mean, spont_sem = spk_w_sem(fspk, clu, tagged_clu)  # be careful that here is tagged_clu, which is iclu+2
                     waveforms.append(spont_mean)
                     
-                    fig, axs = plt.subplots(1,2,figsize=(2.1,1.4))
-                    axs[0].plot(spont_mean, 'k')
-                    axs[1].plot(tagged_spk)
+                    # fig, axs = plt.subplots(1,2,figsize=(2.1,1.4))
+                    # axs[0].plot(spont_mean, 'k')
+                    # axs[1].plot(tagged_spk)
                     
-                    for i in range(2):
-                        for s in ('top', 'right', 'bottom', 'left'):
-                            axs[i].spines[s].set_visible(False)
-                        axs[i].set(xticks=[], yticks=[])
+                    # for i in range(2):
+                    #     for s in ('top', 'right', 'bottom', 'left'):
+                    #         axs[i].spines[s].set_visible(False)
+                    #     axs[i].set(xticks=[], yticks=[])
                     
-                    fig.suptitle(f'{recname} clu{tagged_clu}')
-                    fig.tight_layout()
+                    # fig.suptitle(f'{recname} clu{tagged_clu}')
+                    # fig.tight_layout()
                     
-                    for ext in ('.png', '.pdf'):
-                        fig.savefig(
-                            r'Z:\Dinghao\code_dinghao\LC_ephys'
-                            r'\single_cell_waveform'
-                            rf'\{recname} clu{tagged_clu} tagged{ext}',
-                            dpi=300,
-                            bbox_inches='tight')
+                    # for ext in ('.png', '.pdf'):
+                    #     fig.savefig(
+                    #         r'Z:\Dinghao\code_dinghao\LC_ephys'
+                    #         r'\single_cell_waveform'
+                    #         rf'\{recname} clu{tagged_clu} tagged{ext}',
+                    #         dpi=300,
+                    #         bbox_inches='tight')
                     
                 else:
                     nontagged_clu = iclu+2  # corresponds to tagged_clu above 
@@ -243,23 +249,23 @@ def main():
                     spont_mean, spont_sem = spk_w_sem(fspk, clu, nontagged_clu)
                     waveforms.append(spont_mean)
                     
-                    fig, ax = plt.subplots(figsize=(1.3, 1.4))
-                    ax.plot(spont_mean, 'k')
+                    # fig, ax = plt.subplots(figsize=(1.3, 1.4))
+                    # ax.plot(spont_mean, 'k')
                     
-                    for s in ('top', 'right', 'bottom', 'left'):
-                        ax.spines[s].set_visible(False)
-                        ax.set(xticks=[], yticks=[])
+                    # for s in ('top', 'right', 'bottom', 'left'):
+                    #     ax.spines[s].set_visible(False)
+                    #     ax.set(xticks=[], yticks=[])
                     
-                    fig.suptitle(f'{recname} clu{nontagged_clu}')
-                    fig.tight_layout()
+                    # fig.suptitle(f'{recname} clu{nontagged_clu}')
+                    # fig.tight_layout()
                     
-                    for ext in ('.png', '.pdf'):
-                        fig.savefig(
-                            r'Z:\Dinghao\code_dinghao\LC_ephys'
-                            r'\single_cell_waveform'
-                            rf'\{recname} clu{nontagged_clu}{ext}',
-                            dpi=300,
-                            bbox_inches='tight')
+                    # for ext in ('.png', '.pdf'):
+                    #     fig.savefig(
+                    #         r'Z:\Dinghao\code_dinghao\LC_ephys'
+                    #         r'\single_cell_waveform'
+                    #         rf'\{recname} clu{nontagged_clu}{ext}',
+                    #         dpi=300,
+                    #         bbox_inches='tight')
                 
         # keys for saving dictionaries 
         keys = [f'{recname} clu{nth_clu}' for nth_clu in range(2, tot_clu+2)]
@@ -271,6 +277,8 @@ def main():
         
         # get and save ACGs
         CCGs = get_ccgs(pathname)
+        print(f'CCGs: {CCGs.shape[1]}')
+        print(f'keys: {len(keys)}')
         ACGs_dict = {keys[i]: CCGs[:,i,i] for i in range(len(keys))}
         np.save(rf'{sess_folder}\{recname}_all_ACGs.npy',
                 ACGs_dict)

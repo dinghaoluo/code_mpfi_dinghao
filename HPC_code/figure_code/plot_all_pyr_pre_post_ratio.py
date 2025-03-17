@@ -226,8 +226,8 @@ axs[1].fill_between(xaxis, OFF_bad_mean+OFF_bad_error,
 
 axs[1].legend([lg, lb], ['good trials', 'bad trials'], frameon=False, fontsize=5)
 
-axs[0].set(ylim=(.19,.67))
-axs[1].set(ylim=(.27,.5))
+axs[0].set(ylim=(.2,.5))
+axs[1].set(ylim=(.24,.39))
 for ax in axs:
     ax.set(xlabel='time from run-onset (s)', xticks=(0,2,4),
            ylabel='norm. spike rate')

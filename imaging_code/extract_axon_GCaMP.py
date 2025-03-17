@@ -98,7 +98,11 @@ def calculate_and_plot_overlap_indices(ref_im, ref_ch2_im, stat, valid_rois, rec
     overlap_indices = {}
     
     # ensure output directory exists
-    output_dir = os.path.join(r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions', recname, 'ROI_ch2_validation')
+    output_dir = os.path.join(
+        r'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions', 
+        recname, 
+        'ROI_ch2_validation'
+        )
     os.makedirs(output_dir, exist_ok=True)
     
     # loop over each valid ROI to compute overlap index and generate plots
@@ -260,9 +264,10 @@ for rec_path in pathHPCLCGCaMP:
     stat_path = rec_path+r'/suite2p/plane0/stat.npy'
     iscell_path = rec_path+r'/suite2p/plane0/iscell.npy'
     F_path = rec_path+r'/suite2p/plane0/F.npy'
+    F2_path = rec_path+r'/suite2p/plane0/F_chan2.npy'
     
     # folder to put processed data and single-session plots 
-    proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions\{}'.format(recname)
+    proc_path = rf'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions\{recname}'
     os.makedirs(proc_path, exist_ok=True)
     
     # load files 
@@ -303,15 +308,19 @@ for rec_path in pathHPCLCGCaMP:
     
     # load F trace
     F = np.load(F_path, allow_pickle=True)
+    F2 = np.load(F2_path, allow_pickle=True)
     
     # plotting: RO-aligned 
     run_path = r'{}\RO_aligned_single_roi'.format(proc_path)
     os.makedirs(run_path, exist_ok=True)
     all_mean_run_dict = {}
+    all_mean_run_ch2_dict = {}
     for roi in tqdm(valid_rois, desc='plotting RO-aligned'):
         ca = F[roi]
+        ref_ca = F2[roi]
         start = time()  # timer
         ca = ipf.calculate_dFF(ca, GPU_AVAILABLE=False)  # not using GPU is faster when we are calculating only 1 vector
+        ref_ca = ipf.calculate_dFF(ref_ca, GPU_AVAILABLE=False)
         
         # align to run 
         filtered_run_frames = []  # ensures monotonity of ordered ascension
@@ -335,20 +344,28 @@ for rec_path in pathHPCLCGCaMP:
         tot_trunc = head + (len(filtered_run_frames)-tail)
         run_aligned = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
         run_aligned_im = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
+        run_aligned_ch2 = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
+        run_aligned_im_ch2 = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
         for i, r in enumerate(filtered_run_frames[head:tail]):
             run_aligned[i, :] = ca[r-bef*30:r+aft*30]
             run_aligned_im[i, :] = normalise(smooth_convolve(ca[r-bef*30:r+aft*30]))
+            run_aligned_ch2[i, :] = ref_ca[r-bef*30:r+aft*30]
+            run_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-bef*30:r+aft*30]))
         
         run_aligned_mean = np.mean(run_aligned, axis=0)
         run_aligned_sem = sem(run_aligned, axis=0)
         all_mean_run_dict[f'ROI {roi}'] = run_aligned_mean
+        
+        run_aligned_mean_ch2 = np.mean(run_aligned_ch2, axis=0)
+        run_aligned_sem_ch2 = sem(run_aligned_ch2, axis=0)
+        all_mean_run_ch2_dict[f'ROI {roi}'] = run_aligned_mean_ch2
             
         fig = plt.figure(figsize=(5, 2.5))
         gs = GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
         ax1 = fig.add_subplot(gs[:, 0]) 
         ax2 = fig.add_subplot(gs[0, 1])
         ax3 = fig.add_subplot(gs[1, 1])
-        fig.subplots_adjust(wspace=.35)
+        fig.subplots_adjust(wspace=.4)
         
         ax1.imshow(ref_im, cmap='gist_gray')
         ax1.scatter(stat[roi]['xpix'], stat[roi]['ypix'], color='limegreen', edgecolor='none', s=.1, alpha=1)
@@ -357,35 +374,64 @@ for rec_path in pathHPCLCGCaMP:
                 ylim=(0,512))
         
         image = ax2.imshow(run_aligned_im, cmap='Greys', extent=[-1, 4, 0, tot_run], aspect='auto')
-        plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. dF/F')
         ax2.set(xticklabels=[],
                 ylabel='trial #')
         
         ax3.plot(xaxis, run_aligned_mean, c='darkgreen')
         ax3.fill_between(xaxis, run_aligned_mean+run_aligned_sem,
                                 run_aligned_mean-run_aligned_sem,
-                            color='darkgreen', alpha=.2, edgecolor='none')
+                         color='darkgreen', alpha=.2, edgecolor='none')
         ax3.set(xlabel='time from run-onset (s)',
                 ylabel='dF/F')
         
         fig.suptitle('ROI {} run-onset-aligned'.format(roi))
         
         for ext in ('.png', '.pdf'):
-            fig.savefig(r'{}\roi_{}{}'.format(run_path, roi, ext),
-                        dpi=300)
+            fig.savefig(rf'{run_path}\roi_{roi}{ext}',
+                        dpi=300,
+                        bbox_inches='tight')
+        plt.close(fig)
+        
+        fig, ax = plt.subplots(figsize=(2.2, 1.7))
+        ca_ln, = ax.plot(xaxis, run_aligned_mean, c='darkgreen')
+        ax.fill_between(xaxis, run_aligned_mean+run_aligned_sem,
+                               run_aligned_mean-run_aligned_sem,
+                        color='darkgreen', alpha=.2, edgecolor='none')
+        ref_ca_ln, = ax.plot(xaxis, run_aligned_mean_ch2, c='indianred')
+        ax.fill_between(xaxis, run_aligned_mean_ch2+run_aligned_sem_ch2,
+                               run_aligned_mean_ch2-run_aligned_sem_ch2,
+                        color='indianred', alpha=.2, edgecolor='none')
+        ax.legend((ca_ln, ref_ca_ln), ('GCaMP', 'tdT'), 
+                  fontsize=6, frameon=False)
+        
+        ax.set(xlabel='time from run-onset (s)',
+               ylabel='dF/F')
+        
+        for p in ('top', 'right'):
+            ax.spines[p].set_visible(False)
+        
+        fig.suptitle('ROI {} run-onset-aligned'.format(roi))
+        for ext in ('.png', '.pdf'):
+            fig.savefig(rf'{run_path}\roi_{roi}_w_ch2{ext}',
+                        dpi=300,
+                        bbox_inches='tight')
         plt.close(fig)
 
-    np.save(r'{}\RO_aligned_dict.npy'.format(proc_path), all_mean_run_dict)
+    np.save(rf'{proc_path}\RO_aligned_dict.npy', all_mean_run_dict)
+    np.save(rf'{proc_path}\RO_aligned_ch2_dict.npy', all_mean_run_ch2_dict)
     
     
     # plotting: rew-aligned 
     rew_path = r'{}\rew_aligned_single_roi'.format(proc_path)
     os.makedirs(rew_path, exist_ok=True)
     all_mean_rew_dict = {}
+    all_mean_rew_ch2_dict = {}
     for roi in tqdm(valid_rois, desc='plotting rew-aligned'):
         ca = F[roi]
+        ref_ca = F2[roi]
         start = time()  # timer
         ca = ipf.calculate_dFF(ca, GPU_AVAILABLE=False) 
+        ref_ca = ipf.calculate_dFF(ref_ca, GPU_AVAILABLE=False)
         
         # align to rew
         filtered_pump_frames = []
@@ -409,20 +455,28 @@ for rec_path in pathHPCLCGCaMP:
         tot_trunc = head + (len(filtered_pump_frames)-tail)
         rew_aligned = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
         rew_aligned_im = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
+        rew_aligned_ch2 = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
+        rew_aligned_im_ch2 = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
         for i, r in enumerate(filtered_pump_frames[head:tail]):
             rew_aligned[i, :] = ca[r-bef*30:r+aft*30]
             rew_aligned_im[i, :] = normalise(smooth_convolve(ca[r-bef*30:r+aft*30]))
+            rew_aligned_ch2[i, :] = ref_ca[r-bef*30:r+aft*30]
+            rew_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-bef*30:r+aft*30]))
         
         rew_aligned_mean = np.mean(rew_aligned, axis=0)
         rew_aligned_sem = sem(rew_aligned, axis=0)
         all_mean_rew_dict[f'ROI {roi}'] = rew_aligned_mean
+        
+        rew_aligned_mean_ch2 = np.mean(rew_aligned_ch2, axis=0)
+        rew_aligned_sem_ch2 = sem(rew_aligned_ch2, axis=0)
+        all_mean_rew_ch2_dict[f'ROI {roi}'] = rew_aligned_mean_ch2
             
         fig = plt.figure(figsize=(5, 2.5))
         gs = GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
         ax1 = fig.add_subplot(gs[:, 0]) 
         ax2 = fig.add_subplot(gs[0, 1])
         ax3 = fig.add_subplot(gs[1, 1])
-        fig.subplots_adjust(wspace=.35)
+        fig.subplots_adjust(wspace=.4)
         
         ax1.imshow(ref_im, cmap='gist_gray')
         ax1.scatter(stat[roi]['xpix'], stat[roi]['ypix'], color='limegreen', edgecolor='none', s=.1, alpha=1)
@@ -444,9 +498,35 @@ for rec_path in pathHPCLCGCaMP:
         fig.suptitle('ROI {} rew-aligned'.format(roi))
         
         for ext in ('.png', '.pdf'):
-            fig.savefig(r'{}\roi_{}{}'.format(rew_path, roi, ext),
-                        dpi=300)
+            fig.savefig(rf'{rew_path}\roi_{roi}{ext}',
+                        dpi=300,
+                        bbox_inches='tight')
         plt.close(fig)
-            
         
-    np.save(r'{}\rew_aligned_dict.npy'.format(proc_path), all_mean_rew_dict)
+        fig, ax = plt.subplots(figsize=(2.2, 1.7))
+        ca_ln, = ax.plot(xaxis, rew_aligned_mean, c='darkgreen')
+        ax.fill_between(xaxis, rew_aligned_mean+rew_aligned_sem,
+                               rew_aligned_mean-rew_aligned_sem,
+                        color='darkgreen', alpha=.2, edgecolor='none')
+        ref_ca_ln, = ax.plot(xaxis, rew_aligned_mean_ch2, c='indianred')
+        ax.fill_between(xaxis, rew_aligned_mean_ch2+rew_aligned_sem_ch2,
+                               rew_aligned_mean_ch2-rew_aligned_sem_ch2,
+                        color='indianred', alpha=.2, edgecolor='none')
+        ax.legend((ca_ln, ref_ca_ln), ('GCaMP', 'tdT'), 
+                  fontsize=6, frameon=False)
+        
+        ax.set(xlabel='time from reward (s)',
+               ylabel='dF/F')
+        
+        for p in ('top', 'right'):
+            ax.spines[p].set_visible(False)
+        
+        fig.suptitle('ROI {} rew-aligned'.format(roi))
+        for ext in ('.png', '.pdf'):
+            fig.savefig(rf'{rew_path}\roi_{roi}_w_ch2{ext}',
+                        dpi=300,
+                        bbox_inches='tight')
+        plt.close(fig)
+        
+    np.save(rf'{proc_path}\rew_aligned_dict.npy', all_mean_rew_dict)
+    np.save(rf'{proc_path}\rew_aligned_ch2_dict.npy', all_mean_rew_ch2_dict)

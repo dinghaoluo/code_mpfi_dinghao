@@ -65,14 +65,14 @@ else:
 
 #%% parameters 
 samp_freq = 1250  # Hz
-sigma_spike = samp_freq/10
+sigma_spike = int(samp_freq*0.03)  # 30 ms
 max_length = 12500  # samples 
 
 gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
 
 
 #%% main
-for pathname in paths:
+for pathname in paths[46:]:
     all_trains = {}
     all_rasters = {}
     
@@ -142,7 +142,7 @@ for pathname in paths:
     if GPU_AVAILABLE:
         # GPU-accelerated convolution using CuPy
         trains_gpu = cpss.fftconvolve(
-            rasters, gaus_spike[None, None, :], mode='same'
+            rasters_gpu, gaus_spike[None, None, :], mode='same'
             ) * samp_freq
         trains = trains_gpu.get()
         rasters = rasters_gpu.get()
@@ -174,5 +174,5 @@ for pathname in paths:
         mempool.free_all_blocks()
         pinned_mempool.free_all_blocks()
     del rasters, trains, spike_time, all_trains, all_rasters
-    spike_time_file.close()  # Close HDF5 file
+    # spike_time_file.close()  # Close HDF5 file
     gc.collect()

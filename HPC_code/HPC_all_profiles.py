@@ -37,7 +37,8 @@ mpl_formatting()
 
 #%% dataframe initialisation/loading
 fname = r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl'
-if os.path.exists(fname):
+# if os.path.exists(fname):
+if False:
     df = pd.read_pickle(fname)
     print(f'df loaded from {fname}')
     processed_sess = df.index.tolist()
