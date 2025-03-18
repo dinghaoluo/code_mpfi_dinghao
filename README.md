@@ -8,6 +8,38 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   ├── *HPC_all_extract.py*  
 │   ├── *HPC_all_profiles.py*  
 │   ├── *HPC_all_waveforms.py*  
+│   ├── **_defunct_code**  
+│   │   ├── *HPCLC_all_pyr_profiles.py*  
+│   │   ├── *HPCLC_all_train_cue.py*  
+│   │   ├── *HPCLC_clu_list.py*  
+│   │   ├── *HPCLC_place_cell_profiles.py*  
+│   │   ├── *HPCLC_pyract_profiles.py*  
+│   │   ├── *HPCLC_sess_pyr_profiles.py*  
+│   │   ├── *HPCLCterm_all_rasters.py*  
+│   │   ├── *HPCLCterm_clu_list.py*  
+│   │   ├── *HPCLCterm_place_cell_profiles.py*  
+│   │   ├── *HPC_all_ordered_by_1st_lick.py*  
+│   │   ├── *HPC_all_rasters.py*  
+│   │   ├── *HPC_all_waveforms.py*  
+│   │   ├── *HPC_population_v_licks_poisson.py*  
+│   │   ├── *HPC_population_v_licks_poisson_example_session.py*  
+│   │   ├── *def_HPCLC_all_stim_stimcont_pyr_only_sig.py*  
+│   │   ├── *def_HPCLCterm_all_stim_stimcont_pyr_only_fw.py*  
+│   │   ├── *def_HPCLCterm_all_stim_stimcont_pyr_only_sig.py*  
+│   │   ├── *def_HPC_all_stim_stimcont_pyr_only_sensitivity.py*  
+│   │   ├── *def_all_pyr_rate.py*  
+│   │   ├── *pc_mc_overlaps.py*  
+│   │   ├── *pc_proportion_comp.py*  
+│   │   ├── *plot_all_pyr_heatmap_time_rew.py*  
+│   │   ├── *plot_all_pyr_heatmap_time_run.py*  
+│   │   ├── *plot_all_rasters.py*  
+│   │   ├── **stim_baseline**  
+│   │   │   ├── *HPC_all_stim_baseline_int_only.py*  
+│   │   │   ├── *HPC_all_stim_baseline_pyr_only.py*  
+│   │   │   └── *HPC_all_stim_baseline_pyr_only_PCA.py*  
+│   │   └── **stim_effect**  
+│   │       ├── *HPCLC_rasters_stim_nonstim.py*  
+│   │       └── *HPC_stim_aligned.py*  
 │   ├── **bayesian_decoding**  
 │   │   ├── *naive_bayesian_decoding_conf_matrix.py*  
 │   │   ├── *naive_bayesian_decoding_proba.py*  
@@ -18,6 +50,8 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *lick_dist_comp_HPC_LCterm_stim.py*  
 │   │   ├── *lick_time_comp_HPC_LC_stim.py*  
 │   │   └── *lick_time_comp_HPC_LCterm_stim.py*  
+│   ├── **decay_time**  
+│   │   └── *decay_time_analysis.py*  
 │   ├── **dimensionality_reduction**  
 │   │   ├── *HPC_UMAP_single_trial_traj_interactive.ipynb*  
 │   │   ├── *HPC_single_sess_PCA_traj.py*  
@@ -28,11 +62,14 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *plot_all_ctrl_stim_rasters.py*  
 │   │   ├── *plot_all_pyr_heatmap_dist.py*  
 │   │   ├── *plot_all_pyr_info_ctrl_stim.py*  
-│   │   └── *plot_all_pyr_pre_post_ratio.py*  
+│   │   ├── *plot_all_pyr_pre_post_ratio.py*  
+│   │   └── *plot_run_onset_ON_OFF_profiles.py*  
 │   ├── **history_dependency**  
 │   │   └── *lick_history_dependency.py*  
 │   ├── **lick_sensitivity**  
 │   │   ├── *HPCLC_raster_first_lick_ranked.py*  
+│   │   ├── *HPC_early_late_first_lick_profiles.py*  
+│   │   ├── *HPC_early_late_first_lick_proportions.py*  
 │   │   └── *HPC_population_activity_1st_lick.py*  
 │   ├── **poisson_deviation**  
 │   │   └── *HPCLC_pyract_single_cell_profiles.py*  
@@ -69,33 +106,77 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   └── **theta_phase**  
 │       └── *HPC_all_theta_stim.py*  
 ├── **LC_code**  
+│   ├── *LC_all_extract.py*  
+│   ├── *LC_all_identity_UMAP.py*  
 │   ├── *LC_all_profiles.py*  
-│   ├── *WT_waveform_proc.py*  
-│   ├── *all_UMAP.py*  
-│   ├── *all_acg.py*  
-│   ├── *all_acg_baseline.py*  
-│   ├── *all_earlyvlate_RO_peak.py*  
-│   ├── *all_earlyvlate_RO_peak_population.py*  
-│   ├── *all_earlyvlate_RO_peak_population_lick2pump.py*  
-│   ├── *all_earlyvlate_RO_peak_population_med3licks.py*  
-│   ├── *all_earlyvlate_RO_peak_population_raster.py*  
-│   ├── *all_earlyvlate_RO_peak_raster.py*  
-│   ├── *all_good_bad_RO_peak.py*  
-│   ├── *all_goodvbad_RO_peak_bef.py*  
-│   ├── *all_neu_activity_ON_OFF.py*  
-│   ├── *all_raster_cue_rew_run_lasttocurtr.py*  
-│   ├── *all_raster_last_rew_ordered.py*  
-│   ├── *all_raster_lick_ordered.py*  
-│   ├── *all_raster_lick_ordered_raster_only.py*  
-│   ├── *all_raster_lick_reward_sensitivity.py*  
-│   ├── *all_raster_rew_ordered.py*  
-│   ├── *all_raster_rew_to_run_ordered.py*  
-│   ├── *all_rasters.py*  
-│   ├── *all_runonset_runbout_RO_peak.py*  
-│   ├── *all_time_warped.py*  
-│   ├── *all_train.py*  
-│   ├── *all_waveform_all.py*  
-│   ├── *all_waveform_proc.py*  
+│   ├── *LC_all_spikes_ISIs.py*  
+│   ├── *LC_all_waveforms_acgs.py*  
+│   ├── *LC_run_all.py*  
+│   ├── **_defunct_code**  
+│   │   ├── *WT_waveform_proc.py*  
+│   │   ├── *all_acg.py*  
+│   │   ├── *all_acg_baseline.py*  
+│   │   ├── *all_lick_sensitive_activity_1st_lick.py*  
+│   │   ├── *all_lick_sensitive_summary.py*  
+│   │   ├── *all_neu_activity_v_1st_lick.py*  
+│   │   ├── *all_raster_lick_aligned.py*  
+│   │   ├── *all_rasters.py*  
+│   │   ├── *all_train.py*  
+│   │   ├── *def_all_acg_pca.py*  
+│   │   ├── *def_all_ccg.py*  
+│   │   ├── *def_all_goodvbad_clustered.py*  
+│   │   ├── *def_all_rovrb_clustered.py*  
+│   │   ├── *def_all_speed_score.py*  
+│   │   ├── *def_all_stim_effects_avg.py*  
+│   │   ├── *def_beh_eg_licks.py*  
+│   │   ├── *def_goodvbad_RO_peak.py*  
+│   │   ├── *def_plot_run_bouts.py*  
+│   │   ├── *def_plot_single_cell_property_UMAP_assist.py*  
+│   │   ├── *def_plot_single_cell_property_UMAP_interactive_image.py*  
+│   │   ├── *def_plot_single_cell_property_tagged.py*  
+│   │   ├── *def_session_anal.py*  
+│   │   ├── *def_stim_trial_only.py*  
+│   │   ├── *def_tag_waveform_example.py*  
+│   │   ├── *def_tagged_burst_badtrial.py*  
+│   │   ├── *def_tagged_cluster_waveform.py*  
+│   │   ├── *def_tagged_clustering_from_all.py*  
+│   │   ├── *def_tagged_clustering_hierarchical.py*  
+│   │   ├── *def_tagged_clustering_rate.py*  
+│   │   ├── *def_tagged_goodvbad.py*  
+│   │   ├── *def_tagged_goodvbad_clustered.py*  
+│   │   ├── *def_tagged_lickvburst.py*  
+│   │   ├── *def_tagged_narrvbrd.py*  
+│   │   ├── *def_tagged_rewardvburst.py*  
+│   │   ├── *def_tagged_rovrb_clustered.py*  
+│   │   ├── *def_tagged_rovrb_trough.py*  
+│   │   ├── *def_tagged_single_trial_example_cue_RO_diff.py*  
+│   │   ├── *def_waveform_anal.py*  
+│   │   ├── **hierarchical_clustering**  
+│   │   │   ├── *all_cluster_waveform.py*  
+│   │   │   └── *all_clustering_hierarchical.py*  
+│   │   ├── *nontagged_stim_rasters.py*  
+│   │   ├── *plot_all_clustered_acg_heatmap.py*  
+│   │   ├── *plot_avg_acg_tagged.py*  
+│   │   ├── *plot_eg_tagged_cell_wf.py*  
+│   │   ├── *plot_example_train.py*  
+│   │   ├── *plot_heatmap_ROpeaking.py*  
+│   │   ├── *plot_proportion_bar_graph.py*  
+│   │   ├── *plot_single_cell_property.py*  
+│   │   ├── *plot_single_cell_property_tagged.py*  
+│   │   ├── *putative_example_cell.py*  
+│   │   ├── *stim_effect_spikes.py*  
+│   │   ├── *tagged_acg_pca.py*  
+│   │   ├── *tagged_example_cell.py*  
+│   │   ├── *tagged_goodvbad.py*  
+│   │   ├── *tagged_goodvbad_RO_peak.py*  
+│   │   ├── *tagged_lick_RO_peak_ordered.py*  
+│   │   ├── *tagged_rovrb_RO_peak.py*  
+│   │   ├── *tagged_speedvrate.py*  
+│   │   ├── *tagged_stim_rasters.py*  
+│   │   ├── *tagged_train.py*  
+│   │   ├── *tagged_train_alignedRew.py*  
+│   │   ├── *tagged_waveform_classify.py*  
+│   │   └── *tagged_waveform_pca.py*  
 │   ├── **behaviour**  
 │   │   ├── *1st_lick_profile.py*  
 │   │   ├── *egsess_lick.py*  
@@ -103,54 +184,58 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *egsess_speed.py*  
 │   │   ├── *egsess_speed_passive_raphi.py*  
 │   │   ├── *good_perc_comp.py*  
-│   │   ├── *lick_dist_comp.py*  
+│   │   ├── *lick_dist_comp_020.py*  
 │   │   ├── *lick_dist_comp_HPC_LC_stim.py*  
 │   │   ├── *lick_history_dependency.py*  
 │   │   ├── *lick_history_dependency_comp.py*  
 │   │   ├── *lick_properties.py*  
-│   │   ├── *lick_time_comp.py*  
+│   │   ├── *lick_time_comp_020.py*  
 │   │   ├── *plot_cue_start_difference.py*  
 │   │   ├── *plot_run_bouts.py*  
 │   │   ├── *plot_single_trial_example.py*  
-│   │   └── *summarise_040.py*  
+│   │   └── *summarise_opto.py*  
 │   ├── **ephys_opto**  
-│   │   ├── *all_stim_rasters.py*  
-│   │   ├── *nontagged_stim_rasters.py*  
-│   │   ├── *stim_effect_spikes.py*  
-│   │   └── *tagged_stim_rasters.py*  
+│   │   └── *plot_stim_response.py*  
 │   ├── **figure_code**  
+│   │   ├── *plot_ISIs.py*  
 │   │   ├── *plot_LC_population_heatmap_argmax.py*  
-│   │   ├── *plot_all_clustered_acg_heatmap.py*  
-│   │   ├── *plot_avg_acg_tagged.py*  
-│   │   ├── *plot_eg_tagged_cell_wf.py*  
-│   │   ├── *plot_example_train.py*  
-│   │   ├── *plot_heatmap_ROpeaking.py*  
+│   │   ├── *plot_acgs_and_heatmap.py*  
+│   │   ├── *plot_comp_tagged_putative.py*  
+│   │   ├── *plot_ctrl_stim_profiles.py*  
 │   │   ├── *plot_neu_activity_ON_OFF_mean_profile.py*  
-│   │   ├── *plot_proportion_bar_graph.py*  
 │   │   ├── *plot_rasters_1st_lick_ordered_early_late_only.py*  
 │   │   ├── *plot_rasters_runonset_aligned.py*  
 │   │   ├── *plot_runonset_burst_and_non_burst_profiles.py*  
 │   │   ├── *plot_single_cell_ACG.py*  
-│   │   ├── *plot_single_cell_property.py*  
-│   │   ├── *plot_single_cell_property_tagged.py*  
 │   │   ├── *plot_single_cell_waveform.py*  
 │   │   ├── *plot_tagged_example_good_bad_raster.py*  
 │   │   ├── *plot_tagging_responses.py*  
-│   │   ├── *plot_trials_LC.py*  
-│   │   ├── *putative_example_cell.py*  
-│   │   └── *tagged_example_cell.py*  
-│   ├── *tag_waveform_all.py*  
-│   ├── *tag_waveform_proc.py*  
-│   ├── *tag_waveform_proc_notnorm.py*  
-│   ├── *tagged_acg_pca.py*  
-│   ├── *tagged_goodvbad.py*  
-│   ├── *tagged_goodvbad_RO_peak.py*  
-│   ├── *tagged_lick_RO_peak_ordered.py*  
-│   ├── *tagged_speedvrate.py*  
-│   ├── *tagged_train.py*  
-│   ├── *tagged_train_alignedRew.py*  
-│   ├── *tagged_waveform_classify.py*  
-│   ├── *tagged_waveform_pca.py*  
+│   │   └── *plot_trials_LC.py*  
+│   ├── **first_lick_analysis**  
+│   │   ├── *all_earlyvlate_RO_peak.py*  
+│   │   ├── *all_earlyvlate_RO_peak_population.py*  
+│   │   ├── *all_earlyvlate_RO_peak_population_lick2pump.py*  
+│   │   ├── *all_earlyvlate_RO_peak_population_med3licks.py*  
+│   │   ├── *all_earlyvlate_RO_peak_population_raster.py*  
+│   │   ├── *all_earlyvlate_RO_peak_raster.py*  
+│   │   ├── *all_neu_activity_ON_OFF.py*  
+│   │   └── *all_time_warped.py*  
+│   ├── **good_v_bad_trials**  
+│   │   ├── *all_good_bad_RO_peak.py*  
+│   │   └── *all_goodvbad_RO_peak_bef.py*  
+│   ├── **rasters**  
+│   │   ├── *all_raster_cue_rew_run_lasttocurtr.py*  
+│   │   ├── *all_raster_last_rew_ordered.py*  
+│   │   ├── *all_raster_lick_ordered.py*  
+│   │   ├── *all_raster_lick_ordered_raster_only.py*  
+│   │   ├── *all_raster_lick_reward_sensitivity.py*  
+│   │   ├── *all_raster_rew_ordered.py*  
+│   │   └── *all_raster_rew_to_run_ordered.py*  
+│   ├── **run_onset_burst_analysis**  
+│   │   ├── *burst_detection.py*  
+│   │   └── *early_v_late_burst_probability.py*  
+│   ├── **run_onset_v_run_bout**  
+│   │   └── *all_runonset_runbout_RO_peak.py*  
 │   ├── *tagging_latency.py*  
 │   └── **utils**  
 │       └── *single_unit.py*  
@@ -166,8 +251,8 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 ├── **behaviour_code**  
 │   ├── **figure_code**  
 │   │   ├── *plot_behaviour.py*  
+│   │   ├── *plot_immobile.py*  
 │   │   └── *plot_lick_to_pumps.py*  
-│   ├── *plot_immobile.py*  
 │   ├── *process_behaviour.py*  
 │   └── *process_behaviour_immobile.py*  
 ├── **caiman_code**  
@@ -187,17 +272,17 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *plot_lick_profile.py*  
 │   │   ├── *plot_lick_profile_to_pumps.py*  
 │   │   ├── *plot_pooled_heatmap_axon_GCaMP.py*  
-│   │   └── *plot_std_heatmap.py*  
-│   ├── *plot_sorted_heatmaps_grids.py*  
-│   ├── *plot_sorted_heatmaps_rois.py*  
+│   │   ├── *plot_sorted_heatmaps_grids.py*  
+│   │   ├── *plot_sorted_heatmaps_rois.py*  
+│   │   ├── *plot_std_heatmap.py*  
+│   │   └── *plot_whole_field.py*  
 │   ├── *run_imaging_pipeline.py*  
 │   ├── **suite2p_code**  
 │   │   ├── *registration_roi_extraction_s2p_wanglab.py*  
 │   │   └── *suite2p-wang-lab_SparseDetect_test_seperate.py*  
+│   ├── **test_whole_field_pipeline**  
+│   │   └── *test_whole_field_pipeline.py*  
 │   ├── **tonic_activity**  
-│   │   ├── *tonic_fft.py*  
-│   │   └── *whole_session_f_dff.py*  
-│   ├── **tonic_activity_code**  
 │   │   ├── *tonic_fft.py*  
 │   │   └── *whole_session_f_dff.py*  
 │   └── **utils**  
@@ -205,6 +290,10 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │       ├── *imaging_pipeline_main_functions.py*  
 │       ├── *imaging_utility_functions.py*  
 │       └── *suite2p_functions.py*  
+├── **matlab_preprocessing**  
+│   ├── *RunSpikePipeline.m*  
+│   ├── *RunSpikePipeline_pix.m*  
+│   └── *RunSpikePipeline_pix_Run0.m*  
 ├── **other_code**  
 │   ├── *log_temperature_humidity.py*  
 │   └── *plot_temperature_humidity.py*  
@@ -225,9 +314,13 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 ```
 
 ## pre-processing
+
 ### 2-photon imaging
 2-photon imaging data were pre-processed using [suite2p](https://github.com/MouseLand/suite2p)  
 axon-GCaMP data were pre-processed with a custom-tuned parameter set optimised for identifying neuronal processes
+**axon-GCaMP recordings**: after sorting using Suite2p with customised parameters to detect neuronal processes, `extract_axon_GCaMP.py` extracts dF/F traces aligned to behavioural landmarks (e.g. run-onsets, reward deliveries) of valid ROIs. Suite2p saves valid ROIs in such a manner that each ROI has an `imerge` list consisting of all of its constituent ROIs and ROIs resulting from multiple merges would contain an `imerge` list that is a superset of all of the constituents of ROIs from previous merging steps. Therefore, a `valid_ROI_dict` is generated, containing only the ROIs from the final merge step (i.e. which are not themselves constituents of other ROIs).
+**neuromodulator sensor recordings**: after registration (and ROI detection) using Suite2p, `run_imaging_pipeline.py` provides 2 ways to process the data based on grid-like ROIs and Suite2p ROIs. Grid-like ROIs divide the imaging plane into square grids and extract traces based strictly within those grids, without spatial filtering. Suite2p ROIs are detected using a customised parameter set to prioritise temporal variances of detected ROIs.
+
 ### hippocampus ephys data 
 ephys data were spike-sorted using kilosort for pre-processing and manual curation, after which the .res and .clu files were used for trial truncation with a custom MATLAB pipeline. `HPC_all_extract.py` then runs through all hippocampus recordings regardless of whether each recording has been processed, extracting information from the .mat files produced in the previous step; the end results are a smoothed-spike-train file and a raster file for each recording session  
 `HPC_all_waveforms.py` is used to extract the waveform of each cluster; this is rarely used  

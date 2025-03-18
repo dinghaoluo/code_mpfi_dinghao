@@ -60,11 +60,11 @@ OFF_all_sem = sem(OFF_all, axis=0)
 
 fig, ax = plt.subplots(figsize=(2,1.4))
 
-ON_ln, = ax.plot(xaxis, ON_all_mean, lw=1, c='firebrick')
+ON_ln, = ax.plot(xaxis, ON_all_mean, lw=0.8, c='firebrick')
 ax.fill_between(xaxis,
                 ON_all_mean + ON_all_sem, 
                 ON_all_mean - ON_all_sem,
-                color='firebrick', edgecolor='none', alpha=.35)
+                color='firebrick', edgecolor='none', alpha=.25)
 for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
     
@@ -82,11 +82,11 @@ for ext in ['.png', '.pdf']:
     
 fig, ax = plt.subplots(figsize=(2,1.4))
 
-ON_ln, = ax.plot(xaxis, OFF_all_mean, lw=1, c='purple')
+ON_ln, = ax.plot(xaxis, OFF_all_mean, lw=.8, c='purple')
 ax.fill_between(xaxis,
                 OFF_all_mean + OFF_all_sem, 
                 OFF_all_mean - OFF_all_sem,
-                color='purple', edgecolor='none', alpha=.35)
+                color='purple', edgecolor='none', alpha=.25)
 for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
     

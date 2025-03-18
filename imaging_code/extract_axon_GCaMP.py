@@ -7,7 +7,7 @@ process and align ROI traces
    activity merging stage producing special data structures***
 
 overview of the merged data structure:
-    - stat.npy contains (per usual) info about the ROIs; after merging and 
+    - stat.npy contains (per usual) info about the ROIs; AFTer merging and 
         appending the merges, each ROI has 'imerge' and 'inmerge':
         - 'imerge' tells one the constituent ROI(s) of a merged ROI and
         - 'inmerge' tells one of which ROI(s) the current ROI is a part
@@ -38,15 +38,20 @@ sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import normalise, smooth_convolve, mpl_formatting
 mpl_formatting()
 
-# global variables 
-bef = 1
-aft = 4  # in seconds
-xaxis = np.arange((bef+aft)*30)/30-1
-
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
 
+
+#%% parameters 
+FRAME_RATE = 30
+BEF = 1
+AFT = 4  # in seconds
+XAXIS = np.arange((BEF + AFT) * FRAME_RATE) / FRAME_RATE - BEF
+
+
+#%% load beh dataframe 
+print('loading behaviour dataframe...')
 df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCGCaMP_sessions.pkl')
 
 
@@ -59,7 +64,7 @@ except ModuleNotFoundError:
     GPU_AVAILABLE = False
 except Exception as e:
     # catch any other unexpected errors and print a general message
-    print(f'An error occurred: {e}')
+    print(f'an error occurred: {e}')
     GPU_AVAILABLE = False
 
 if GPU_AVAILABLE:
@@ -71,7 +76,14 @@ else:
 
 
 #%% functions
-def calculate_and_plot_overlap_indices(ref_im, ref_ch2_im, stat, valid_rois, recname, border=10):
+def calculate_and_plot_overlap_indices(
+        ref_im, 
+        ref_ch2_im, 
+        stat, 
+        valid_rois, 
+        recname, 
+        border=10
+        ):
     """
     calculate overlap indices between ROIs and channel 2, then plot each ROI overlay with reference images.
     
@@ -332,25 +344,25 @@ for rec_path in pathHPCLCGCaMP:
         tot_run = len(filtered_run_frames)
         head = 0; tail = len(filtered_run_frames)
         for f in range(tot_run):
-            if filtered_run_frames[f]-bef*30<0:
+            if filtered_run_frames[f]- BEF * FRAME_RATE < 0:  # in case the 1st run-onset is within BEF s of starting recording
                 head+=1
             else:
                 break
         for f in range(tot_run-1,-1,-1):
-            if filtered_run_frames[f]+aft*30>tot_frames:
+            if filtered_run_frames[f] + AFT * FRAME_RATE > tot_frames:  # in case the last run-onset is within AFT s of ending recording
                 tail-=1
             else:
                 break
         tot_trunc = head + (len(filtered_run_frames)-tail)
-        run_aligned = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
-        run_aligned_im = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
-        run_aligned_ch2 = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
-        run_aligned_im_ch2 = np.zeros((tot_run-tot_trunc, (bef+aft)*30))
+        run_aligned = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
+        run_aligned_im = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
+        run_aligned_ch2 = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
+        run_aligned_im_ch2 = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
         for i, r in enumerate(filtered_run_frames[head:tail]):
-            run_aligned[i, :] = ca[r-bef*30:r+aft*30]
-            run_aligned_im[i, :] = normalise(smooth_convolve(ca[r-bef*30:r+aft*30]))
-            run_aligned_ch2[i, :] = ref_ca[r-bef*30:r+aft*30]
-            run_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-bef*30:r+aft*30]))
+            run_aligned[i, :] = ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]
+            run_aligned_im[i, :] = normalise(smooth_convolve(ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]))
+            run_aligned_ch2[i, :] = ref_ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]
+            run_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]))
         
         run_aligned_mean = np.mean(run_aligned, axis=0)
         run_aligned_sem = sem(run_aligned, axis=0)
@@ -377,8 +389,8 @@ for rec_path in pathHPCLCGCaMP:
         ax2.set(xticklabels=[],
                 ylabel='trial #')
         
-        ax3.plot(xaxis, run_aligned_mean, c='darkgreen')
-        ax3.fill_between(xaxis, run_aligned_mean+run_aligned_sem,
+        ax3.plot(XAXIS, run_aligned_mean, c='darkgreen')
+        ax3.fill_between(XAXIS, run_aligned_mean+run_aligned_sem,
                                 run_aligned_mean-run_aligned_sem,
                          color='darkgreen', alpha=.2, edgecolor='none')
         ax3.set(xlabel='time from run-onset (s)',
@@ -393,12 +405,12 @@ for rec_path in pathHPCLCGCaMP:
         plt.close(fig)
         
         fig, ax = plt.subplots(figsize=(2.2, 1.7))
-        ca_ln, = ax.plot(xaxis, run_aligned_mean, c='darkgreen')
-        ax.fill_between(xaxis, run_aligned_mean+run_aligned_sem,
+        ca_ln, = ax.plot(XAXIS, run_aligned_mean, c='darkgreen')
+        ax.fill_between(XAXIS, run_aligned_mean+run_aligned_sem,
                                run_aligned_mean-run_aligned_sem,
                         color='darkgreen', alpha=.2, edgecolor='none')
-        ref_ca_ln, = ax.plot(xaxis, run_aligned_mean_ch2, c='indianred')
-        ax.fill_between(xaxis, run_aligned_mean_ch2+run_aligned_sem_ch2,
+        ref_ca_ln, = ax.plot(XAXIS, run_aligned_mean_ch2, c='indianred')
+        ax.fill_between(XAXIS, run_aligned_mean_ch2+run_aligned_sem_ch2,
                                run_aligned_mean_ch2-run_aligned_sem_ch2,
                         color='indianred', alpha=.2, edgecolor='none')
         ax.legend((ca_ln, ref_ca_ln), ('GCaMP', 'tdT'), 
@@ -443,25 +455,25 @@ for rec_path in pathHPCLCGCaMP:
         tot_pump = len(filtered_pump_frames)
         head = 0; tail = len(filtered_pump_frames)
         for f in range(tot_pump):
-            if filtered_pump_frames[f]-bef*30<0:
+            if filtered_pump_frames[f]-BEF*30<0:
                 head+=1
             else:
                 break
         for f in range(tot_pump-1,-1,-1):
-            if filtered_pump_frames[f]+aft*30>tot_frames:
+            if filtered_pump_frames[f]+AFT*30>tot_frames:
                 tail-=1
             else:
                 break
         tot_trunc = head + (len(filtered_pump_frames)-tail)
-        rew_aligned = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
-        rew_aligned_im = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
-        rew_aligned_ch2 = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
-        rew_aligned_im_ch2 = np.zeros((tot_pump-tot_trunc, (bef+aft)*30))
+        rew_aligned = np.zeros((tot_pump-tot_trunc, (BEF+AFT)*30))
+        rew_aligned_im = np.zeros((tot_pump-tot_trunc, (BEF+AFT)*30))
+        rew_aligned_ch2 = np.zeros((tot_pump-tot_trunc, (BEF+AFT)*30))
+        rew_aligned_im_ch2 = np.zeros((tot_pump-tot_trunc, (BEF+AFT)*30))
         for i, r in enumerate(filtered_pump_frames[head:tail]):
-            rew_aligned[i, :] = ca[r-bef*30:r+aft*30]
-            rew_aligned_im[i, :] = normalise(smooth_convolve(ca[r-bef*30:r+aft*30]))
-            rew_aligned_ch2[i, :] = ref_ca[r-bef*30:r+aft*30]
-            rew_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-bef*30:r+aft*30]))
+            rew_aligned[i, :] = ca[r-BEF*30:r+AFT*30]
+            rew_aligned_im[i, :] = normalise(smooth_convolve(ca[r-BEF*30:r+AFT*30]))
+            rew_aligned_ch2[i, :] = ref_ca[r-BEF*30:r+AFT*30]
+            rew_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-BEF*30:r+AFT*30]))
         
         rew_aligned_mean = np.mean(rew_aligned, axis=0)
         rew_aligned_sem = sem(rew_aligned, axis=0)
@@ -488,8 +500,8 @@ for rec_path in pathHPCLCGCaMP:
         ax2.set(xticks=[],
                 ylabel='trial #')
         
-        ax3.plot(xaxis, rew_aligned_mean, c='darkgreen')
-        ax3.fill_between(xaxis, rew_aligned_mean+rew_aligned_sem,
+        ax3.plot(XAXIS, rew_aligned_mean, c='darkgreen')
+        ax3.fill_between(XAXIS, rew_aligned_mean+rew_aligned_sem,
                                 rew_aligned_mean-rew_aligned_sem,
                             color='darkgreen', alpha=.2, edgecolor='none')
         ax3.set(xlabel='time from reward (s)',
@@ -504,12 +516,12 @@ for rec_path in pathHPCLCGCaMP:
         plt.close(fig)
         
         fig, ax = plt.subplots(figsize=(2.2, 1.7))
-        ca_ln, = ax.plot(xaxis, rew_aligned_mean, c='darkgreen')
-        ax.fill_between(xaxis, rew_aligned_mean+rew_aligned_sem,
+        ca_ln, = ax.plot(XAXIS, rew_aligned_mean, c='darkgreen')
+        ax.fill_between(XAXIS, rew_aligned_mean+rew_aligned_sem,
                                rew_aligned_mean-rew_aligned_sem,
                         color='darkgreen', alpha=.2, edgecolor='none')
-        ref_ca_ln, = ax.plot(xaxis, rew_aligned_mean_ch2, c='indianred')
-        ax.fill_between(xaxis, rew_aligned_mean_ch2+rew_aligned_sem_ch2,
+        ref_ca_ln, = ax.plot(XAXIS, rew_aligned_mean_ch2, c='indianred')
+        ax.fill_between(XAXIS, rew_aligned_mean_ch2+rew_aligned_sem_ch2,
                                rew_aligned_mean_ch2-rew_aligned_sem_ch2,
                         color='indianred', alpha=.2, edgecolor='none')
         ax.legend((ca_ln, ref_ca_ln), ('GCaMP', 'tdT'), 
