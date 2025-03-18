@@ -170,20 +170,28 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     if paired:
         wilc_stat, wilc_p = wilcoxon(data0, data1)
         ttest_stat, ttest_p = ttest_rel(data0, data1)
+        wilc_p_str = '{:.2e}'.format(wilc_p)
+        ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
-            print(f'wilc: {wilc_stat}, p={wilc_p}')
+            print(f'wilc: {wilc_stat}, p={wilc_p_str}')
+            print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
             ax.plot([1, 2], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
-            ax.text(1.5, y_range[0]+y_range_tot*.05, 'wilc_p={}\nttest_p={}'.format(round(wilc_p, 5), round(ttest_p, 5)), 
+            ax.text(1.5, y_range[0]+y_range_tot*.05, 
+                    f'wilc_p={wilc_p_str}\nttest_p={ttest_p_str}', 
                     ha='center', va='bottom', color='k', fontsize=8)
     else:
         rank_stat, rank_p = ranksums(data0, data1)
         ttest_stat, ttest_p = ttest_ind(data0, data1)
+        rank_p_str = '{:.2e}'.format(rank_p)
+        ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
-            print(f'ranksums: {rank_stat}, p={rank_p}')
+            print(f'ranksums: {rank_stat}, p={rank_p_str}')
+            print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
             ax.plot([1, 2], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
-            ax.text(1.5, y_range[0]+y_range_tot*.05, 'ranksums_p={}\nttest_p={}'.format(round(rank_p, 5), round(ttest_p, 5)), 
+            ax.text(1.5, y_range[0]+y_range_tot*.05, 
+                    f'ranksums_p={rank_p_str}\nttest_p={ttest_p_str}', 
                     ha='center', va='bottom', color='k', fontsize=8)
         
     ax.set(xticks=[1,2], xticklabels=xticklabels,

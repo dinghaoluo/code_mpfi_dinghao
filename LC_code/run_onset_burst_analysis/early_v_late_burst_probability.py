@@ -149,7 +149,7 @@ for path in paths:
 #%% plotting 
 from plotting_functions import plot_violin_with_scatter
 
-# define colors
+# define colours
 early_colour = (.804, .267, .267)  # early trials
 late_colour = (.545, 0, 0)  # late trials
 

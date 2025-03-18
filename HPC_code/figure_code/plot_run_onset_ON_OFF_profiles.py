@@ -45,6 +45,63 @@ df_ON = df_pyr[df_pyr['class']=='run-onset ON']
 df_OFF = df_pyr[df_pyr['class']=='run-onset OFF']
 
 
+#%% plain and simple first--just the mean profiles 
+ON_all = [cell.prof_mean[2500:3750+4*1250] for cell in 
+          df_pyr[df_pyr['class']=='run-onset ON']
+          .itertuples(index=False)]
+ON_all_mean = np.mean(ON_all, axis=0)
+ON_all_sem = sem(ON_all, axis=0)
+
+OFF_all = [cell.prof_mean[2500:3750+4*1250] for cell in 
+           df_pyr[df_pyr['class']=='run-onset OFF']
+           .itertuples(index=False)]
+OFF_all_mean = np.mean(OFF_all, axis=0)
+OFF_all_sem = sem(OFF_all, axis=0)
+
+fig, ax = plt.subplots(figsize=(2,1.4))
+
+ON_ln, = ax.plot(xaxis, ON_all_mean, lw=1, c='firebrick')
+ax.fill_between(xaxis,
+                ON_all_mean + ON_all_sem, 
+                ON_all_mean - ON_all_sem,
+                color='firebrick', edgecolor='none', alpha=.35)
+for p in ['top', 'right']:
+    ax.spines[p].set_visible(False)
+    
+ax.set(title='run-onset ON',
+       ylabel='spike rate (Hz)',
+       xlabel='time from run-onset (s)')
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_ON_curve{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )
+    
+    
+fig, ax = plt.subplots(figsize=(2,1.4))
+
+ON_ln, = ax.plot(xaxis, OFF_all_mean, lw=1, c='purple')
+ax.fill_between(xaxis,
+                OFF_all_mean + OFF_all_sem, 
+                OFF_all_mean - OFF_all_sem,
+                color='purple', edgecolor='none', alpha=.35)
+for p in ['top', 'right']:
+    ax.spines[p].set_visible(False)
+    
+ax.set(title='run-onset OFF',
+       ylabel='spike rate (Hz)',
+       xlabel='time from run-onset (s)')
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\all_OFF_curve{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )
+
+
 #%% plot ctrl v stim profiles
 ON_all_ctrl = [cell.prof_mean for cell in 
                df_pyr[df_pyr['class']=='run-onset ON']

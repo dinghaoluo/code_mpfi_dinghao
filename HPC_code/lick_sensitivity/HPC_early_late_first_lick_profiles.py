@@ -25,6 +25,17 @@ paths = rec_list.pathHPCLCopt
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from plotting_functions import plot_violin_with_scatter
 
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\HPC_code\decay_time')
+from decay_time_analysis import detect_min_max, compute_tau, plot_fit_compare
+
+
+#%% parameters 
+SAMP_FREQ = 1250  # Hz
+TIME = np.arange(-SAMP_FREQ, SAMP_FREQ*6)/SAMP_FREQ  # 7 seconds 
+
+early_colour = (.804, .267, .267)  # early trials
+late_colour = (.545, 0, 0)  # late trials
+
 
 #%% load data 
 print('loading dataframes...')
@@ -53,6 +64,11 @@ early_mid_ON_profs = []
 late_mid_ON_profs = []
 early_mid_OFF_profs = []
 late_mid_OFF_profs = []
+
+tau_values_early = []
+fit_results_early = []
+tau_values_late = []
+fit_results_late = []
 
 for path in paths:
     recname = path[-17:]
@@ -134,30 +150,59 @@ for path in paths:
             in late_mid_trials
             ]
         
+        early_mean = np.mean(early_trains, axis=0)
+        late_mean = np.mean(late_trains, axis=0)
+        
         # ON and OFF only 
         if session['class']=='run-onset ON':
-            early_ON_profs.append(np.mean(early_trains, axis=0))
-            late_ON_profs.append(np.mean(late_trains, axis=0))
+            early_ON_profs.append(early_mean)
+            late_ON_profs.append(late_mean)
             early_mid_ON_profs.append(np.mean(early_mid_trains, axis=0))
             late_mid_ON_profs.append(np.mean(late_mid_trains, axis=0))
         elif session['class']=='run-onset OFF':
-            early_OFF_profs.append(np.mean(early_trains, axis=0))
-            late_OFF_profs.append(np.mean(late_trains, axis=0))
+            early_OFF_profs.append(early_mean)
+            late_OFF_profs.append(late_mean)
             early_mid_OFF_profs.append(np.mean(early_mid_trains, axis=0))
             late_mid_OFF_profs.append(np.mean(late_mid_trains, axis=0))
         
+        # for decay time calculation 
+        if session['class']!='run-onset unresponsive':
+            mean_prof_early = early_mean[SAMP_FREQ*(3-1):SAMP_FREQ*(3+6)]
+            mean_prof_late = late_mean[SAMP_FREQ*(3-1):SAMP_FREQ*(3+6)]
+    
+            peak_idx_early = detect_min_max(mean_prof_early, session['class'])
+            peak_idx_late = detect_min_max(mean_prof_late, session['class'])
+        
+            tau_early, fit_params_early = compute_tau(
+                TIME, mean_prof_early, peak_idx_early, session['class']
+                )
+            tau_late, fit_params_late = compute_tau(
+                TIME, mean_prof_late, peak_idx_late, session['class']
+                )
+            
+            # early and late plot 
+            plot_fit_compare(TIME,
+                             mean_prof_early, peak_idx_early, fit_params_early,
+                             mean_prof_late, peak_idx_late, fit_params_late,
+                             cluname, session['class'])
+        
+            tau_values_early.append(tau_early)
+            fit_results_early.append(fit_params_early)
+            tau_values_late.append(tau_late)
+            fit_results_late.append(fit_params_late)
+
 
 #%% save for further processing 
-np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_alignment\early_ON_profs.npy',
+np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\early_ON_profs.npy',
         early_ON_profs,
         allow_pickle=True)
-np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_alignment\early_OFF_profs.npy',
+np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\early_OFF_profs.npy',
         early_OFF_profs,
         allow_pickle=True)
-np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_alignment\late_ON_profs.npy',
+np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\late_ON_profs.npy',
         late_ON_profs,
         allow_pickle=True)
-np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_alignment\late_OFF_profs.npy',
+np.save(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\late_OFF_profs.npy',
         late_OFF_profs,
         allow_pickle=True)
         
@@ -213,8 +258,46 @@ early_mid_ON_ratios = [v for i, v in enumerate(early_mid_ON_ratios)
 late_mid_ON_ratios = [v for i, v in enumerate(late_mid_ON_ratios) 
                       if i not in outlier_mid_mask]
 
-
 plot_violin_with_scatter(early_mid_ON_ratios, late_mid_ON_ratios, 'orange', 'darkred')
+
+
+#%% decay time analysis 
+tau_values_early, tau_values_late = zip(
+    *[(x, y) for x, y in zip(tau_values_early, tau_values_late) 
+      if x is not None and y is not None]
+    )
+
+tau_values_early_ON, tau_values_late_ON = zip(
+    *[(x, y) for x, y in zip(tau_values_early, tau_values_late)
+      if x > 0 and y > 0]
+    )
+tau_values_early_OFF, tau_values_late_OFF = zip(
+    *[(x, y) for x, y in zip(tau_values_early, tau_values_late)
+      if x < 0 and y < 0]
+    )
+
+plot_violin_with_scatter(tau_values_early_ON, tau_values_late_ON, 
+                         'lightcoral', 'firebrick',
+                         xticklabels=['early\n$1^{st}$-lick', 'late\n$1^{st}$-lick'],
+                         ylabel='τ (s)',
+                         title='run-onset ON',
+                         showmeans=True,
+                         showmedians=False,
+                         showscatter=False,
+                         ylim=(0,80),
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\ON_decay_constant')
+
+plot_violin_with_scatter(tau_values_early_OFF, tau_values_late_OFF, 
+                         'thistle', 'purple',
+                         xticklabels=['early\n$1^{st}$-lick', 'late\n$1^{st}$-lick'],
+                         ylabel='τ (s)',
+                         title='run-onset OFF',
+                         showmeans=True,
+                         showmedians=False,
+                         showscatter=False,
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\OFF_decay_constant')
 
 
 #%% plotting 
