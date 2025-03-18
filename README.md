@@ -219,12 +219,15 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 ## pre-processing
 
 ### 2-photon imaging
+
 2-photon imaging data were pre-processed using [suite2p](https://github.com/MouseLand/suite2p)  
-axon-GCaMP data were pre-processed with a custom-tuned parameter set optimised for identifying neuronal processes
-**axon-GCaMP recordings**: after sorting using Suite2p with customised parameters to detect neuronal processes, `extract_axon_GCaMP.py` extracts dF/F traces aligned to behavioural landmarks (e.g. run-onsets, reward deliveries) of valid ROIs. Suite2p saves valid ROIs in such a manner that each ROI has an `imerge` list consisting of all of its constituent ROIs and ROIs resulting from multiple merges would contain an `imerge` list that is a superset of all of the constituents of ROIs from previous merging steps. Therefore, a `valid_ROI_dict` is generated, containing only the ROIs from the final merge step (i.e. which are not themselves constituents of other ROIs).
+
+**axon-GCaMP recordings**: after sorting using Suite2p with customised parameters to detect neuronal processes, `extract_axon_GCaMP.py` extracts dF/F traces aligned to behavioural landmarks (e.g. run-onsets, reward deliveries) of valid ROIs. Suite2p saves valid ROIs in such a manner that each ROI has an `imerge` list consisting of all of its constituent ROIs and ROIs resulting from multiple merges would contain an `imerge` list that is a superset of all of the constituents of ROIs from previous merging steps. Therefore, a `valid_ROI_dict` is generated, containing only the ROIs from the final merge step (i.e. which are not themselves constituents of other ROIs).  
+
 **neuromodulator sensor recordings**: after registration (and ROI detection) using Suite2p, `run_imaging_pipeline.py` provides 2 ways to process the data based on grid-like ROIs and Suite2p ROIs. Grid-like ROIs divide the imaging plane into square grids and extract traces based strictly within those grids, without spatial filtering. Suite2p ROIs are detected using a customised parameter set to prioritise temporal variances of detected ROIs.
 
 ### hippocampus ephys data 
+
 ephys data were spike-sorted using kilosort for pre-processing and manual curation, after which the .res and .clu files were used for trial truncation with a custom MATLAB pipeline. `HPC_all_extract.py` then runs through all hippocampus recordings regardless of whether each recording has been processed, extracting information from the .mat files produced in the previous step; the end results are a smoothed-spike-train file and a raster file for each recording session  
 `HPC_all_waveforms.py` is used to extract the waveform of each cluster; this is rarely used  
 `HPC_all_profiles.py` summarises information on each cluster, including but not limited to `cell_identity` (pyramidal or interneurone), `place_cell` (Boolean), `pre_post` (pre-run-onset/post-run-onset ratio, used to measure the run-onset response), `SI` (spatial info.), `TI` (temporal info.), `prof_mean` (spike rate profile mean)
