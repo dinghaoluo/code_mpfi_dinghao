@@ -24,14 +24,17 @@ pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
 
 
 #%% load data 
-proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\single_sessions'
-temp_dict = np.load(r'{}\{}\RO_aligned_dict.npy'.format(proc_path, pathHPCLCGCaMP[0][-17:]),
-                      allow_pickle=True).item()
+proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions'
+temp_dict = np.load(
+    rf'{proc_path}\{pathHPCLCGCaMP[0][-17:]}\processed_data\RO_aligned_mean_dict.npy',
+    allow_pickle=True
+    ).item()
 pooled_ROIs = np.row_stack([temp_dict[key] for key in temp_dict])
 for rec_path in tqdm(pathHPCLCGCaMP, desc='loading sessions'):
-    temp_dict = np.load(r'{}\{}\RO_aligned_dict.npy'
-                        .format(proc_path, rec_path[-17:]),
-                        allow_pickle=True).item()
+    temp_dict = np.load(
+        rf'{proc_path}\{rec_path[-17:]}\processed_data\RO_aligned_mean_dict.npy',
+        allow_pickle=True
+        ).item()
     temp_array = np.row_stack([temp_dict[key] for key in temp_dict])
     pooled_ROIs = np.vstack((pooled_ROIs, temp_array))
                             

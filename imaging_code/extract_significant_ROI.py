@@ -20,13 +20,11 @@ import pandas as pd
 from scipy.stats import pearsonr, sem
 
 # import util functions 
-if (r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils' in sys.path) == False:
-    sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_utility_functions as iuf
 import imaging_pipeline_functions as ipf
 
-if ('Z:\Dinghao\code_dinghao\common' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao\common')
+sys.path.append('Z:\Dinghao\code_dinghao\common')
 from common import smooth_convolve
 
 if r'Z:\Dinghao\code_dinghao' not in sys.path:

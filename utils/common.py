@@ -123,6 +123,7 @@ def circ_shuffle(arr, alpha=.01, num_shuf=5000, GPU_AVAILABLE=False):
     else:
         xp = np
     
+    arr = xp.asarray(arr)
     shuf_mean_array = xp.zeros([num_shuf, tot_col])
     for i in range(num_shuf):
         if vector:  # if there is only 1 dimension
@@ -223,6 +224,7 @@ def gaussian_kernel_unity(sigma, GPU_AVAILABLE=False):
         return cp.asarray(kernel)
     else:
         return kernel
+    
 
 def replace_outlier(arr, method='std', k=5):
     '''
