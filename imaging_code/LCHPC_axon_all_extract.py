@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Nov  4 14:26:31 2024
+Modified drastically in Feb 2025:
+    - added GPU support and mostly fixed memory-leak problems
 
 process and align ROI traces
 ***this script is specific to axon/dendrite GCaMP data processing, due to the 
@@ -17,14 +19,11 @@ overview of the merged data structure:
 @author: Dinghao Luo
 """
 
-
-
 #%% imports 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.colors import LinearSegmentedColormap
 import sys
 import os
 from tqdm import tqdm
@@ -34,6 +33,7 @@ from scipy.stats import sem
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_pipeline_functions as ipf
+import support_LCHPC_axon as support
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import normalise, smooth_convolve, mpl_formatting
@@ -41,14 +41,14 @@ mpl_formatting()
 
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
-pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
+pathHPCLCGCaMP = rec_list.pathLCHPCGCaMP
 
 
 #%% parameters 
-FRAME_RATE = 30
-BEF = 1
-AFT = 4  # in seconds
-XAXIS = np.arange((BEF + AFT) * FRAME_RATE) / FRAME_RATE - BEF
+SAMP_FREQ = 30
+BEF = 3
+AFT = 7  # in seconds
+XAXIS = np.arange((BEF + AFT) * SAMP_FREQ) / SAMP_FREQ - BEF
 
 
 #%% load beh dataframe 
@@ -79,193 +79,9 @@ except Exception as e:
 
 
 #%% functions
-def calculate_and_plot_overlap_indices(
-        ref_im, 
-        ref_ch2_im, 
-        stat, 
-        valid_rois, 
-        recname, 
-        border=10
-        ):
-    """
-    calculate overlap indices between ROIs and channel 2, then plot each ROI overlay with reference images.
-    
-    parameters
-    ----------
-    ref_im : np.ndarray
-        reference image for channel 1.
-    ref_ch2_im : np.ndarray
-        reference image for channel 2.
-    stat : list of dict
-        list of ROI dictionaries, each containing 'xpix' and 'ypix' with ROI pixel coordinates.
-    valid_rois : list
-        list of indices of valid ROIs.
-    recname : str
-        name of the recording session.
-    border : int, optional
-        additional padding around ROI for plotting (default is 10).
-    
-    returns
-    -------
-    overlap_indices : dict
-        dictionary with ROI indices as keys and calculated overlap indices as values.
-    """
-    overlap_indices = {}
-    
-    # ensure output directory exists
-    output_dir = os.path.join(
-        r'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions', 
-        recname, 
-        'ROI_ch2_validation'
-        )
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # loop over each valid ROI to compute overlap index and generate plots
-    for roi in valid_rois:
-        xpix = stat[roi]['xpix']
-        ypix = stat[roi]['ypix']
-        
-        # calculate overlap index
-        ch2_values = ref_ch2_im[ypix, xpix]
-        ch1_values = ref_im[ypix, xpix]
-        overlap_index = ch2_values.mean() / ch1_values.mean()
-        overlap_indices[roi] = overlap_index
-        
-        # plot ROI overlay with reference images
-        x_min, x_max = xpix.min(), xpix.max()
-        y_min, y_max = ypix.min(), ypix.max()
-        
-        x_center = (x_min + x_max) // 2
-        y_center = (y_min + y_max) // 2
-        half_span = max(x_max - x_min, y_max - y_min) // 2 + border
-        
-        x_min_square = max(0, x_center - half_span)
-        x_max_square = min(ref_im.shape[1], x_center + half_span)
-        y_min_square = max(0, y_center - half_span)
-        y_max_square = min(ref_im.shape[0], y_center + half_span)
-        
-        channel1_sub = ref_im[y_min_square:y_max_square, x_min_square:x_max_square]
-        channel2_sub = ref_ch2_im[y_min_square:y_max_square, x_min_square:x_max_square]
-        
-        fig, axes = plt.subplots(1, 2, figsize=(4, 2))
-        
-        # plot channel 1 with ROI outline
-        axes[0].imshow(channel1_sub, cmap='gray', extent=(x_min_square, x_max_square, y_max_square, y_min_square))
-        axes[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], color='limegreen', edgecolor='none', s=1, alpha=1)
-        axes[0].set_title(f'ROI {roi}: {round(overlap_index, 3)}')
-        
-        # plot channel 2 with the same view
-        axes[1].imshow(channel2_sub, cmap='gray', extent=(x_min_square, x_max_square, y_max_square, y_min_square))
-        axes[1].set_title('channel 2 ref.')
-        
-        # save the plot
-        fig.savefig(os.path.join(output_dir, f'roi_{roi}.png'), dpi=300)
-        plt.close(fig)
-    
-    return overlap_indices
-
-def filter_valid_rois(stat):
-    """
-    filter ROIs to include only those with the longest or unique 'imerge' lists
-    
-    fix the issue where serial merges on the same constituent ROIs may cause 
-    multiple new ROIs (e.g. ROI 817 may have an imerge-list that is a subset of
-    that of ROI 818, in which case we want to eliminate ROI 817),
-    13 Nov 2024 Dinghao 
-    
-    parameters
-    ----------
-    stat : list
-        list of ROI dictionaries, each containing an 'imerge' key with constituent ROIs
-    
-    returns
-    -------
-    valid_rois_dict : dict
-        dictionary where:
-            - keys: valid merged ROIs (final merged ROIs)
-            - values: list of their constituent ROIs.
-    """
-    valid_rois_dict = {}
-
-    # create a sorted list of ROI indices based on the length of their 'imerge' lists, from longest to shortest
-    sorted_rois = sorted(range(len(stat)), key=lambda roi: len(stat[roi]['imerge']), reverse=True)
-
-    # initialise a set to keep track of constituent ROIs that are part of any valid ROI's merge list
-    covered_constituents = set()
-
-    # loop through the sorted indices
-    for roi in sorted_rois:
-        imerge_set = set(stat[roi]['imerge'])  # convert the imerge list to a set for easy subset checking
-
-        # check if this ROI's constituent ROIs are already covered by any previously added valid ROIs
-        if not imerge_set.issubset(covered_constituents):
-            # add this ROI index to the valid_rois_dict
-            valid_rois_dict[roi] = list(imerge_set)
-
-            # update the set to include this ROI's constituents
-            covered_constituents.update(imerge_set)
-
-    return valid_rois_dict
-
-def plot_roi_overlays(ref_im, ref_ch2_im, stat, valid_rois, recname, proc_path):
-    """
-    create a 3-panel plot showing ROIs overlayed with channel references, and save it in specified formats.
-    
-    parameters
-    ----------
-    ref_im : np.ndarray
-        reference image for channel 1
-    ref_ch2_im : np.ndarray
-        reference image for channel 2
-    stat : list of dict
-        list of ROI dictionaries, each containing 'xpix' and 'ypix' with ROI pixel coordinates
-    valid_rois : list
-        list of indices of valid ROIs
-    recname : str
-        name of the recording session
-    proc_path : str
-        path for saving processed data
-    
-    returns
-    -------
-    valid_roi_dict : dict
-        dictionary containing pixel coordinates for each valid ROI
-    """
-    fig, axs = plt.subplots(1, 3, figsize=(6, 2))
-    fig.subplots_adjust(wspace=0.35, top=0.75)
-    
-    for ax in axs:
-        ax.set(xlim=(0, 512), ylim=(0, 512))
-        ax.set_aspect('equal')
-        ax.set_xticks([])  # remove x ticks
-        ax.set_yticks([])  # remove y ticks
-    
-    # custom color maps for channels 1 and 2
-    colors_ch1 = plt.cm.Greens(np.linspace(0, 0.8, 256))
-    colors_ch2 = plt.cm.Reds(np.linspace(0, 0.8, 256))
-    custom_cmap_ch1 = LinearSegmentedColormap.from_list('mycmap_ch1', colors_ch1)
-    custom_cmap_ch2 = LinearSegmentedColormap.from_list('mycmap_ch2', colors_ch2)
-    
-    # display reference images in channels 1 and 2
-    axs[1].imshow(ref_im, cmap=custom_cmap_ch1)
-    axs[2].imshow(ref_ch2_im, cmap=custom_cmap_ch2)
-    axs[1].set(title='axon-GCaMP')
-    axs[2].set(title='Dbh:Ai14')
-    
-    # overlay ROIs and store their coordinates in valid_roi_dict
-    valid_roi_coord_dict = {}
-    for roi in valid_rois:
-        axs[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], edgecolor='none', s=0.1, alpha=0.2)
-        valid_roi_coord_dict[f'ROI {roi}'] = [stat[roi]['xpix'], stat[roi]['ypix']]
-    axs[0].set(title='merged ROIs')
-    
-    # plot 
-    fig.suptitle(recname)
-    for ext in ['.png', '.pdf']:
-        fig.savefig(os.path.join(proc_path, f'rois_v_ref{ext}'), dpi=200)
-    plt.close(fig)
-    
-    return valid_roi_coord_dict
+'''
+all support functions have been migrated to utils\support_LCHPC_axon.py
+'''
 
 
 #%% processing function
@@ -281,15 +97,18 @@ def process_all(rec_path):
     F2_path = rec_path+r'/suite2p/plane0/F_chan2.npy'
     
     # folder to put processed data and single-session plots 
-    proc_path = rf'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions\{recname}'
+    proc_path = (r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP'
+                 rf'\all_sessions\{recname}')
     os.makedirs(proc_path, exist_ok=True)
     
-    proc_data_path = rf'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions\{recname}\processed_data'
+    proc_data_path = (r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP'
+                      rf'\all_sessions\{recname}\processed_data')
     os.makedirs(proc_data_path, exist_ok=True)
     
     # load files 
     stat = np.load(stat_path, allow_pickle=True)
-    if 'inmerge' not in stat[0]: sys.exit('halting executation: no merging detected')  # detect merging
+    if 'inmerge' not in stat[0]: 
+        sys.exit('halting executation: no merging detected')  # detect merging
     
     ops = np.load(ops_path, allow_pickle=True).item()
     
@@ -299,8 +118,8 @@ def process_all(rec_path):
     beh = df.loc[recname]
     run_frames = beh['run_onset_frames']
     pump_frames = beh['reward_frames']
-    cue_frames = beh['start_cue_frames']
-    frame_times = beh['frame_times']
+    # cue_frames = beh['start_cue_frames']
+    # frame_times = beh['frame_times']
     
     # filtering
     run_frames = np.asarray(run_frames)
@@ -320,18 +139,24 @@ def process_all(rec_path):
 
     # filter valid ROIs: the end results should only contain end-merge ROIs and 
     # ROIs that have never been merged with other ROIs
-    valid_rois_dict = filter_valid_rois(stat)
+    valid_rois_dict = support.filter_valid_rois(stat)
     valid_rois = set(valid_rois_dict)
     
     # 19 Mar 2025: we also want to process the constituent ROIs
-    all_rois = valid_rois.union({roi for sublist in valid_rois_dict.values() for roi in sublist})
+    all_rois = valid_rois | {roi 
+                             for sublist in valid_rois_dict.values() 
+                             for roi in sublist}
 
     # filtering through channel 2
-    calculate_and_plot_overlap_indices(ref_im, ref_ch2_im, stat, valid_rois, recname)
+    support.calculate_and_plot_overlap_indices(
+        ref_im, ref_ch2_im, 
+        stat, valid_rois, recname, proc_path
+        )
     
     # ROI plots
-    valid_rois_coord_dict = plot_roi_overlays(
-        ref_im, ref_ch2_im, stat, valid_rois, recname, proc_path
+    valid_rois_coord_dict = support.plot_roi_overlays(
+        ref_im, ref_ch2_im, 
+        stat, valid_rois, recname, proc_path
         )
         
     # load F trace
@@ -376,25 +201,25 @@ def process_all(rec_path):
         tot_run = len(filtered_run_frames)
         head = 0; tail = len(filtered_run_frames)
         for f in range(tot_run):
-            if filtered_run_frames[f]- BEF * FRAME_RATE < 0:  # in case the 1st run-onset is within BEF s of starting recording
+            if filtered_run_frames[f]- BEF * SAMP_FREQ < 0:  # in case the 1st run-onset is within BEF s of starting recording
                 head+=1
             else:
                 break
         for f in range(tot_run-1,-1,-1):
-            if filtered_run_frames[f] + AFT * FRAME_RATE > tot_frames:  # in case the last run-onset is within AFT s of ending recording
+            if filtered_run_frames[f] + AFT * SAMP_FREQ > tot_frames:  # in case the last run-onset is within AFT s of ending recording
                 tail-=1
             else:
                 break
         tot_trunc = head + (len(filtered_run_frames)-tail)
-        run_aligned = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
-        run_aligned_im = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
-        run_aligned_ch2 = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
-        run_aligned_im_ch2 = np.zeros((tot_run-tot_trunc, (BEF + AFT) * FRAME_RATE))
+        run_aligned = np.zeros((tot_run-tot_trunc, (BEF + AFT) * SAMP_FREQ))
+        run_aligned_im = np.zeros((tot_run-tot_trunc, (BEF + AFT) * SAMP_FREQ))
+        run_aligned_ch2 = np.zeros((tot_run-tot_trunc, (BEF + AFT) * SAMP_FREQ))
+        run_aligned_im_ch2 = np.zeros((tot_run-tot_trunc, (BEF + AFT) * SAMP_FREQ))
         for i, r in enumerate(filtered_run_frames[head:tail]):
-            run_aligned[i, :] = ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]
-            run_aligned_im[i, :] = normalise(smooth_convolve(ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]))
-            run_aligned_ch2[i, :] = ref_ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]
-            run_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-BEF*FRAME_RATE : r+AFT*FRAME_RATE]))
+            run_aligned[i, :] = ca[r-BEF*SAMP_FREQ : r+AFT*SAMP_FREQ]
+            run_aligned_im[i, :] = normalise(smooth_convolve(ca[r-BEF*SAMP_FREQ : r+AFT*SAMP_FREQ]))
+            run_aligned_ch2[i, :] = ref_ca[r-BEF*SAMP_FREQ : r+AFT*SAMP_FREQ]
+            run_aligned_im_ch2[i, :] = normalise(smooth_convolve(ref_ca[r-BEF*SAMP_FREQ : r+AFT*SAMP_FREQ]))
         
         if roi in valid_rois:  # if ROI resulted from a final merge 
             all_run_dict[f'ROI {roi}'] = run_aligned
@@ -415,24 +240,30 @@ def process_all(rec_path):
             ax3 = fig.add_subplot(gs[1, 1])
             fig.subplots_adjust(wspace=.4)
             
-            ax1.imshow(ref_im, cmap='gist_gray')
-            ax1.scatter(stat[roi]['xpix'], stat[roi]['ypix'], color='limegreen', edgecolor='none', s=.1, alpha=1)
-            ax1.plot(stat[roi]['xcirc'], stat[roi]['ycirc'], linewidth=.5, color='white')
+            ax1.imshow(ref_im, 
+                       cmap='gist_gray')
+            ax1.scatter(stat[roi]['xpix'], stat[roi]['ypix'], 
+                        color='limegreen', edgecolor='none', s=.1, alpha=1)
+            ax1.plot(stat[roi]['xcirc'], stat[roi]['ycirc'], 
+                     linewidth=.5, color='white')
             ax1.set(xlim=(0,512), 
                     ylim=(0,512))
             
-            image = ax2.imshow(run_aligned_im, cmap='Greys', extent=[-1, 4, 0, tot_run], aspect='auto')
+            ax2.imshow(run_aligned_im, 
+                       cmap='Greys', extent=[-BEF, AFT, 0, tot_run], 
+                       aspect='auto')
             ax2.set(xticklabels=[],
                     ylabel='trial #')
             
-            ax3.plot(XAXIS, run_aligned_mean, c='darkgreen', linewidth=1)
+            ax3.plot(XAXIS, run_aligned_mean, 
+                     c='darkgreen', linewidth=1)
             ax3.fill_between(XAXIS, run_aligned_mean+run_aligned_sem,
                                     run_aligned_mean-run_aligned_sem,
                              color='darkgreen', alpha=.2, edgecolor='none')
             ax3.set(xlabel='time from run-onset (s)',
                     ylabel='dF/F')
             
-            fig.suptitle('ROI {} run-onset-aligned'.format(roi))
+            fig.suptitle(f'ROI {roi} run-onset-aligned')
             
             for ext in ('.png', '.pdf'):
                 fig.savefig(rf'{run_path}\roi_{roi}{ext}',
@@ -533,7 +364,7 @@ def process_all(rec_path):
         tot_pump = len(filtered_pump_frames)
         head = 0; tail = len(filtered_pump_frames)
         for f in range(tot_pump):
-            if filtered_pump_frames[f]-BEF*30<0:
+            if filtered_pump_frames[f]-BEF*SAMP_FREQ<0:
                 head+=1
             else:
                 break
@@ -578,7 +409,9 @@ def process_all(rec_path):
             ax1.set(xlim=(0,512), 
                     ylim=(0,512))
             
-            ax2.imshow(rew_aligned_im, cmap='Greys', extent=[-1, 4, 0, tot_pump], aspect='auto')
+            ax2.imshow(rew_aligned_im, 
+                       cmap='Greys', extent=[-BEF, AFT, 0, tot_pump], 
+                       aspect='auto')
             ax2.set(xticklabels=[],
                     ylabel='trial #')
             

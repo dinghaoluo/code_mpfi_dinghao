@@ -170,8 +170,12 @@ for path in paths:
             mean_prof_early = early_mean[SAMP_FREQ*(3-1):SAMP_FREQ*(3+6)]
             mean_prof_late = late_mean[SAMP_FREQ*(3-1):SAMP_FREQ*(3+6)]
     
-            peak_idx_early = detect_min_max(mean_prof_early, session['class'])
-            peak_idx_late = detect_min_max(mean_prof_late, session['class'])
+            peak_idx_early = detect_min_max(mean_prof_early, 
+                                            session['class'],
+                                            run_onset_bin=1250)
+            peak_idx_late = detect_min_max(mean_prof_late, 
+                                           session['class'],
+                                           run_onset_bin=1250)
         
             tau_early, fit_params_early = compute_tau(
                 TIME, mean_prof_early, peak_idx_early, session['class']
@@ -269,7 +273,7 @@ tau_values_early, tau_values_late = zip(
 
 tau_values_early_ON, tau_values_late_ON = zip(
     *[(x, y) for x, y in zip(tau_values_early, tau_values_late)
-      if x > 0 and y > 0]
+      if 0 < x < 5 and 0 < y < 5]
     )
 tau_values_early_OFF, tau_values_late_OFF = zip(
     *[(x, y) for x, y in zip(tau_values_early, tau_values_late)
@@ -284,7 +288,7 @@ plot_violin_with_scatter(tau_values_early_ON, tau_values_late_ON,
                          showmeans=True,
                          showmedians=False,
                          showscatter=False,
-                         ylim=(0,80),
+                         ylim=(0,5),
                          save=True,
                          savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\ON_decay_constant')
 

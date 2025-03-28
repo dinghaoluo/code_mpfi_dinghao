@@ -24,8 +24,7 @@ import sys
 
 import caiman as cm
 
-if ('Z:/Dinghao/code_mpfi_dinghao/caiman_code/caiman' in sys.path) == False:
-    sys.path.append('Z:/Dinghao/code_mpfi_dinghao/caiman_code/caiman')
+sys.path.append(r'Z:/Dinghao/code_mpfi_dinghao/caiman_code/caiman')
 import utils as utl
 
 def run():

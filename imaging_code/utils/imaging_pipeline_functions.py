@@ -17,6 +17,7 @@ import cupyx.scipy.ndimage as cpximg
 import scipy.ndimage
 from time import time 
 from datetime import timedelta
+from tqdm import tqdm
 import gc
 try:
     import cupy as cp
@@ -68,9 +69,9 @@ def convolve_gaussian(
         gaussian-convolved array with same shape as input.
     """
     if GPU_AVAILABLE:
-        arr_gpu = cp.array(arr)
-        convolved = cpximg.gaussian_filter1d(arr_gpu, sigma, axis=t_axis, mode='reflect')
-        return convolved.get()
+        # arr_gpu = cp.array(arr)
+        # we assume that the array in on GPU already
+        return cpximg.gaussian_filter1d(arr, sigma, axis=t_axis, mode='reflect')
     else:
         return scipy.ndimage.gaussian_filter1d(arr, sigma, axis=t_axis, mode='reflect')
 
@@ -98,9 +99,8 @@ def rolling_min(
         rolling minimum array with same shape as input.
     """
     if GPU_AVAILABLE:
-        arr_gpu = cp.array(arr)
-        filtered = cpximg.minimum_filter1d(arr_gpu, size=win, axis=t_axis, mode='reflect')
-        return filtered
+        # arr_gpu = cp.array(arr)
+        return cpximg.minimum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
     else:
         return scipy.ndimage.minimum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
 
@@ -128,9 +128,8 @@ def rolling_max(
         rolling maximum array with same shape as input.
     """
     if GPU_AVAILABLE:
-        arr_gpu = cp.array(arr)
-        filtered = cpximg.maximum_filter1d(arr_gpu, size=win, axis=t_axis, mode='reflect')
-        return filtered
+        # arr_gpu = cp.array(arr)
+        return cpximg.maximum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
     else:
         return scipy.ndimage.maximum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
 
@@ -139,38 +138,80 @@ def calculate_dFF(
         F_array, 
         sigma=300,
         t_axis=0,
-        GPU_AVAILABLE=False
+        GPU_AVAILABLE=False,
+        CHUNK=False,
+        chunk_size=10000,
         ):
     """
-    calculate dFF for fluorescence traces using Gaussian smoothing and rolling 
-        min-max baseline calculation.
+    calculate dFF for fluorescence traces using gaussian smoothing and rolling min-max baseline.
 
     parameters:
-    - F_array: numpy array
-        fluorescence traces for each ROI, can be 1D or multi-dimensional.
-    - sigma: int, default=300
-        sigma value for Gaussian smoothing.
-    - t_axis: int, default=0
-        the axis corresponding to the time dimension.
-    - GPU_AVAILABLE: bool, default=False
-        indicates whether GPU acceleration via CuPy should be used.
+    - F_array: array of fluorescence traces (1d or multi-d)
+    - sigma: gaussian smoothing sigma (default=300)
+    - t_axis: time axis (default=0)
+    - GPU_AVAILABLE: use cupy acceleration if available
+    - CHUNK: if True, process in memory-safe chunks
+    - chunk_size: size of each chunk along time axis
 
     returns:
-    - dFF: numpy array
-        array containing the computed dFF for each ROI.
+    - dFF: array of dF/F values, same shape as F_array
     """
-    window = sigma*6  # 6 times sigma for the total duration of rolling windows 
+    window = sigma * 6
+    
+    if not CHUNK:
+        # original implementation
+        if GPU_AVAILABLE: 
+            import cupy as cp 
+            F_array = cp.array(F_array, dtype=cp.float32)
+        else:
+            F_array = F_array.astype(np.float32, copy=False)
+        baseline = convolve_gaussian(F_array, sigma, t_axis, GPU_AVAILABLE)
+        baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE)
+        baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE)
+        dFF = (F_array - baseline) / baseline
+        
+        return dFF.get() if GPU_AVAILABLE else dFF
 
-    baseline = convolve_gaussian(F_array, sigma, t_axis, GPU_AVAILABLE)
-    baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE)
-    baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE)
-    
-    if GPU_AVAILABLE: F_array = cp.array(F_array)  # if GPU_AVAILABLE, baseline will remain on GPU
-    dFF = (F_array-baseline)/baseline
-    
+    # CHUNKED implementation
     if GPU_AVAILABLE:
-        return dFF.get()
+        import cupy as cp
+
+    pad = window // 2
+    T = F_array.shape[t_axis]
+    slices = []
+
+    if GPU_AVAILABLE:
+        for start in tqdm(range(0, T, chunk_size),
+                          desc='chunk dFF calculation on GPU...'):
+            chunk_start = max(0, start - pad)
+            chunk_end = min(T, start + chunk_size + pad)
+    
+            # extract and move chunk to GPU once
+            slicer = [slice(None)] * F_array.ndim  # in case t_axis is not 0
+            slicer[t_axis] = slice(chunk_start, chunk_end)
+            chunk_gpu = cp.array(F_array[tuple(slicer)])
+    
+            # apply filters entirely on GPU
+            baseline = convolve_gaussian(chunk_gpu, sigma, t_axis, GPU_AVAILABLE=True)
+            baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE=True)
+            baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE=True)
+    
+            dFF_chunk = (chunk_gpu - baseline) / baseline
+            dFF_chunk = dFF_chunk.get()
+    
+            # trim padded edges
+            slicer_out = [slice(None)] * dFF_chunk.ndim
+            slicer_out[t_axis] = slice(pad, -pad) if (start > 0 and chunk_end < T) else \
+                                 slice(pad, None) if start > 0 else \
+                                 slice(None, -pad) if chunk_end < T else \
+                                 slice(None)
+            slices.append(dFF_chunk[tuple(slicer_out)])
     else:
+        window = sigma * 6
+        baseline = convolve_gaussian(F_array, sigma, t_axis, GPU_AVAILABLE=False)
+        baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE=False)
+        baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE=False)
+        dFF = (F_array - baseline) / baseline
         return dFF
     
 def calculate_dFF_abs(F_array, window=1800, sigma=300, GPU_AVAILABLE=False): # Jingyu, 3/16/25 for testing std, cv and dFF

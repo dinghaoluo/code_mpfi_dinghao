@@ -21,7 +21,8 @@ def neu_shuffle(trains,
                 around=6, 
                 bootstrap=1000, 
                 samp_freq=1250, 
-                GPU_AVAILABLE=False):
+                GPU_AVAILABLE=False,
+                VERBOSE=True):
     """
     shuffles spike trains and calculates mean and significance thresholds
 
@@ -31,40 +32,36 @@ def neu_shuffle(trains,
     - bootstrap (int): number of shuffles, default 1000
     - samp_freq (int): sampling frequency in Hz, default 1250
     - GPU_AVAILABLE (bool): if true, uses GPU for calculations, default false
+    - VERBOSE (bool): if true, shows a progress bar, default true
 
     returns:
     - tuple: (mean shuffled spike profile, percentile thresholds)
     """
-    from tqdm import tqdm
+    if VERBOSE:
+        from tqdm import tqdm
+        iterator = tqdm(range(bootstrap), desc=f'peak detection ({"GPU" if GPU_AVAILABLE else "CPU"})')
+    else:
+        iterator = range(bootstrap)
+
     if GPU_AVAILABLE: 
         import cupy as xp
-        device = 'GPU'
     else: 
         xp = np
-        device = 'CPU'
-        
+
     trains = xp.asarray(trains)
     tot_trials = trains.shape[0]
     shuf_mean_arr = xp.zeros([bootstrap, samp_freq * around])
     
-    # create an index array for shifts
     indices = xp.arange(samp_freq * around)
     
-    for shuf in tqdm(range(bootstrap), desc=f'peak detection ({device})'):
+    for shuf in iterator:
         rand_shift = xp.random.randint(1, samp_freq * around, tot_trials)
-        
-        # shift all trials in parallel
-        shifted_indices = (indices[None, :] - rand_shift[:, None]) \
-            % (samp_freq * around)  # modulo here is to wrap the negative indices to the back (e.g. -5%9=4)
-        shuf_arr = trains[xp.arange(tot_trials)[:,None], shifted_indices]  # apply shifts
+        shifted_indices = (indices[None, :] - rand_shift[:, None]) % (samp_freq * around)
+        shuf_arr = trains[xp.arange(tot_trials)[:, None], shifted_indices]
         shuf_mean_arr[shuf, :] = xp.mean(shuf_arr, axis=0)
     
     shuf_mean = xp.mean(shuf_mean_arr, axis=0)
-    shuf_sig = xp.percentile(
-        shuf_mean_arr, 
-        [99.9, 99, 95, 50, 5, 1, .1], 
-        axis=0
-        )
+    shuf_sig = xp.percentile(shuf_mean_arr, [99.9, 99, 95, 50, 5, 1, .1], axis=0)
     
     if GPU_AVAILABLE:
         shuf_mean = shuf_mean.get()
@@ -73,27 +70,30 @@ def neu_shuffle(trains,
     return shuf_mean, shuf_sig
 
 def peak_detection(trains, 
-                   first_stim=-1,
+                   first_stim=None,
                    around=6,
                    peak_width=1,
                    min_peak=.2,
                    samp_freq=1250,
                    centre_bin=3750,
                    bootstrap=1000,
-                   GPU_AVAILABLE=False):
+                   no_boundary=False,
+                   GPU_AVAILABLE=False,
+                   VERBOSE=True):
     """
     detects spiking peaks around run-onset and evaluates significance
 
     parameters:
-    - trains (numpy.ndarray): spike train data (trials x time bins)
-    - first_stim (int): index of the first stimulation trial, default -1 (no stim)
-    - around (int): time window in seconds, default 6
-    - peak_width (int): expected width of peaks in seconds, default 1
-    - min_peak (float): minimum peak length in seconds, default 0.2
-    - samp_freq (int): sampling frequency in Hz, default 1250
-    - centre_bin (int): centre bin index, default 3750
-    - bootstrap (int): number of times to shuffle, default 1000
-    - GPU_AVAILABLE (bool): if true, uses GPU for calculations, default false
+    - trains: spike train data (trials x time bins)
+    - first_stim: index of the first stimulation trial, default None
+    - around: time window in seconds, default 6
+    - peak_width: expected width of peaks in seconds, default 1
+    - min_peak: minimum peak length in seconds, default 0.2
+    - samp_freq: sampling frequency in Hz, default 1250
+    - centre_bin: centre bin index, default 3750
+    - bootstrap: number of times to shuffle, default 1000
+    - no_boundary: if True, allows peaks that touch the edges of the window
+    - GPU_AVAILABLE: if True, uses GPU for calculations, default false
 
     returns:
     - tuple:
@@ -101,42 +101,48 @@ def peak_detection(trains,
         2. numpy.ndarray: mean spike profile around the run-onset
         3. numpy.ndarray: significance thresholds for peaks
     """
-    # process the trains into 1) baseline only trials and 2) contains only the 
-    #   window around the run-onset
-    baseline_trains = trains[:first_stim]
+    if first_stim is None:
+        baseline_trains = trains
+    else:
+        baseline_trains = trains[:first_stim]
     baseline_trains = [t[:samp_freq * around] 
                        if len(t) > samp_freq * around 
-                       else np.pad(
-                           t[:],
-                           (0, samp_freq * around - len(t)),
-                           mode='reflect'
-                           )
-                       for t in trains]
+                       else np.pad(t, (0, samp_freq * around - len(t)), mode='reflect')
+                       for t in baseline_trains]
     
-    shuf_mean, shuf_sigs = neu_shuffle(baseline_trains, 
-                                       bootstrap=bootstrap,
-                                       GPU_AVAILABLE=GPU_AVAILABLE)
+    shuf_mean, shuf_sigs = neu_shuffle(
+        baseline_trains, 
+        around=around,
+        samp_freq=samp_freq,
+        bootstrap=bootstrap,
+        GPU_AVAILABLE=GPU_AVAILABLE,
+        VERBOSE=VERBOSE
+        )
 
     peak_window = [int(centre_bin - samp_freq * (peak_width / 2)),
                    int(centre_bin + samp_freq * (peak_width / 2))]
     
-    shuf_sig_99_around = shuf_sigs[1][peak_window[0]:peak_window[1]] * samp_freq  # use alpha=.01 (shuf_sigs[1]) 
+    shuf_sig_99_around = shuf_sigs[1][peak_window[0]:peak_window[1]] * samp_freq
     mean_train_around = np.mean(baseline_trains, axis=0)[peak_window[0]:peak_window[1]] * samp_freq
 
     diffs_mean_shuf = mean_train_around - shuf_sig_99_around
-    idx_diffs = [diff>0 for diff in diffs_mean_shuf]
+    idx_diffs = [diff > 0 for diff in diffs_mean_shuf]
 
-    # detect consecutive truths
-    tot_groups = len(list(groupby(idx_diffs)))  # a stupid way to prevent iterator consumption causing problems, 19 Dec 2024
+    tot_groups = len(list(groupby(idx_diffs)))
     groups_0_1 = groupby(idx_diffs)
     
     max_truths = 0
     for group_count, (key, group) in enumerate(groups_0_1):
-        consecutive_truths = sum(list(group))  # how many consecutive 1's are there in this group
-        if group_count!=0 and group_count!=tot_groups-1 and consecutive_truths>max_truths:
-            # if this group is not the head/tail groups and if consecutively more truths are detected than before
-            max_truths = consecutive_truths  # set the consecutive truths in this group as the new max count 
-    
+        if key:  # only look at True blocks
+            consecutive_truths = sum(group)
+            if no_boundary:
+                if consecutive_truths > max_truths:
+                    max_truths = consecutive_truths
+            else:
+                if group_count != 0 and group_count != tot_groups - 1:
+                    if consecutive_truths > max_truths:
+                        max_truths = consecutive_truths
+
     return max_truths > int(min_peak * samp_freq), mean_train_around, shuf_sig_99_around
 
 def plot_peak_v_shuf(cluname,
@@ -183,11 +189,16 @@ def plot_peak_v_shuf(cluname,
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)
 
-    for ext in ['.png', '.pdf']:
-        fig.savefig(
-            f'{savepath}{ext}',
-            dpi=300,
-            bbox_inches='tight'
-            )
+    # for ext in ['.png', '.pdf']:
+    #     fig.savefig(
+    #         f'{savepath}{ext}',
+    #         dpi=300,
+    #         bbox_inches='tight'
+    #         )
+    fig.savefig(
+        f'{savepath}.png',
+        dpi=300,
+        bbox_inches='tight'
+        )
         
     plt.close(fig)

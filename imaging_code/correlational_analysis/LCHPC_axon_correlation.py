@@ -10,6 +10,9 @@ analyse correlations between different ROIs
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import sys 
 import umap
 from sklearn.preprocessing import StandardScaler
@@ -18,7 +21,7 @@ from scipy.stats import linregress
 
 sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
-pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
+paths = rec_list.pathLCHPCGCaMP
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import smooth_convolve, mpl_formatting, circ_shuffle
@@ -187,12 +190,12 @@ def single_trial_correlation(
 
 
 #%% main 
-for path in pathHPCLCGCaMP:
+for path in paths:
     recname = path[-17:]
     print(recname)
 
     processed_data_path = (
-        r'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions'
+        r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
         rf'\{recname}\processed_data'
         )
     
@@ -271,7 +274,7 @@ for path in pathHPCLCGCaMP:
     fig.suptitle(recname)
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            r'Z:\Dinghao\code_dinghao\axon_GCaMP\correlation_analysis'
+            r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\correlation_analysis'
             rf'\{recname}_matrices{ext}',
             dpi=300,
             bbox_inches='tight'
@@ -356,7 +359,7 @@ for path in pathHPCLCGCaMP:
             
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            r'Z:\Dinghao\code_dinghao\axon_GCaMP\correlation_analysis'
+            r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\correlation_analysis'
             rf'\{recname}_dist_coeff{ext}',
             dpi=300,
             bbox_inches='tight'
@@ -373,9 +376,58 @@ for path in pathHPCLCGCaMP:
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            r'Z:\Dinghao\code_dinghao\axon_GCaMP\correlation_analysis'
+            r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\correlation_analysis'
             rf'\{recname}_UMAP_mean_prof{ext}',
             dpi=300,
             bbox_inches='tight'
             )
+    plt.close(fig)
+    
+    # UMAP with line overlay showing single-trial corr for all ROI pairs
+    fig, ax = plt.subplots(figsize=(3.5, 3.5))
+    ax.scatter(embedding[:,0], embedding[:,1], s=6, color='black')
+    
+    # colour map
+    cmap = cm.get_cmap('jet')
+    norm = mcolors.Normalize(vmin=0.1, vmax=0.5)  # adjust to match your range
+    
+    # draw lines
+    num_rois = len(RO_sorted_keys)
+    for i in range(num_rois):
+        for j in range(i+1, num_rois):
+            x1, y1 = embedding[i]
+            x2, y2 = embedding[j]
+            strength = coeff_matrix_single_trial[i, j]
+    
+            if not np.isnan(strength) and strength > 0:
+                ax.plot(
+                    [x1, x2], [y1, y2],
+                    linewidth=(strength**2) * 3,
+                    color=cmap(norm(strength)),
+                    alpha=0.4
+                )
+    
+    # add colorbar
+    sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])  # only needed for older matplotlib versions
+    
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='2%', pad=0.1)
+    cb = fig.colorbar(sm, cax=cax)
+    cb.set_label('mean single-trial correlation', rotation=270, labelpad=10)
+    
+    ax.set(
+        xlabel='dim. 1',
+        ylabel='dim. 2',
+        title='UMAP: colour/thickness = single-trial corr.'
+    )
+    fig.suptitle(recname)
+    
+    for ext in ['.png', '.pdf']:
+        fig.savefig(
+            r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\correlation_analysis'
+            rf'\{recname}_UMAP_allpairs_colour{ext}',
+            dpi=300,
+            bbox_inches='tight'
+        )
     plt.close(fig)

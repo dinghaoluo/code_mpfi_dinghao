@@ -18,45 +18,73 @@ import matplotlib.pyplot as plt
 
 #%% parameters
 SAMP_FREQ = 1250  # Hz 
+GOODNESS_THRESHOLD = 0.7  # gof
 
 
 #%% functions 
 def compute_tau(time: np.array,
                 profile: np.array, 
-                peak_idx: int,  # note that this is the raw index, not time
+                peak_idx: int,
                 cell_type='run-onset ON'):
+    """
+    fit an exponential decay to the post-peak portion of a spike rate profile and compute the decay time constant (tau).
+    
+    parameters:
+    - time: 1d array of time values corresponding to the profile
+    - profile: 1d array of spike rates (same length as time)
+    - peak_idx: index of the peak or trough used as the decay starting point
+    - cell_type: string indicating cell response type; default is 'run-onset ON'
+    
+    returns:
+    - tau: estimated decay time constant (in seconds), or None if fitting fails
+    - fit_params: dictionary containing fit parameters ('a', 'b'), r², and adjusted r²; or None if fitting fails
+    """
     time = np.array(time)
     profile = np.array(profile)
 
-    # extract time and firing rate from peak/trough onwards
-    x_data = time[peak_idx:] - time[peak_idx]  # shift time so peak starts at x=0
+    x_data = time[peak_idx:] - time[peak_idx]
     y_data = profile[peak_idx:]
-    
-    # check if there is enough data to fit to 
+
     if len(y_data) < 2: 
         print('profile length improper for fitting')
         return None, None
 
-    # initial parameter guess: peak firing rate, assumed decay rate, for better convergence
-    p0 = [y_data[0], -1] if cell_type == 'run-onset ON' else [y_data[0], 1]
-    
     try:
-        popt, _ = curve_fit(exp_decay, x_data, y_data, p0=p0)
+        popt, _ = curve_fit(exp_decay, x_data, y_data)
         a_fit, b_fit = popt
-        tau = -1 / b_fit  # decay time constant
+        tau = -1 / b_fit
+
+        # predicted values
+        y_pred = exp_decay(x_data, *popt)
+
+        # r2
+        ss_res = np.sum((y_data - y_pred)**2)
+        ss_tot = np.sum((y_data - np.mean(y_data))**2)
+        r_squared = 1 - (ss_res / ss_tot)
+
+        # adjusted r2
+        n = len(y_data)
+        p = 2  # number of fit parameters: a and b
+        adj_r_squared = 1 - (1 - r_squared) * (n - 1) / (n - p - 1)
+
     except RuntimeError:
         print('curve fitting failed')
         return None, None
 
-    return tau, {'a': a_fit, 'b': b_fit}
+    return tau, {'a': a_fit, 
+                 'b': b_fit, 
+                 'r_squared': r_squared, 
+                 'adj_r_squared': adj_r_squared}
 
 def detect_min_max(
         profile: np.array,
-        cell_type='run-onset ON'):
+        cell_type='run-onset ON',
+        run_onset_bin=1250,
+        SAMP_FREQ=1250):
     if cell_type == 'run-onset ON':
-        return np.argmax(profile)
+        return np.argmax(profile[run_onset_bin:run_onset_bin+SAMP_FREQ*3])
     elif cell_type == 'run-onset OFF':
-        return np.argmin(profile)
+        return np.argmin(profile[run_onset_bin:run_onset_bin+SAMP_FREQ*3])
     else:
         raise ValueError("cell_type must be 'run-onset ON' or 'run-onset OFF'")
         
@@ -106,7 +134,8 @@ def plot_fit_compare(time: np.array,
                      fit_params2: dict,
                      cluname: str,
                      cluclass: str,
-                     filename=None):
+                     filename=None,
+                     SAVE=True):
     x_data1 = time[peak_idx1:] - time[peak_idx1]
     y_data1 = profile1[peak_idx1:]
 
@@ -142,14 +171,15 @@ def plot_fit_compare(time: np.array,
               ['data1', f'fit (τ = {(-1/b_fit1):.2f})', 'data2', f'fit (τ = {(-1/b_fit2):.2f})'],
               frameon=False)
     
-    fig.savefig(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis'
-        r'\single_cell_decay_constant_early_v_late'
-        rf'\{cluname} {cluclass}.png',
-        dpi=300,
-        bbox_inches='tight'
-        )
-    
+    if SAVE:
+        fig.savefig(
+            r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis'
+            r'\single_cell_decay_constant_early_v_late'
+            rf'\{cluname} {cluclass}.png',
+            dpi=300,
+            bbox_inches='tight'
+            )
+        
 
 #%% main 
 def main():
