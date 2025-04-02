@@ -13,7 +13,6 @@ modified: added GPU acceleration using cupy, 1 Nov 2024 Dinghao
 #%% imports 
 import numpy as np
 import os 
-import cupyx.scipy.ndimage as cpximg
 import scipy.ndimage
 from time import time 
 from datetime import timedelta
@@ -69,6 +68,7 @@ def convolve_gaussian(
         gaussian-convolved array with same shape as input.
     """
     if GPU_AVAILABLE:
+        import cupyx.scipy.ndimage as cpximg
         # arr_gpu = cp.array(arr)
         # we assume that the array in on GPU already
         return cpximg.gaussian_filter1d(arr, sigma, axis=t_axis, mode='reflect')
@@ -99,6 +99,7 @@ def rolling_min(
         rolling minimum array with same shape as input.
     """
     if GPU_AVAILABLE:
+        import cupyx.scipy.ndimage as cpximg
         # arr_gpu = cp.array(arr)
         return cpximg.minimum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
     else:
@@ -128,6 +129,7 @@ def rolling_max(
         rolling maximum array with same shape as input.
     """
     if GPU_AVAILABLE:
+        import cupyx.scipy.ndimage as cpximg
         # arr_gpu = cp.array(arr)
         return cpximg.maximum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
     else:
@@ -529,7 +531,16 @@ def post_processing_suite2p_gui(img_orig):
     return img_proc
     
 def find_nearest(value, arr):
-    # return value and index of nearest value in arr to input value
+    """
+    find the index of the value in arr that is closest to the input value.
+
+    parameters:
+    - value: the target value to compare against
+    - arr: a list of numeric values
+
+    returns:
+    - nearest_value_index: the index of the value in arr closest to the input value
+    """
     nearest_value = min(arr, key=lambda x: abs(x-value))
     nearest_value_index = arr.index(nearest_value)
     return nearest_value_index
@@ -608,6 +619,32 @@ def process_txt(txtfile):
     curr_logfile['frame_times'] = frame_times
     curr_logfile['trial_statements'] = trial_statements
     curr_logfile['pulse_descriptions'] = pulse_command_list
+    
+    return curr_logfile
+
+
+def process_txt_nobeh(txtfile):
+    curr_logfile = {} 
+    file = open(txtfile, 'r')
+    
+    line = get_next_line(file)
+        
+    pulse_times = []
+    pulse_parameters = []
+    frame_times = []
+    
+    while line[0].find('$') == 0:
+        if line[0] == '$PC':
+            pulse_times.append(float(line[1]))
+        if line[0] == '$PP':
+            pulse_parameters.append([s for s in line[1:]])
+        if line[0] == '$FM' and line[2] == '0':
+            frame_times.append(float(line[1]))
+        line = get_next_line(file)
+        
+    curr_logfile['pulse_times'] = pulse_times
+    curr_logfile['pulse_parameters'] = pulse_parameters
+    curr_logfile['frame_times'] = frame_times
     
     return curr_logfile
     

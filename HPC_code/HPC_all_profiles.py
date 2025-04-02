@@ -127,7 +127,7 @@ from scipy.stats import sem
 
 
 #%% MAIN
-for pathname in paths[:1]:
+for pathname in paths:
     recname = pathname[-17:]
     print(recname)
     
@@ -194,8 +194,14 @@ for pathname in paths[:1]:
 
     # iterate over all pyramidal cells 
     for clu in tqdm(range(len(cell_identities)), desc='collecting profiles'):
-        # pyr or int 
-        cell_identity = 'int' if cell_identities[clu] else 'pyr'
+        # pyr or int (or other if the spike rate is too high or too low)
+        # modified 31 Mar 2025
+        cell_identity = cell_identities[clu]
+        if cell_identity == 'pyr':
+            if 0.15<spike_rates[clu]<7:
+                pass
+            else:
+                cell_identity = 'other'
         
         # depth 
         depth = depths[clu]
@@ -227,8 +233,12 @@ for pathname in paths[:1]:
             stim_mean, run_onset_activated_thres, run_onset_inhibited_thres)
         
         # modulation index calculation
-        MI, MI_early, MI_late = support.compute_modulation_index(ctrl_mean, stim_mean)
-        MI_shuf, MI_early_shuf, MI_late_shuf = support.compute_modulation_index_shuf(ctrl_matrix, stim_matrix)
+        MI, MI_early, MI_late = support.compute_modulation_index(
+            ctrl_mean, stim_mean,run_onset_bin=3750
+            )
+        MI_shuf, MI_early_shuf, MI_late_shuf = support.compute_modulation_index_shuf(
+            ctrl_matrix, stim_matrix, run_onset_bin=3750
+            )
         
         # trial by trial variatbility
         baseline_var = support.compute_trial_by_trial_variability(baseline_matrix)
@@ -349,6 +359,6 @@ for pathname in paths[:1]:
     print(f'{recname} done in {time()-t0} s\n')
         
         
-#%% save dataframe 
-df.to_pickle(fname)
-print('\ndataframe saved')
+# #%% save dataframe 
+# df.to_pickle(fname)
+# print('\ndataframe saved')

@@ -43,25 +43,25 @@ def calculate_occupancy(speeds, dt, distance_bins):
 
 def classify_run_onset_activation_ratio(train, 
                                         run_onset_activated_thres,
-                                        run_onset_inhibited_thres):
+                                        run_onset_inhibited_thres,
+                                        run_onset_bin=3750,
+                                        SAMP_FREQ=1250):
     """
-    classify run-onset activation ratio based on pre- and post-run periods.
+    classify run-onset modulation by comparing pre- and post-run firing rates.
 
     parameters:
-    - train: array of firing rates over time.
-    - run_onset_activated_thres: threshold for classifying activation.
-    - run_onset_inhibited_thres: threshold for classifying inhibition.
-    - samp_freq: sampling frequency in Hz, default is 1250.
-    - run_onset_bin: bin marking the run onset, default is 3750.
+    - train: 1d array of firing rates or activity trace over time.
+    - run_onset_activated_thres: threshold below which the ratio is considered 'ON'.
+    - run_onset_inhibited_thres: threshold above which the ratio is considered 'OFF'.
+    - run_onset_bin: timepoint index marking the run onset, default is 3750.
+    - SAMP_FREQ: sampling frequency in Hz, default is 1250.
 
     returns:
-    - ratio: pre/post activation ratio.
-    - ratiotype: string indicating the activation class ('ON', 'OFF', 'unresponsive').
-    """
-    global samp_freq, run_onset_bin 
-    
-    pre = np.nanmean(train[int(run_onset_bin-samp_freq*1.5):int(run_onset_bin-samp_freq*.5)])
-    post = np.nanmean(train[int(run_onset_bin+samp_freq*.5):int(run_onset_bin+samp_freq*1.5)])
+    - ratio: float, ratio of pre- to post-onset activity.
+    - ratiotype: string label of modulation category ('run-onset ON', 'run-onset OFF', or 'run-onset unresponsive').
+    """    
+    pre = np.nanmean(train[int(run_onset_bin-SAMP_FREQ*1.5):int(run_onset_bin-SAMP_FREQ*.5)])
+    post = np.nanmean(train[int(run_onset_bin+SAMP_FREQ*.5):int(run_onset_bin+SAMP_FREQ*1.5)])
     ratio = pre/post
     if ratio < run_onset_activated_thres:
         ratiotype = 'run-onset ON'
@@ -72,60 +72,66 @@ def classify_run_onset_activation_ratio(train,
         
     return ratio, ratiotype
 
-def compute_modulation_index(ctrl, stim, 
-                             span=4):
+def compute_modulation_index(ctrl, 
+                             stim, 
+                             span=4,
+                             run_onset_bin=3750,
+                             SAMP_FREQ=1250):
     """
-    compute the modulation index (MI) between control and stimulation data.
+    compute the modulation index (MI) between control and stimulation activity over a specified time window.
 
     parameters:
-    - ctrl: array of control data (e.g., firing rates).
-    - stim: array of stimulation data (e.g., firing rates).
-    - span: duration of the analysis window (in seconds), default is 4.
+    - ctrl: 1d array of control condition data (e.g., firing rates).
+    - stim: 1d array of stimulation condition data.
+    - span: duration of the analysis window in seconds after run onset (default = 4).
+    - run_onset_bin: index marking run onset timepoint (default = 3750).
+    - SAMP_FREQ: sampling frequency in Hz (default = 1250).
 
     returns:
-    - MI_full: modulation index computed over the full span.
-    - MI_early: modulation index computed for the early half of the span.
-    - MI_late: modulation index computed for the late half of the span.
+    - MI_full: float, modulation index over the full window.
+    - MI_early: float, modulation index over the first half of the window.
+    - MI_late: float, modulation index over the second half of the window.
     """
-    global samp_freq, run_onset_bin
-    
     # first calculate MI over the full trial ({span} seconds)
-    ctrl_full = np.nanmean(ctrl[run_onset_bin:run_onset_bin+samp_freq*span])
-    stim_full = np.nanmean(stim[run_onset_bin:run_onset_bin+samp_freq*span])
+    ctrl_full = np.nanmean(ctrl[run_onset_bin:run_onset_bin+SAMP_FREQ*span])
+    stim_full = np.nanmean(stim[run_onset_bin:run_onset_bin+SAMP_FREQ*span])
     MI_full = (stim_full-ctrl_full) / (stim_full+ctrl_full)
     
     # demarcation 
-    demarc = int(run_onset_bin+samp_freq*span/2)
+    demarc = int(run_onset_bin+SAMP_FREQ*span/2)
     
     # next, early MI and late MI
     ctrl_early = np.nanmean(ctrl[run_onset_bin:demarc])
     stim_early = np.nanmean(stim[run_onset_bin:demarc])
     MI_early = (stim_early-ctrl_early) / (stim_early+ctrl_early)
-    ctrl_late = np.nanmean(ctrl[demarc:run_onset_bin+samp_freq*span])
-    stim_late = np.nanmean(stim[demarc:run_onset_bin+samp_freq*span])
+    ctrl_late = np.nanmean(ctrl[demarc:run_onset_bin+SAMP_FREQ*span])
+    stim_late = np.nanmean(stim[demarc:run_onset_bin+SAMP_FREQ*span])
     MI_late = (stim_late-ctrl_late) / (stim_late+ctrl_late)
     
     return MI_full, MI_early, MI_late
 
-def compute_modulation_index_shuf(ctrl_matrix, stim_matrix,
+def compute_modulation_index_shuf(ctrl_matrix, 
+                                  stim_matrix,
                                   span=4,
-                                  bootstrap=100):
+                                  bootstrap=100,
+                                  run_onset_bin=3750,
+                                  SAMP_FREQ=1250):
     """
-    compute the shuffled modulation index (MI) between control and stimulation data.
+    compute the modulation index (MI) after randomly shuffling trial identities between control and stimulation groups.
 
     parameters:
-    - ctrl_matrix: matrix of control data, where rows represent trials and columns represent time points.
-    - stim_matrix: matrix of stimulation data, where rows represent trials and columns represent time points.
-    - span: duration of the analysis window (in seconds), default is 4.
-    - bootstrap: number of bootstrap iterations for shuffling, default is 100.
+    - ctrl_matrix: 2d array (trials × timepoints) of control condition data.
+    - stim_matrix: 2d array (trials × timepoints) of stimulation condition data.
+    - span: duration of the analysis window in seconds after run onset (default = 4).
+    - bootstrap: number of random shuffles to perform (default = 100).
+    - run_onset_bin: index marking run onset timepoint (default = 3750).
+    - SAMP_FREQ: sampling frequency in Hz (default = 1250).
 
     returns:
-    - MI_full: modulation index computed over the full span for shuffled data.
-    - MI_early: modulation index computed for the early half of the span for shuffled data.
-    - MI_late: modulation index computed for the late half of the span for shuffled data.
+    - MI_full: float, modulation index over the full window (shuffled data).
+    - MI_early: float, modulation index over the first half of the window.
+    - MI_late: float, modulation index over the second half of the window.
     """
-    global samp_freq, run_onset_bin
-    
     ctrl_matrix = np.asarray(ctrl_matrix)
     stim_matrix = np.asarray(stim_matrix)
     tot_trials = ctrl_matrix.shape[0]
@@ -142,19 +148,19 @@ def compute_modulation_index_shuf(ctrl_matrix, stim_matrix,
     shuf_stim_mean = pooled_matrix[shuf_stim_idx, :].mean(axis=0).mean(axis=0)
     
     # first calculate MI over the full trial ({span} seconds)
-    ctrl_full = np.nanmean(shuf_ctrl_mean[run_onset_bin:run_onset_bin+samp_freq*span])
-    stim_full = np.nanmean(shuf_stim_mean[run_onset_bin:run_onset_bin+samp_freq*span])
+    ctrl_full = np.nanmean(shuf_ctrl_mean[run_onset_bin:run_onset_bin+SAMP_FREQ*span])
+    stim_full = np.nanmean(shuf_stim_mean[run_onset_bin:run_onset_bin+SAMP_FREQ*span])
     MI_full = (stim_full-ctrl_full) / (stim_full+ctrl_full)
     
     # demarcation 
-    demarc = int(run_onset_bin+samp_freq*span/2)
+    demarc = int(run_onset_bin+SAMP_FREQ*span/2)
     
     # next, early MI and late MI
     ctrl_early = np.nanmean(shuf_ctrl_mean[run_onset_bin:demarc])
     stim_early = np.nanmean(shuf_stim_mean[run_onset_bin:demarc])
     MI_early = (stim_early-ctrl_early) / (stim_early+ctrl_early)
-    ctrl_late = np.nanmean(shuf_ctrl_mean[demarc:run_onset_bin+samp_freq*span])
-    stim_late = np.nanmean(shuf_stim_mean[demarc:run_onset_bin+samp_freq*span])
+    ctrl_late = np.nanmean(shuf_ctrl_mean[demarc:run_onset_bin+SAMP_FREQ*span])
+    stim_late = np.nanmean(shuf_stim_mean[demarc:run_onset_bin+SAMP_FREQ*span])
     MI_late = (stim_late-ctrl_late) / (stim_late+ctrl_late)
     
     return MI_full, MI_early, MI_late  # this is shuffled 
@@ -276,18 +282,23 @@ def compute_trial_by_trial_variability(train):
 
 def get_cell_info(info_filename):
     """
-    get cell identities (pyramidal or interneuron) and their spike rates from the info file.
+    load cell type identities and spike rates from a MATLAB info file.
 
     parameters:
-    - info_filename: path to the MATLAB info file.
+    - info_filename: path to the MATLAB .mat file containing cell information.
 
     returns:
-    - cell_identities: array indicating cell types (True for interneurons, False for pyramidal cells).
-    - spike_rates: array of spike rates for all cells.
+    - cell_identities: list of strings ('pyr' or 'int') indicating cell types.
+    - spike_rates: 1d array of spike rates for all cells.
     """
-    rec_info =  sio.loadmat(info_filename)['rec'][0][0]
-    cell_identities = rec_info['isIntern'][0]
+    info = sio.loadmat(info_filename)
+    rec_info = info['rec'][0][0]
+    autocorr = info['autoCorr'][0][0]
+    
     spike_rates = rec_info['firingRate'][0]
+    
+    is_pyr = autocorr['isPyrneuron'][0]
+    cell_identities = ['pyr' if i else 'int' for i in is_pyr]
     
     return cell_identities, spike_rates
 
@@ -310,16 +321,16 @@ def get_good_bad_idx(beh_series):
     
     return good_idx, bad_idx
 
-def get_good_bad_idx_MATLAB(beh_series, pathname):
+def get_good_bad_idx_MATLAB(pathname):
     """
-    get indices of good and bad trials based on MATLAB pipeline.
+    extract indices of good and bad trials from a MATLAB behavioural parameter file.
 
     parameters:
-    - beh_series: behaviour data series containing MATLAB trial quality information.
+    - pathname: full path to the session folder containing the MATLAB behaviour file.
 
     returns:
-    - good_idx_matlab: list of indices for good trials.
-    - bad_idx_matlab: list of indices for bad trials.
+    - good_idx_matlab: list of indices (0-based) for trials marked as good.
+    - bad_idx_matlab: list of indices (0-based) for trials marked as bad.
     """
     beh_parameter_file = sio.loadmat(
         f'{pathname}{pathname[-18:]}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
