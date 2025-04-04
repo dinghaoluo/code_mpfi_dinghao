@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd 
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt 
+from scipy.signal import find_peaks
 
 
 #%% parameters
@@ -87,7 +88,71 @@ def detect_min_max(
         return np.argmin(profile[run_onset_bin:run_onset_bin+SAMP_FREQ*3])
     else:
         raise ValueError("cell_type must be 'run-onset ON' or 'run-onset OFF'")
-        
+
+def detect_peak(profile, cell_type='run-onset ON',
+                run_onset_bin=1250, SAMP_FREQ=1250,
+                num_shuffles=500, p_sig=99):
+    """
+    detects the first significant peak (or trough) in the firing rate profile.
+
+    parameters:
+    - profile: np.array, firing rate profile over time
+    - cell_type: str, 'run-onset ON' or 'run-onset OFF'
+    - run_onset_bin: int, index of run-onset (default: 1250 for 1s)
+    - SAMP_FREQ: int, sampling frequency in Hz
+    - num_shuffles: int, number of permutations for significance testing
+    - p_sig: float, percentile threshold for significance (default: 99)
+
+    returns:
+    - peak_idx: int, index of the detected peak or trough in the full profile
+    """
+    # search window: from run-onset to 3 seconds after
+    search_start = run_onset_bin
+    search_end = run_onset_bin + SAMP_FREQ * 3
+    segment = profile[search_start:search_end]
+
+    if cell_type == 'run-onset ON':
+        # detect peaks
+        peaks, _ = find_peaks(segment)
+        if len(peaks) == 0:
+            return np.argmax(segment) + search_start  # fallback
+
+        # permutation test
+        shuffled_peaks = np.zeros((num_shuffles, len(peaks)))
+        for i in range(num_shuffles):
+            shuffled = np.random.permutation(segment)
+            shuffled_peaks[i, :] = shuffled[peaks]
+
+        thresholds = np.percentile(shuffled_peaks, p_sig, axis=0)
+        sig_peak_indices = np.where(segment[peaks] > thresholds)[0]
+
+        if len(sig_peak_indices) > 0:
+            return peaks[sig_peak_indices[0]] + search_start
+        else:
+            return np.argmax(segment) + search_start  # fallback
+
+    elif cell_type == 'run-onset OFF':
+        # detect troughs by inverting the signal
+        troughs, _ = find_peaks(-segment)
+        if len(troughs) == 0:
+            return np.argmin(segment) + search_start  # fallback
+
+        shuffled_troughs = np.zeros((num_shuffles, len(troughs)))
+        for i in range(num_shuffles):
+            shuffled = np.random.permutation(segment)
+            shuffled_troughs[i, :] = shuffled[troughs]
+
+        thresholds = np.percentile(shuffled_troughs, 100 - p_sig, axis=0)
+        sig_trough_indices = np.where(segment[troughs] < thresholds)[0]
+
+        if len(sig_trough_indices) > 0:
+            return troughs[sig_trough_indices[0]] + search_start
+        else:
+            return np.argmin(segment) + search_start  # fallback
+
+    else:
+        raise ValueError("cell_type must be 'run-onset ON' or 'run-onset OFF'")
+
 def exp_decay(x, a, b):
     return a * np.exp(b * x)
 

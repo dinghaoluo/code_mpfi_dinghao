@@ -262,6 +262,28 @@ def filter_outlier(F_array, std_threshold=10):
             
     return F_array
 
+def spatial_gaussian_filter(movie, sigma_spatial=1, GPU_AVAILABLE=False):
+    """
+    apply spatial gaussian filtering (only over y and x dimensions).
+
+    parameters:
+    - movie: array of shape (frames, y, x)
+    - sigma_spatial: float, standard deviation for Gaussian filter (in pixels)
+    - GPU: bool, whether to use CuPy
+
+    returns:
+    - filtered_movie: spatially smoothed movie
+    """
+    if GPU_AVAILABLE:
+        import cupy as cp
+        from cupyx.scipy.ndimage import gaussian_filter
+        movie_gpu = cp.array(movie)
+        filtered = gaussian_filter(movie_gpu, sigma=(0, sigma_spatial, sigma_spatial))
+        return cp.asnumpy(filtered)
+    else:
+        from scipy.ndimage import gaussian_filter
+        return gaussian_filter(movie, sigma=(0, sigma_spatial, sigma_spatial))
+
 
 #%% grid functions 
 def check_stride_border(stride, border, dim=512):

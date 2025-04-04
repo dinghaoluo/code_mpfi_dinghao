@@ -20,13 +20,13 @@ mpl_formatting()
 
 sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
-paths = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt
+paths = rec_list.pathHPCLCopt
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\HPC_code\decay_time')
-from decay_time_analysis import detect_min_max, compute_tau
+from decay_time_analysis import detect_peak, compute_tau
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from plotting_functions import plot_violin_with_scatter
+from plotting_functions import plot_violin_with_scatter, plot_ecdfs
 
 
 #%% parameters 
@@ -56,10 +56,16 @@ beh_df = pd.concat((
 
 
 #%% main 
-tau_values_ctrl = []
-tau_values_stim = []
-fit_results_ctrl = []
-fit_results_stim = []
+tau_values_ctrl_ON = []
+tau_values_stim_ON = []
+fit_results_ctrl_ON = []
+fit_results_stim_ON = []
+tau_values_ctrl_OFF = []
+tau_values_stim_OFF = []
+fit_results_ctrl_OFF = []
+fit_results_stim_OFF = []
+
+tau_values_converted_ON = []
 
 for path in paths:
     recname = path[-17:]
@@ -101,52 +107,81 @@ for path in paths:
             
         #     tau_values_stim.append(tau_stim)
         #     fit_results_stim.append(fit_params_stim)
-        
-        if session['class']!='run-onset unresponsive':
-            cluname = idx
+
+        cluname = idx
+                    
+        if session['class_ctrl']=='run-onset ON' and session['class_stim']=='run-onset ON':
+
+            mean_prof_ctrl = session['prof_ctrl_mean'][3750:]
             
-            mean_prof_ctrl = session['prof_ctrl_mean'][2500:2500+7*1250]
-            
-            peak_idx_ctrl = detect_min_max(mean_prof_ctrl, 
-                                           session['class'],
-                                           run_onset_bin=1250)
+            peak_idx_ctrl = detect_peak(mean_prof_ctrl, 
+                                        session['class_ctrl'],
+                                        run_onset_bin=0)
         
             tau_ctrl, fit_params_ctrl = compute_tau(
-                TIME, mean_prof_ctrl, peak_idx_ctrl, session['class']
+                TIME, mean_prof_ctrl, peak_idx_ctrl, session['class_ctrl']
                 )
             
-            tau_values_ctrl.append(tau_ctrl)
-            fit_results_ctrl.append(fit_params_ctrl)
+            mean_prof_stim = session['prof_stim_mean'][3750:]
             
-            mean_prof_stim = session['prof_stim_mean'][2500:2500+7*1250]
-            
-            peak_idx_stim = detect_min_max(mean_prof_stim, 
-                                           session['class'],
-                                           run_onset_bin=1250)
+            peak_idx_stim = detect_peak(mean_prof_stim, 
+                                        session['class_stim'],
+                                        run_onset_bin=0)
         
             tau_stim, fit_params_stim = compute_tau(
-                TIME, mean_prof_stim, peak_idx_stim, session['class']
+                TIME, mean_prof_stim, peak_idx_stim, session['class_stim']
                 )
             
-            tau_values_stim.append(tau_stim)
-            fit_results_stim.append(fit_params_stim)
+            if fit_params_ctrl['adj_r_squared']>0.7 and fit_params_stim['adj_r_squared']>0.7:
+                tau_values_ctrl_ON.append(tau_ctrl)
+                fit_results_ctrl_ON.append(fit_params_ctrl)
+                tau_values_stim_ON.append(tau_stim)
+                fit_results_stim_ON.append(fit_params_stim)
+                
+        if session['class_ctrl']!='run-onset ON' and session['class_stim']=='run-onset ON':
+            mean_prof = session['prof_stim_mean'][3750:]
             
+            peak_idx = detect_peak(mean_prof_stim,
+                                   session['class_stim'],
+                                   run_onset_bin=0)
+        
+            tau, fit_params = compute_tau(
+                TIME, mean_prof, peak_idx, session['class_stim']
+                )
+            
+            if fit_params['adj_r_squared']>0.7:
+                tau_values_converted_ON.append(tau)
+                
+        if session['class_ctrl']=='run-onset OFF' and session['class_stim']=='run-onset OFF':
+    
+            mean_prof_ctrl = session['prof_ctrl_mean'][3750:]
+            
+            peak_idx_ctrl = detect_peak(mean_prof_ctrl, 
+                                        session['class_ctrl'],
+                                        run_onset_bin=0)
+        
+            tau_ctrl, fit_params_ctrl = compute_tau(
+                TIME, mean_prof_ctrl, peak_idx_ctrl, session['class_ctrl']
+                )
+            
+            mean_prof_stim = session['prof_stim_mean'][3750:]
+            
+            peak_idx_stim = detect_peak(mean_prof_stim, 
+                                        session['class_stim'],
+                                        run_onset_bin=0)
+        
+            tau_stim, fit_params_stim = compute_tau(
+                TIME, mean_prof_stim, peak_idx_stim, session['class_stim']
+                )
+            
+            if fit_params_ctrl['adj_r_squared']>0.7 and fit_params_stim['adj_r_squared']>0.7:
+                tau_values_ctrl_OFF.append(tau_ctrl)
+                fit_results_ctrl_OFF.append(fit_params_ctrl)
+                tau_values_stim_OFF.append(tau_stim)
+                fit_results_stim_OFF.append(fit_params_stim)
+                
 
 #%% plotting 
-tau_values_ctrl, tau_values_stim = zip(
-    *[(x, y) for x, y in zip(tau_values_ctrl, tau_values_stim) 
-      if x is not None and y is not None]
-    )
-
-tau_values_ctrl_ON, tau_values_stim_ON = zip(
-    *[(x, y) for x, y in zip(tau_values_ctrl, tau_values_stim)
-      if 0 < x < 3 and 0 < y < 3]
-    )
-tau_values_ctrl_OFF, tau_values_stim_OFF = zip(
-    *[(x, y) for x, y in zip(tau_values_ctrl, tau_values_stim)
-      if x < 0 and y < 0]
-    )
-
 plot_violin_with_scatter(tau_values_ctrl_ON, tau_values_stim_ON, 
                          'lightcoral', 'firebrick',
                          xticklabels=['ctrl.', 'stim.'],
@@ -156,9 +191,8 @@ plot_violin_with_scatter(tau_values_ctrl_ON, tau_values_stim_ON,
                          showmeans=True,
                          showmedians=False,
                          showscatter=False,
-                         ylim=(0, 3),
                          save=False,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\ON_decay_constant')
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\ON_decay_constant_ctrl_stim')
 
 plot_violin_with_scatter(tau_values_ctrl_OFF, tau_values_stim_OFF, 
                          'thistle', 'purple',
@@ -168,6 +202,23 @@ plot_violin_with_scatter(tau_values_ctrl_OFF, tau_values_stim_OFF,
                          showmeans=True,
                          showmedians=False,
                          showscatter=False,
-                         ylim=(-20, 0),
                          save=False,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\OFF_decay_constant')
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\OFF_decay_constant_ctrl_stim')
+
+
+#%% cdfs 
+plot_ecdfs(tau_values_ctrl_ON, tau_values_stim_ON,
+           title='ECDF – run-onset ON',
+           xlabel='τ (s)', 
+           legend_labels=['ctrl.', 'stim.'],
+           colours=['lightcoral', 'firebrick'],
+           save=False,
+           savepath='Z:/.../ecdf_run_onset_ON')
+
+plot_ecdfs(tau_values_ctrl_ON, tau_values_converted_ON,
+           title='ECDF – run-onset ON',
+           xlabel='τ (s)', 
+           legend_labels=['ctrl.', 'converted (new)'],
+           colours=['lightcoral', 'firebrick'],
+           save=False,
+           savepath='Z:/.../ecdf_run_onset_ON')

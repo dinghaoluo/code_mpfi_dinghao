@@ -17,15 +17,21 @@ from scipy.stats import wilcoxon, ranksums, ttest_rel, ttest_ind
 
 
 #%% functions 
+def add_scale_bar(ax, x_start, y_start, x_len, y_len, color='k', lw=2):
+    # horizontal scale bar (time)
+    ax.plot([x_start, x_start + x_len], [y_start, y_start], color=color, lw=lw, solid_capstyle='butt')
+    # vertical scale bar (dF/F)
+    ax.plot([x_start, x_start], [y_start, y_start + y_len], color=color, lw=lw, solid_capstyle='butt')
+
 def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              paired=True, alpha=.25,
                              xlabel=' ', xticks=[1,2], xticklabels=['data0', 'data1'],
                              ylabel=' ', yscale=None,
                              xlim=None, ylim=None,
                              title=' ',
-                             showscatter=True, showmainline=True,
+                             showscatter=False, showmainline=True,
                              showmeans=False, showmedians=True, showextrema=False,
-                             print_statistics=True, plot_statistics=True,
+                             print_statistics=False, plot_statistics=True,
                              save=False, savepath=' ', dpi=120,
                              figsize=(1.8,2.4)):
     """
@@ -97,7 +103,6 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     - saves the plot in both .png and .pdf formats if `save=True`
     """
     
-    print(data1)
     fig, ax = plt.subplots(figsize=figsize)
     
     vp = ax.violinplot([data0, data1],
@@ -214,6 +219,58 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                         dpi=dpi,
                         bbox_inches='tight')
         
+        
+def plot_ecdfs(data0, data1, 
+               title=' ',
+               xlabel=' ', ylabel='cumulative probability',
+               legend_labels=[' ', ' '],
+               colours=['lightcoral', 'firebrick'],
+               save=False, savepath=' ', dpi=300, figsize=(3, 4)):
+    """
+    plot ECDFs for two datasets.
+
+    parameters:
+    - data0, data1: arrays of data values
+    - title, xlabel, ylabel: str, labels
+    - legend_labels: list of str, legend entries for data0 and data1
+    - colours: list of str or colour tuples, colours for the two curves
+    - save: bool, if true, saves plot to savepath
+    - savepath: str, path + base filename (no extension)
+    - dpi: int, resolution
+    - figsize: tuple, size of the figure
+
+    returns:
+    - none
+    """
+
+    data0 = np.sort(data0)
+    data1 = np.sort(data1)
+
+    x0 = np.concatenate([[data0[0]], data0])
+    x1 = np.concatenate([[data1[0]], data1])
+    y0 = np.concatenate([[0], np.arange(1, len(data0)+1) / len(data0)])
+    y1 = np.concatenate([[0], np.arange(1, len(data1)+1) / len(data1)])
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.plot(x0, y0, label=legend_labels[0], color=colours[0])
+    ax.plot(x1, y1, label=legend_labels[1], color=colours[1])
+    
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend(frameon=False)
+    # ax.grid(alpha=0.3)
+    
+    for s in ['top', 'right']:
+        ax.spines[s].set_visible(False)
+
+    fig.tight_layout()
+    plt.show()
+
+    if save:
+        for ext in ['.png', '.pdf']:
+            fig.savefig(f'{savepath}{ext}', dpi=dpi, bbox_inches='tight')
+
         
 #%% profile-plotting functions
 def scale_min_max(mean_data, sem_data=[]):
