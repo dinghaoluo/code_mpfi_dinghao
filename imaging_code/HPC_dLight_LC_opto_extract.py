@@ -12,8 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import sys 
 import os 
-from scipy.stats import sem
-from tqdm import tqdm
+from time import time 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -63,7 +62,7 @@ except Exception as e:
 
 
 #%% main 
-for path in paths:
+def main(path):
     recname = path.split('\\')[-1]
     print(f'\n{recname}')
     
@@ -74,14 +73,29 @@ for path in paths:
                            f'ANMD{recname[1:4]}',
                            f'{recname[:4]}{recname[5:]}T.txt')
     
+    whether_ctrl = '_ctrl' if path in rec_list.pathdLightLCOptoCtrl else ''
+    savepath = os.path.join(
+        r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions',
+        f'{recname}{whether_ctrl}'
+        )
+    os.makedirs(savepath, exist_ok=True)
+    
+    # check for repeated processing 
+    if os.path.exists(rf'{savepath}\processed_data\{recname}_pixelwise_dFF.npy'):
+        print(f'processed... skipping {recname}')
+        return
+    
     # load data 
     ops = np.load(opspath, allow_pickle=True).item()
     tot_frames = ops['nframes']
     shape = tot_frames, ops['Ly'], ops['Lx']
     
-    print('loading movies...')
+    print('loading movies and saving references...')
     mov = np.memmap(binpath, mode='r', dtype='int16', shape=shape).astype(np.float32)
     mov2 = np.memmap(bin2path, mode='r', dtype='int16', shape=shape).astype(np.float32)
+    
+    ipf.plot_reference(mov, recname=recname, outpath=savepath, channel=1)
+    ipf.plot_reference(mov2, recname=recname, outpath=savepath, channel=2)
     
     trace = np.sum(mov, axis=(1,2))
     trace2 = np.sum(mov2, axis=(1,2))
@@ -100,7 +114,6 @@ for path in paths:
     
     # pulse parameters 
     print('extracting data...')
-    baseline = []; stim = []; stim2 = []
     
     pulse_width_ON = float(pulse_parameters[-1][2])/1000000  # in s
     pulse_width = float(pulse_parameters[-1][3])/1000000  # in s
@@ -132,8 +145,7 @@ for path in paths:
     # extract aligned traces
     trace_dFF_aligned = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ))
     trace2_dFF_aligned = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ))
-    for i, p in tqdm(enumerate(pulse_start_frames),
-                     desc='aligning whole-field dF/F traces to stimulations...'):
+    for i, p in enumerate(pulse_start_frames):
         # load traces 
         trace_dFF_aligned[i, :] = trace_dFF[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
         trace2_dFF_aligned[i, :] = trace2_dFF[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
@@ -144,9 +156,7 @@ for path in paths:
     stim2_mean = np.mean(trace2_dFF_aligned[:, STIM_IDX], axis=1)
     
     trace_dFF_aligned_mean = np.mean(trace_dFF_aligned, axis=0)
-    trace_dFF_aligned_sem = sem(trace_dFF_aligned, axis=0)
     trace2_dFF_aligned_mean = np.mean(trace2_dFF_aligned, axis=0)
-    trace2_dFF_aligned_sem = sem(trace2_dFF_aligned, axis=0)
     
     # for plotting 
     ymin = np.nanmin(trace_dFF_aligned.T)
@@ -195,13 +205,7 @@ for path in paths:
                  f'pulse(s) per pulse train = {pulse_number}\n'
                  f'total pulse trains = {tot_pulses}')
     fig.tight_layout()
-    
-    whether_ctrl = '_ctrl' if path in rec_list.pathdLightLCOptoCtrl else ''
-    savepath = os.path.join(
-        r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions',
-        f'{recname}{whether_ctrl}'
-        )
-    os.makedirs(savepath, exist_ok=True)
+
     for ext in ['.png', '.pdf']:
         fig.savefig(
             rf'{savepath}\{recname}_aligned_stim{ext}',
@@ -230,35 +234,92 @@ for path in paths:
         savepath=rf'{savepath}\{recname}_baseline_stim_ch2_violinplot'
         )
     
-    # pixel-wise extraction only if not a ctrl 
-    if path in rec_list.pathdLightLCOpto:
-        print('performing spatial filtering...')
-        mov_filtered = ipf.spatial_gaussian_filter(mov, sigma_spatial=1,
-                                                   GPU_AVAILABLE=GPU_AVAILABLE)
-        mov2_filtered = ipf.spatial_gaussian_filter(mov2, sigma_spatial=1,
-                                                    GPU_AVAILABLE=GPU_AVAILABLE)
+    # pixel-wise extraction 
+    print('performing spatial filtering...')
+    mov = ipf.spatial_gaussian_filter(mov, sigma_spatial=1,
+                                      GPU_AVAILABLE=GPU_AVAILABLE,
+                                      CHUNK=True)
+    mov2 = ipf.spatial_gaussian_filter(mov2, sigma_spatial=1,
+                                       GPU_AVAILABLE=GPU_AVAILABLE,
+                                       CHUNK=True)
+    
+    print('computing single-pixel dF/F...')
+    # compute dF/F per pixel
+    t0 = time()
+    dFF_pix = ipf.calculate_dFF(mov, sigma=300, t_axis=0, 
+                                GPU_AVAILABLE=GPU_AVAILABLE,
+                                CHUNK=True)
+    dFF_pix2 = ipf.calculate_dFF(mov2, sigma=300, t_axis=0, 
+                                 GPU_AVAILABLE=GPU_AVAILABLE,
+                                 CHUNK=True)
+    print(f'dF/F done in {time() - t0:.2f} s')
+    
+    # mask artefact frames *before* alignment
+    print('masking stimulation artefacts in pixel-wise dF/F...')
+    dFF_pix[pulse_period_frames, :, :] = np.nan
+    dFF_pix2[pulse_period_frames, :, :] = np.nan
+    
+    # extract aligned dF/F traces per pixel
+    print('aligning pixel-wise dF/F traces to stimulations...')
+    aligned_dFF_pix = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
+    aligned_dFF_pix2 = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
+    for i, p in enumerate(pulse_start_frames):
+        aligned_dFF_pix[i] = dFF_pix[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
+        aligned_dFF_pix2[i] = dFF_pix2[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
         
-        print('computing single-pixel dF/F...')
-        # compute dF/F per pixel
-        dFF_pix = ipf.calculate_dFF(mov_filtered, sigma=300, t_axis=0, 
-                                    GPU_AVAILABLE=GPU_AVAILABLE)
-        dFF_pix2 = ipf.calculate_dFF(mov2_filtered, sigma=300, t_axis=0, 
-                                     GPU_AVAILABLE=GPU_AVAILABLE)
-        
-        # mask artefact frames *before* alignment
-        print('masking stimulation artefacts in pixel-wise dF/F...')
-        dFF_pix[pulse_period_frames, :, :] = np.nan
-        dFF_pix2[pulse_period_frames, :, :] = np.nan
-        
-        # extract aligned dF/F traces per pixel
-        aligned_dFF_pix = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
-        aligned_dFF_pix2 = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
-        for i, p in tqdm(enumerate(pulse_start_frames),
-                         desc='aligning pixel-wise dF/F traces to stimulations...'):
-            aligned_dFF_pix[i] = dFF_pix[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
-            aligned_dFF_pix2[i] = dFF_pix2[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
+    np.save(rf'{savepath}\processed_data\{recname}_pixelwise_dFF.npy',
+            aligned_dFF_pix)
+    np.save(rf'{savepath}\processed_data\{recname}_pixelwise_dFF_ch2.npy',
+            aligned_dFF_pix2)
+    
+    # axon-only imaging session check and processing 
+    axon_only_folder = path + '_1100'
+    if os.path.isdir(axon_only_folder):  # if we have a 1100-nm wavelength session 
+        print(f'axon-only recording found: {axon_only_folder}')
+    
+        axon_only_bin2_path = os.path.join(axon_only_folder, 
+                                           'suite2p/plane0/data_chan2.bin')
+        axon_only_ops_path = os.path.join(axon_only_folder, 
+                                          'suite2p/plane0/ops.npy')
+
+        if (os.path.exists(axon_only_bin2_path) 
+            and os.path.exists(axon_only_ops_path)):
+            ops_axon_only = np.load(
+                axon_only_ops_path, allow_pickle=True
+                ).item()
+            tot_frames_companion = ops_axon_only['nframes']
+            shape_companion = (tot_frames_companion, 
+                               ops_axon_only['Ly'], ops_axon_only['Lx'])
             
-        np.save(rf'{savepath}\{recname}_pixelwise_dFF.npy',
-                aligned_dFF_pix)
-        np.save(rf'{savepath}\{recname}_pixelwise_dFF_ch2.npy',
-                aligned_dFF_pix2)
+            print('loading axon-only movie...')
+            mov2_axon_only = np.memmap(
+                axon_only_bin2_path, 
+                mode='r', dtype='int16', shape=shape_companion
+                ).astype(np.float32)
+        
+            print('computing, plotting and saving axon-only reference..')
+            reference_axon_only = np.mean(mov2_axon_only, axis=0)
+            reference_axon_only = ipf.post_processing_suite2p_gui(
+                reference_axon_only
+                )
+            
+            fig, ax = plt.subplots(figsize=(4,4))
+            ax.imshow(reference_axon_only, 
+                      aspect='auto', cmap='gist_gray', interpolation='none',
+                      extent=[0, 512, 512, 0])
+            
+            ax.set(xlim=(0,512), ylim=(0,512))
+
+            fig.suptitle('ref 1100 nm')
+            fig.tight_layout()
+            fig.savefig(rf'{savepath}\{recname}_ref_1100nm.png',
+                        dpi=300,
+                        bbox_inches='tight')
+            
+            np.save(rf'{savepath}\processed_data\{recname}_ref_mat_1100nm.npy', 
+                    reference_axon_only)
+    
+
+if __name__ == '__main__':
+    for path in paths:
+        main(path)

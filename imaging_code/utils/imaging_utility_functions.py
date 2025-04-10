@@ -10,7 +10,69 @@ utility functions for statistical analyses (imaging data)
 
 #%% imports 
 import numpy as np 
-    
+from skimage import exposure
+from skimage.morphology import medial_axis, remove_small_objects
+import matplotlib.pyplot as plt
+
+
+#%% axon extraction 
+def extract_fibre_centrelines(
+        img, 
+        clip_limit=0.03, 
+        threshold_percentile=75, 
+        min_size=50, 
+        show=True
+        ):
+    """
+    extract the centrelines of fibre-like structures from a 512x512 image.
+
+    parameters:
+    - img: 2d array
+        the input image (recommended: raw or contrast-enhanced, shape 512x512)
+    - clip_limit: float
+        contrast limit for adaptive histogram equalisation
+    - threshold_percentile: float
+        percentile for binarising the image (e.g. 75 keeps brightest 25%)
+    - min_size: int
+        minimum object size to retain in pixels
+    - show: bool
+        whether to display the intermediate steps using matplotlib
+
+    returns:
+    - medial_skeleton: 2d boolean array
+        binary mask of the fibre centrelines
+    """
+    # normalise to [0, 1]
+    img = img.astype(np.float32)
+    img -= img.min()
+    img /= img.max()
+
+    # threshold
+    thresh = np.percentile(img, threshold_percentile)
+    binary = img > thresh
+
+    # remove small objects
+    binary = remove_small_objects(binary, min_size=min_size)
+
+    # medial axis skeleton
+    medial_skeleton, _ = medial_axis(binary, return_distance=True)
+
+    if show:
+        fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+        axs[0].imshow(img, cmap='gray')
+        axs[0].set_title('Original Normalised Image')
+        axs[1].imshow(binary, cmap='gray')
+        axs[1].set_title('Thresholded Regions')
+        axs[2].imshow(medial_skeleton, cmap='gray')
+        axs[2].set_title('Fibre Centrelines (Medial Axis)')
+        for ax in axs:
+            ax.axis('off')
+        plt.tight_layout()
+        plt.show()
+
+    return medial_skeleton
+
+
 
 #%% colocalisation analysis functions
 def shuffle_roi_coordinates(xpix, ypix, map_shape=(512, 512)):

@@ -23,7 +23,8 @@ add depth to the dataframe?
 
 #%% imports 
 from tqdm import tqdm 
-from time import time 
+from time import time
+from datetime import timedelta 
 import sys 
 import pandas as pd
 
@@ -356,9 +357,9 @@ for pathname in paths:
                                         ],
                                     dtype='object')
         
-    print(f'{recname} done in {time()-t0} s\n')
+    print(f'{recname} done in {str(timedelta(seconds=int(time()-t0)))}\n')
         
         
-# #%% save dataframe 
-# df.to_pickle(fname)
-# print('\ndataframe saved')
+#%% save dataframe 
+df.to_pickle(fname)
+print('\ndataframe saved')

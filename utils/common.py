@@ -14,6 +14,23 @@ import os
 
 
 #%% os functions 
+def file_delete_loop(root_dir, str_check):
+    import glob
+    
+    print(f'root dir.: {root_dir}')
+    
+    for subdir, dirs, files in os.walk(root_dir):
+        print(subdir)
+        # look for files containing the str_check string in the filename
+        target_files = glob.glob(os.path.join(subdir, f'*{str_check}*'))
+
+        for file_path in target_files:
+            try:
+                os.remove(file_path)
+                print(f'deleted: {file_path}')
+            except Exception as e:
+                print(f'failed to delete {file_path}: {e}')
+
 def scan_directory_tree(path, indent='', is_first_level=True):
     output = ''
     

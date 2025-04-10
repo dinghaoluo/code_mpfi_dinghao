@@ -33,14 +33,7 @@ of_constant = (2**32-1)/1000
 #%% utilities
 def sum_mat(matrix):
     """
-    Parameters
-    ----------
-    matrix : numpy array
-        A 2D array to be summed over.
-
-    Returns
-    -------
-        Sum of all values in the 2D array.
+    this is just a sum sum function
     """
     return sum(map(sum, matrix))
 
@@ -135,118 +128,153 @@ def rolling_max(
     else:
         return scipy.ndimage.maximum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
 
-
 def calculate_dFF(
-        F_array, 
+        F_array,
         sigma=300,
         t_axis=0,
         GPU_AVAILABLE=False,
         CHUNK=False,
-        chunk_size=10000,
+        chunk_size=2000
         ):
     """
-    calculate dFF for fluorescence traces using gaussian smoothing and rolling min-max baseline.
-
+    calculate dF/F for fluorescence traces using gaussian smoothing and rolling min-max baseline.
+    
     parameters:
-    - F_array: array of fluorescence traces (1d or multi-d)
-    - sigma: gaussian smoothing sigma (default=300)
-    - t_axis: time axis (default=0)
-    - GPU_AVAILABLE: use cupy acceleration if available
-    - CHUNK: if True, process in memory-safe chunks
-    - chunk_size: size of each chunk along time axis
-
+    - F_array: np.ndarray
+        fluorescence trace array, can be 1D or ND (time must be along t_axis).
+    - sigma: int, default=300
+        standard deviation for the gaussian smoothing filter.
+    - t_axis: int, default=0
+        axis corresponding to time.
+    - GPU_AVAILABLE: bool, default=False
+        whether to use CuPy to accelerate filtering operations.
+    - CHUNK: bool, default=False
+        whether to apply the dF/F calculation in memory-safe chunks.
+    - chunk_size: int, default=10000
+        number of timepoints per chunk if CHUNK is True.
+    
     returns:
-    - dFF: array of dF/F values, same shape as F_array
+    - dFF: np.ndarray
+        array of same shape as F_array, containing the computed dF/F values.
     """
     window = sigma * 6
-    
+    T = F_array.shape[t_axis]
+
     if not CHUNK:
-        # original implementation
-        if GPU_AVAILABLE: 
-            import cupy as cp 
+        # full-array processing
+        if GPU_AVAILABLE:
+            import cupy as cp
             F_array = cp.array(F_array, dtype=cp.float32)
         else:
             F_array = F_array.astype(np.float32, copy=False)
+
         baseline = convolve_gaussian(F_array, sigma, t_axis, GPU_AVAILABLE)
         baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE)
         baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE)
         dFF = (F_array - baseline) / baseline
-        
+
         return dFF.get() if GPU_AVAILABLE else dFF
 
-    # CHUNKED implementation
-    if GPU_AVAILABLE:
-        import cupy as cp
-
+    # chunked processing
     pad = window // 2
-    T = F_array.shape[t_axis]
     slices = []
 
     if GPU_AVAILABLE:
+        import cupy as cp
+
         for start in tqdm(range(0, T, chunk_size),
-                          desc='chunk dFF calculation on GPU...'):
+                          desc='chunked dFF calculation on GPU...'):
             chunk_start = max(0, start - pad)
             chunk_end = min(T, start + chunk_size + pad)
-    
-            # extract and move chunk to GPU once
-            slicer = [slice(None)] * F_array.ndim  # in case t_axis is not 0
+
+            # extract and move to GPU
+            slicer = [slice(None)] * F_array.ndim
             slicer[t_axis] = slice(chunk_start, chunk_end)
-            chunk_gpu = cp.array(F_array[tuple(slicer)])
-    
-            # apply filters entirely on GPU
+            chunk_gpu = cp.array(F_array[tuple(slicer)], dtype=cp.float32)
+
             baseline = convolve_gaussian(chunk_gpu, sigma, t_axis, GPU_AVAILABLE=True)
             baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE=True)
             baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE=True)
-    
+
             dFF_chunk = (chunk_gpu - baseline) / baseline
             dFF_chunk = dFF_chunk.get()
-    
-            # trim padded edges
+
+            # trim overlap/padding
             slicer_out = [slice(None)] * dFF_chunk.ndim
             slicer_out[t_axis] = slice(pad, -pad) if (start > 0 and chunk_end < T) else \
                                  slice(pad, None) if start > 0 else \
                                  slice(None, -pad) if chunk_end < T else \
                                  slice(None)
             slices.append(dFF_chunk[tuple(slicer_out)])
+
+        return np.concatenate(slices, axis=t_axis)
+
     else:
-        window = sigma * 6
-        baseline = convolve_gaussian(F_array, sigma, t_axis, GPU_AVAILABLE=False)
-        baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE=False)
-        baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE=False)
-        dFF = (F_array - baseline) / baseline
-        return dFF
+        for start in tqdm(range(0, T, chunk_size),
+                          desc='chunked dFF calculation on CPU...'):
+            chunk_start = max(0, start - pad)
+            chunk_end = min(T, start + chunk_size + pad)
+
+            slicer = [slice(None)] * F_array.ndim
+            slicer[t_axis] = slice(chunk_start, chunk_end)
+            chunk = F_array[tuple(slicer)].astype(np.float32, copy=False)
+
+            baseline = convolve_gaussian(chunk, sigma, t_axis, GPU_AVAILABLE=False)
+            baseline = rolling_min(baseline, window, t_axis, GPU_AVAILABLE=False)
+            baseline = rolling_max(baseline, window, t_axis, GPU_AVAILABLE=False)
+
+            dFF_chunk = (chunk - baseline) / baseline
+
+            slicer_out = [slice(None)] * dFF_chunk.ndim
+            slicer_out[t_axis] = slice(pad, -pad) if (start > 0 and chunk_end < T) else \
+                                 slice(pad, None) if start > 0 else \
+                                 slice(None, -pad) if chunk_end < T else \
+                                 slice(None)
+            slices.append(dFF_chunk[tuple(slicer_out)])
+
+        return np.concatenate(slices, axis=t_axis)
     
-def calculate_dFF_abs(F_array, window=1800, sigma=300, GPU_AVAILABLE=False): # Jingyu, 3/16/25 for testing std, cv and dFF
+def calculate_dFF_abs(
+        F_array, 
+        window=1800, 
+        sigma=300, 
+        GPU_AVAILABLE=False
+        ): # Jingyu, 3/16/25 for testing std, cv and dFF
     """
-    Parameters
-    ----------
-    F_array : numpy array
-        array with fluorescence traces for each ROI.
-    window : int, default=1800
-        Window for calculating baselines.
-    sigma : int, default=300
-        Sigma for Gaussian filter.
+    calculate absolute dF/F using a smoothed rolling baseline.
 
-    Returns
-    -------
-        2D array containing the dFF for each ROI.
+    parameters:
+    - F_array: np.ndarray
+        fluorescence traces (ROIs x time).
+    - window: int, default=1800
+        rolling window size for baseline computation.
+    - sigma: int, default=300
+        gaussian smoothing parameter before rolling min/max.
+    - GPU_AVAILABLE: bool, default=False
+        whether to use CuPy to accelerate processing.
 
+    returns:
+    - dFF_abs: np.ndarray
+        array of same shape as F_array, containing absolute dF/F values.
     """
-    # print('GPU_AVAILABLE: {}'.format(GPU_AVAILABLE))
-    baseline = convolve_gaussian(F_array, sigma, GPU_AVAILABLE)
-    baseline = rolling_min(baseline, window, GPU_AVAILABLE)
-    baseline = rolling_max(baseline, window, GPU_AVAILABLE)
-    
-    if GPU_AVAILABLE: F_array = cp.array(F_array)  # if GPU_AVAILABLE, baseline will remain on GPU
-    
-    dFF = cp.abs((F_array-baseline)/baseline)
-    
-    if GPU_AVAILABLE:
-        return dFF.get()
-    else:
-        return dFF
 
-def filter_outlier(F_array, std_threshold=10):
+def filter_outlier(
+        F_array, 
+        std_threshold=10
+        ):
+    """
+    remove high-amplitude artefact outliers from each ROI trace using local interpolation.
+    
+    parameters:
+    - F_array: np.ndarray
+        array of ROI traces (ROIs x timepoints).
+    - std_threshold: float, default=10
+        threshold (in SD) for marking outliers.
+    
+    returns:
+    - cleaned_array: np.ndarray
+        same shape as F_array with outliers smoothed using neighbours.
+    """
     means = F_array.mean(axis=1)  # mean of each ROI trace
     stds = F_array.std(axis=1)  # std of each ROI trace 
     tot_roi = F_array.shape[0]
@@ -262,44 +290,87 @@ def filter_outlier(F_array, std_threshold=10):
             
     return F_array
 
-def spatial_gaussian_filter(movie, sigma_spatial=1, GPU_AVAILABLE=False):
+def spatial_gaussian_filter(
+        movie,
+        sigma_spatial=1,
+        GPU_AVAILABLE=False,
+        CHUNK=False,
+        chunk_size=2000
+        ):
     """
-    apply spatial gaussian filtering (only over y and x dimensions).
+    apply spatial gaussian filtering (only over y and x) to a 3D movie in memory-efficient chunks.
 
     parameters:
-    - movie: array of shape (frames, y, x)
-    - sigma_spatial: float, standard deviation for Gaussian filter (in pixels)
-    - GPU: bool, whether to use CuPy
+    - movie: np.ndarray
+        3D array (frames x height x width).
+    - sigma_spatial: float, default=1
+        spatial std for gaussian filter over height and width.
+    - GPU_AVAILABLE: bool, default=False
+        use CuPy GPU filtering if available.
+    - CHUNK: bool, default=False
+        whether to filter in smaller chunks along the frame axis.
+    - chunk_size: int, default=500
+        number of frames per chunk.
 
     returns:
-    - filtered_movie: spatially smoothed movie
+    - filtered_movie: np.ndarray
+        array of same shape as movie, spatially filtered.
     """
+    T, H, W = movie.shape
+
+    if not CHUNK:
+        # full-array processing
+        if GPU_AVAILABLE:
+            import cupy as cp
+            from cupyx.scipy.ndimage import gaussian_filter
+            movie_gpu = cp.array(movie, dtype=cp.float32)
+            filtered = gaussian_filter(movie_gpu, sigma=(0, sigma_spatial, sigma_spatial))
+            return cp.asnumpy(filtered)
+        else:
+            from scipy.ndimage import gaussian_filter
+            return gaussian_filter(movie, sigma=(0, sigma_spatial, sigma_spatial))
+
+    # chunked processing
+    filtered = np.empty_like(movie)
+
     if GPU_AVAILABLE:
         import cupy as cp
         from cupyx.scipy.ndimage import gaussian_filter
-        movie_gpu = cp.array(movie)
-        filtered = gaussian_filter(movie_gpu, sigma=(0, sigma_spatial, sigma_spatial))
-        return cp.asnumpy(filtered)
+
+        for start in tqdm(range(0, T, chunk_size),
+                          desc='chunked spatial-filtering frames on GPU...'):
+            end = min(start + chunk_size, T)
+            chunk_gpu = cp.asarray(movie[start:end])
+            filtered_chunk = gaussian_filter(chunk_gpu, sigma=(0, sigma_spatial, sigma_spatial))
+            filtered[start:end] = cp.asnumpy(filtered_chunk)
+
     else:
         from scipy.ndimage import gaussian_filter
-        return gaussian_filter(movie, sigma=(0, sigma_spatial, sigma_spatial))
+
+        for start in tqdm(range(0, T, chunk_size),
+                          desc='chunked spatial-filtering frames on CPU...'):
+            end = min(start + chunk_size, T)
+            filtered[start:end] = gaussian_filter(movie[start:end], sigma=(0, sigma_spatial, sigma_spatial))
+
+    return filtered
 
 
 #%% grid functions 
 def check_stride_border(stride, border, dim=512):
     """
-    Parameters
-    ----------
-    stride : int
-        How many pixels per grid (stride x stride).
-    border : int
-        How many pixels to ignore at the border of the movie.
-    dim : int, default=512
-        Dimensions of the movie.
+    check whether the image dimensions align with the grid configuration.
 
-    Returns
-    -------
-    NONE
+    parameters:
+    - stride: int
+        number of pixels between each grid point.
+    - border: int
+        number of pixels ignored on each border.
+    - dim: int, default=512
+        image dimension (assumes square image).
+
+    returns:
+    - is_valid: bool
+        True if stride fits evenly, else False (also prints a warning).
     """
     if not np.mod(512-border*2, stride)==0:
         print('\n***\nWARNING:\nborder does not fit stride.\n***\n')
@@ -308,37 +379,48 @@ def check_stride_border(stride, border, dim=512):
 
 def make_grid(stride=8, dim=512, border=0):
     """
-    Parameters
-    ----------
-    stride : int, default=8
-        How many pixels per grid.
-    dim : int, default=512
-        x/y dimension; either should do since we are imaging squared images.
+    create a list of grid points spanning an image dimension.
 
-    Returns
-    -------
-    a list of grid points.
+    parameters:
+    - stride: int, default=8
+        spacing between grid points.
+    - dim: int, default=512
+        size of the image dimension.
+    - border: int, default=0
+        number of pixels to exclude from edges.
+
+    returns:
+    - grid: list[int]
+        list of pixel positions for grid lines.
     """
     return list(np.arange(0+border, dim-border, stride))
 
-def run_grid(frame, grids, tot_grid, stride=8, GPU_AVAILABLE=False):
+def run_grid(
+        frame, 
+        grids, 
+        tot_grid, 
+        stride=8, 
+        GPU_AVAILABLE=False
+        ):
     """
-    Parameters
-    ----------
-    frame : array
-        current frame as an array (default dim.=512x512).
-    grid_list : list 
-        a list of grid points.
-    tot_grid : int
-        total number of grids.
-    stride : int, default=8
-        how many pixels per grid.
+    extract grid patches from a 2D image.
 
-    Returns
-    -------
-    gridded : array
-        3-dimensional array at tot_grid x stride x stride.
-    """    
+    parameters:
+    - frame: np.ndarray
+        2D input image (height x width).
+    - grids: list[int]
+        grid positions (usually generated by make_grid).
+    - tot_grid: int
+        total number of grid patches to extract.
+    - stride: int, default=8
+        side length of each patch.
+    - GPU_AVAILABLE: bool, default=False
+        whether to use CuPy to extract grid patches.
+
+    returns:
+    - gridded: np.ndarray
+        3D array of shape (tot_grid x stride x stride).
+    """
     # plot the mean image (Z-projection)
     grid_count = 0
 
@@ -361,11 +443,12 @@ def run_grid(frame, grids, tot_grid, stride=8, GPU_AVAILABLE=False):
 
 def plot_reference(
         mov, 
+        outpath=r'', 
+        recname='',
         grids=-1, 
         stride=-1, 
         dim=512, 
-        channel=1, 
-        outpath=r'', 
+        channel=1,
         GPU_AVAILABLE=False
         ): 
     """
@@ -402,6 +485,9 @@ def plot_reference(
     - The function saves the reference image and the numpy array (`ref_im`) to the
       specified `outpath`.
     """
+    proc_path = rf'{outpath}\processed_data'
+    os.makedirs(proc_path, exist_ok=True)
+    
     if grids!=-1:  # if one is using grid-processing; else don't do anything
         boundary_low = grids[0]
         boundary_high = grids[-1]+stride
@@ -429,15 +515,14 @@ def plot_reference(
     fig.suptitle(f'ref ch{channel}')
     fig.tight_layout()
     if grids!=-1:  # grid-analysis 
-        fig.savefig(r'{}\ref_ch{}_{}.png'.format(outpath, channel, stride),
+        fig.savefig(rf'{outpath}\{recname}_ref_ch{channel}_{stride}.png',
                     dpi=300,
                     bbox_inches='tight')
-        np.save(r'{}\processed_data\ref_mat_ch{}.npy'.format(outpath, channel), ref_im)
     else:  # regular 
-        fig.savefig(r'{}\ref_ch{}.png'.format(outpath, channel),
+        fig.savefig(rf'{outpath}\{recname}_ref_ch{channel}.png',
                     dpi=300,
                     bbox_inches='tight')
-        np.save(r'{}\processed_data\ref_mat_ch{}.npy'.format(outpath, channel), ref_im)
+    np.save(rf'{proc_path}\{recname}_ref_mat_ch{channel}.npy', ref_im)
     plt.close(fig)
 
     # explicitly clear VRAM
@@ -537,10 +622,17 @@ def load_or_generate_reference_images(
         
     
 def post_processing_suite2p_gui(img_orig):
-    '''
-    no idea what this does but ok
-    apparently it does something to the image
-    '''
+    """
+    apply percentile-based contrast normalisation and rescale to 8-bit for GUI display.
+    
+    parameters:
+    - img_orig: np.ndarray
+        input 2D image.
+    
+    returns:
+    - img_proc: np.ndarray
+        normalised image (uint8, range 0–255).
+    """
     # normalize to 1st and 99th percentile
     perc_low, perc_high = np.percentile(img_orig, [1, 99])
     img_proc = (img_orig - perc_low) / (perc_high - perc_low)
@@ -570,6 +662,17 @@ def find_nearest(value, arr):
     
 #%% behaviour file processing
 def process_txt(txtfile):
+    """
+    parse behavioural .txt log file into structured trial-wise data.
+       
+    parameters:
+    - txtfile: str
+        path to the behavioural log file.
+       
+    returns:
+    - logfile: dict
+        dictionary containing fields like 'speed_times', 'lick_times', etc.
+    """
     curr_logfile = {} 
     file = open(txtfile, 'r')
     
@@ -644,8 +747,18 @@ def process_txt(txtfile):
     
     return curr_logfile
 
-
 def process_txt_nobeh(txtfile):
+    """
+    simplified parser for behavioural .txt log file when no behavioural data is expected.
+    
+    parameters:
+    - txtfile: str
+        path to the log file.
+    
+    returns:
+    - logfile: dict
+        dictionary with 'pulse_times', 'pulse_parameters', and 'frame_times'.
+    """
     curr_logfile = {} 
     file = open(txtfile, 'r')
     
@@ -669,9 +782,19 @@ def process_txt_nobeh(txtfile):
     curr_logfile['frame_times'] = frame_times
     
     return curr_logfile
-    
 
 def get_next_line(file):
+    """
+    read and return the next non-empty, comma-split line from a file.
+    
+    parameters:
+    - file: file object
+        open text file with behavioural data.
+    
+    returns:
+    - line: list[str]
+        split line contents (ignores empty lines).
+    """
     line = file.readline().rstrip('\n').split(',')
     if len(line) == 1: # read an empty line
         line = file.readline().rstrip('\n').split(',')
@@ -680,17 +803,17 @@ def get_next_line(file):
 
 def correct_overflow(data, label):
     """
-    Parameters
-    ----------
-    data : list
-        speed_times, pump_times, frame_times, movie_times etc.
-    label : str
-        the label of the data array (eg. 'speed').
+    correct time-overflow in behavioural signals (e.g. due to 32-bit counter wraparound).
 
-    Returns
-    -------
-    new_data : list
-        data corrected for overflow.
+    parameters:
+    - data: list
+        behavioural time series data (trial-structured).
+    - label: str
+        name of the data type: one of ['speed', 'lick', 'pump', 'movie', 'frame'].
+
+    returns:
+    - corrected_data: list
+        overflow-corrected version of input data.
     """
     tot_trial = len(data)
     new_data = []
@@ -767,8 +890,22 @@ def correct_overflow(data, label):
     
     return new_data
 
-
 def get_onset(uni_speeds, uni_times, threshold=0.3):  # 0.3 seconds
+    """
+    find the index corresponding to the start of a continuous running episode.
+
+    parameters:
+    - uni_speeds: list[float]
+        speed values sampled over time.
+    - uni_times: list[float]
+        time values in milliseconds.
+    - threshold: float, default=0.3
+        duration (s) of continuous fast running required.
+
+    returns:
+    - onset_index: float
+        timestamp of run onset; returns -1 if none found.
+    """
     count = 0
     for i in range(len(uni_speeds)):
         count = fast_in_a_row(uni_speeds[i], count, 10)
@@ -780,6 +917,21 @@ def get_onset(uni_speeds, uni_times, threshold=0.3):  # 0.3 seconds
     return index
 
 def fast_in_a_row(speed_value, count, threshold):
+    """
+    count consecutive samples above a speed threshold.
+    
+    parameters:
+    - speed_value: float
+        current speed value.
+    - count: int
+        current count of consecutive fast samples.
+    - threshold: float
+        minimum speed for "fast".
+    
+    returns:
+    - updated_count: int
+        updated counter value.
+    """
     if speed_value > threshold:
         count-=-1
     else:
