@@ -123,9 +123,14 @@ def main(path):
     tot_pulses = int(len(pulse_times) / pulse_number)
     
     pulse_frames = [ipf.find_nearest(p, frame_times) for p in pulse_times]
-    pulse_frames = [pulse_frames[p*pulse_number : p*pulse_number+pulse_number] 
-                    for p in range(tot_pulses)]
-    pulse_start_frames = [p[0] for p in pulse_frames]
+    pulse_frame_diffs = np.diff(pulse_frames)
+    pulse_split_idxs = np.where(pulse_frame_diffs > 30)[0]+1  # > 1 second difference
+    pulse_frames_split = np.split(pulse_frames, pulse_split_idxs)
+    pulse_start_frames = [p[0] for p in pulse_frames_split]
+    valid_pulse_start_frames = [
+        p for p in pulse_start_frames
+        if (p - BEF * SAMP_FREQ >= 0) and (p + AFT * SAMP_FREQ <= len(trace_dFF))
+        ]
 
     # checks $FM against tot_frame
     if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
@@ -134,10 +139,10 @@ def main(path):
     # block out opto artefact periods 
     pulse_period_frames = np.concatenate(
         [np.arange(
-            pulse_frames[i][0]-3, 
-            pulse_frames[i][0]+round(pulse_width*pulse_number*SAMP_FREQ) + 1  # +1 as a buffer
+            pulse_train[0]-3,
+            pulse_train[-1]+3  # +3 as a buffer
             )
-        for i in range(tot_pulses)]
+        for pulse_train in pulse_frames_split]
         )
     trace_dFF[pulse_period_frames] = np.nan
     trace2_dFF[pulse_period_frames] = np.nan
@@ -145,15 +150,15 @@ def main(path):
     # extract aligned traces
     trace_dFF_aligned = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ))
     trace2_dFF_aligned = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ))
-    for i, p in enumerate(pulse_start_frames):
+    for i, p in enumerate(valid_pulse_start_frames):
         # load traces 
-        trace_dFF_aligned[i, :] = trace_dFF[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
-        trace2_dFF_aligned[i, :] = trace2_dFF[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
+        trace_dFF_aligned[i, :] = trace_dFF[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ]
+        trace2_dFF_aligned[i, :] = trace2_dFF[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ]
         
-    baseline_mean = np.mean(trace_dFF_aligned[:, BASELINE_IDX], axis=1)
-    stim_mean = np.mean(trace_dFF_aligned[:, STIM_IDX], axis=1)
-    baseline2_mean = np.mean(trace2_dFF_aligned[:, BASELINE_IDX], axis=1)
-    stim2_mean = np.mean(trace2_dFF_aligned[:, STIM_IDX], axis=1)
+    baseline_mean = np.nanmean(trace_dFF_aligned[:, BASELINE_IDX], axis=1)
+    stim_mean = np.nanmean(trace_dFF_aligned[:, STIM_IDX], axis=1)
+    baseline2_mean = np.nanmean(trace2_dFF_aligned[:, BASELINE_IDX], axis=1)
+    stim2_mean = np.nanmean(trace2_dFF_aligned[:, STIM_IDX], axis=1)
     
     trace_dFF_aligned_mean = np.mean(trace_dFF_aligned, axis=0)
     trace2_dFF_aligned_mean = np.mean(trace2_dFF_aligned, axis=0)
@@ -214,6 +219,15 @@ def main(path):
             )
         
     # statistics and plotting 
+    baseline_mean, stim_mean = map(list, zip(*[
+        (b, s) for b, s in zip(baseline_mean, stim_mean)
+        if not np.isnan(b) and not np.isnan(s)
+    ]))
+    baseline2_mean, stim2_mean = map(list, zip(*[
+        (b, s) for b, s in zip(baseline2_mean, stim2_mean)
+        if not np.isnan(b) and not np.isnan(s)
+    ]))
+    
     plot_violin_with_scatter(
         baseline_mean, stim_mean, 
         '#8CA082', 'green',
@@ -223,7 +237,6 @@ def main(path):
         save=True,
         savepath=rf'{savepath}\{recname}_baseline_stim_violinplot'
         )
-    
     plot_violin_with_scatter(
         baseline2_mean, stim2_mean, 
         '#8C6464', 'darkred',
@@ -263,7 +276,7 @@ def main(path):
     print('aligning pixel-wise dF/F traces to stimulations...')
     aligned_dFF_pix = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
     aligned_dFF_pix2 = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
-    for i, p in enumerate(pulse_start_frames):
+    for i, p in enumerate(valid_pulse_start_frames):
         aligned_dFF_pix[i] = dFF_pix[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
         aligned_dFF_pix2[i] = dFF_pix2[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
         
@@ -277,28 +290,28 @@ def main(path):
     if os.path.isdir(axon_only_folder):  # if we have a 1100-nm wavelength session 
         print(f'axon-only recording found: {axon_only_folder}')
     
-        axon_only_bin2_path = os.path.join(axon_only_folder, 
-                                           'suite2p/plane0/data_chan2.bin')
+        axon_only_bin_path = os.path.join(axon_only_folder, 
+                                          'suite2p/plane0/data_chan2.bin')
         axon_only_ops_path = os.path.join(axon_only_folder, 
                                           'suite2p/plane0/ops.npy')
 
-        if (os.path.exists(axon_only_bin2_path) 
+        if (os.path.exists(axon_only_bin_path) 
             and os.path.exists(axon_only_ops_path)):
             ops_axon_only = np.load(
                 axon_only_ops_path, allow_pickle=True
                 ).item()
-            tot_frames_companion = ops_axon_only['nframes']
-            shape_companion = (tot_frames_companion, 
+            tot_frames_axon_only = ops_axon_only['nframes']
+            shape_axon_only = (tot_frames_axon_only, 
                                ops_axon_only['Ly'], ops_axon_only['Lx'])
             
             print('loading axon-only movie...')
-            mov2_axon_only = np.memmap(
-                axon_only_bin2_path, 
-                mode='r', dtype='int16', shape=shape_companion
+            mov_axon_only = np.memmap(
+                axon_only_bin_path, 
+                mode='r', dtype='int16', shape=shape_axon_only
                 ).astype(np.float32)
         
             print('computing, plotting and saving axon-only reference..')
-            reference_axon_only = np.mean(mov2_axon_only, axis=0)
+            reference_axon_only = np.mean(mov_axon_only, axis=0)
             reference_axon_only = ipf.post_processing_suite2p_gui(
                 reference_axon_only
                 )

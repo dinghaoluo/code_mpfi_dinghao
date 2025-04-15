@@ -43,6 +43,10 @@ for path in paths:
     
     tmappath = r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\t_maps'
     
+    if os.path.exists(rf'{tmappath}\{recname}_tmap.png'):
+        print(f'{recname} has been processed... skipped')
+        continue
+    
     aligned_dFF_pix = np.load(
         rf'{savepath}\processed_data\{recname}_pixelwise_dFF.npy'
         )

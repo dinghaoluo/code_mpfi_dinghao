@@ -48,6 +48,10 @@ for path in paths:
         f'{recname}'
         )
     
+    if os.path.exists(rf'{savepath}\{recname}_example_frames_diff.png'):
+        print(f'{recname} processed... skipping')
+        continue
+    
     # load data 
     ops = np.load(opspath, allow_pickle=True).item()
     tot_frames = ops['nframes']

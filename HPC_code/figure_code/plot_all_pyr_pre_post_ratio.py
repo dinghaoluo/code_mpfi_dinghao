@@ -20,6 +20,7 @@ import sys
 
 #%% load dataframe 
 df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
+df_pyr = df[df['cell_identity']=='pyr']
 
 
 #%% functions
@@ -49,7 +50,7 @@ xaxis = np.arange(-1, 4, 1/1250)
 
 
 #%% sort dataframe by baseline pre-post ratios 
-df_sorted = df.sort_values(by='pre_post')
+df_sorted = df_pyr.sort_values(by='pre_post')
 
 
 #%% matrices 
@@ -281,8 +282,8 @@ plot_violin_with_scatter(OFF_good_index_filt, OFF_bad_index_filt, 'purple', 'gre
 
 
 #%% extract seperate experiments 
-df_HPCLC = df[(df['rectype']=='HPCLC') & (df['cell_identity']=='pyr')]
-df_HPCLCterm = df[(df['rectype']=='HPCLCterm') & (df['cell_identity']=='pyr')]
+df_HPCLC = df_pyr[df_pyr['rectype']=='HPCLC']
+df_HPCLCterm = df_pyr[df_pyr['rectype']=='HPCLCterm']
 
 
 #%% plot HPCLC

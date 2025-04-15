@@ -10,17 +10,16 @@ utility functions for statistical analyses (imaging data)
 
 #%% imports 
 import numpy as np 
-from skimage import exposure
 from skimage.morphology import medial_axis, remove_small_objects
 import matplotlib.pyplot as plt
 
 
 #%% axon extraction 
 def extract_fibre_centrelines(
-        img, 
-        clip_limit=0.03, 
-        threshold_percentile=75, 
-        min_size=50, 
+        img,
+        clip_limit=0.03,
+        threshold_percentile=80,
+        min_size=100,
         show=True
         ):
     """

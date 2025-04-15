@@ -335,7 +335,8 @@ beh_df = pd.concat((
 recname = ''
 
 early_profs, late_profs, early_mid_profs, late_mid_profs = [], [], [], []
-for clu in tqdm(df_other_ON.itertuples()):
+for clu in tqdm(df_other_ON.itertuples(),
+                total=len(df_other_ON)):
     if clu.recname != recname:
         recname = clu.recname
     
@@ -419,14 +420,14 @@ for clu in tqdm(df_other_ON.itertuples()):
     
 early_profs_mean = np.mean(early_profs, axis=0)
 late_profs_mean = np.mean(late_profs, axis=0)
-early_mid_profs_mean = np.mean(early_mid_profs, axis=0)
-late_mid_profs_mean = np.mean(late_mid_profs, axis=0)
+early_mid_profs_mean = np.mean(early_profs, axis=0)
+late_mid_profs_mean = np.mean(late_profs, axis=0)
 
 from scipy.stats import sem
 early_profs_sem = sem(early_profs, axis=0)
 late_profs_sem = sem(late_profs, axis=0)
-early_mid_profs_sem = sem(early_mid_profs, axis=0)
-late_mid_profs_sem = sem(late_mid_profs, axis=0)
+early_mid_profs_sem = sem(early_profs, axis=0)
+late_mid_profs_sem = sem(late_profs, axis=0)
 
 early_ratios = [np.nanmean(prof[3750-1250:3750])/np.nanmean(prof[3750:3750+1250])
                 if sum(prof[3750:3750+1250])>0 else 1
