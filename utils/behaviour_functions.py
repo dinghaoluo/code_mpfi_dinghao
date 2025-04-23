@@ -303,7 +303,7 @@ def process_behavioural_data_imaging(txtfile: str,
 
     return behavioural_data
 
-def process_behavioural_data_immobile(txtfile: str) -> dict:
+def process_behavioural_data_immobile(txtfile: str) -> dict: #Jingyu, 4/17/2025
     '''
     processes behavioural data for immobile experiments, aligning lick, reward events, and start cue times.
 
@@ -329,6 +329,10 @@ def process_behavioural_data_immobile(txtfile: str) -> dict:
     data['pump_times'] = correct_overflow(data['pump_times'], 'pump')
     data['movie_times'] = correct_overflow(data['movie_times'], 'movie')
     data['trial_statements'] = correct_overflow(data['trial_statements'], 'trial_statement')
+    if len(data['frame_times'])>0:
+        frame_times = correct_overflow(data['frame_times'], 'frame')
+    else:
+        frame_times = []
     
     # initialise lists for storing data across trials
     lick_times = []
@@ -362,9 +366,48 @@ def process_behavioural_data_immobile(txtfile: str) -> dict:
         'start_cue_times': start_cue_times,
         'reward_times': reward_times,
         'trial_statements': trial_statements,
+        'frame_times': frame_times,  # this was actually added just to prevent np.array(... type='object) from automatically producing a 2D array, 6 Dec 2024
+        # Jingyu, 4/17/2025
     }
 
+def process_behavioural_data_immobile_imaging(txtfile, frame_threshold_ms=50): # Jingyu 4/17/2025
+    # process behavioural data
+    behavioural_data = process_behavioural_data_immobile(txtfile)
 
+    # extract frame times
+    frame_times = behavioural_data.get('frame_times', [])
+    if not frame_times:
+        raise ValueError('Frame times missing or empty in the txt file.')
+
+    # correct for dropped frames (interpolate)
+    for i in range(len(frame_times) - 1):
+        if frame_times[i + 1] - frame_times[i] > frame_threshold_ms:
+            interp_fm = (frame_times[i + 1] + frame_times[i]) / 2
+            frame_times.insert(i + 1, interp_fm)
+
+    # compute frame indices for behavioural events
+
+    pump_frames = []
+    for pump in behavioural_data['reward_times']:
+        if not pump or pump[0] < frame_times[0] or pump[0] > frame_times[-1]:
+            pump_frames.append(-1)  # out of frame range or no reward
+        else:
+            pump_frames.append(find_nearest(pump[0], frame_times))
+
+    cue_frames = []
+    for cue in behavioural_data['start_cue_times']:
+        if not cue or cue[0] < frame_times[0] or cue[0] > frame_times[-1]:
+            cue_frames.append(-1)  # out of frame range or no cue
+        else:
+            cue_frames.append(find_nearest(cue[0], frame_times))
+
+    # add imaging data to output
+    behavioural_data.update({
+        'reward_frames': pump_frames,
+        'start_cue_frames': cue_frames
+    })
+    
+    return behavioural_data
 #%% utils 
 def find_nearest(value, arr):
     '''
@@ -515,7 +558,7 @@ def process_txt(txtfile):
     curr_logfile['reward_omissions'] = reward_omissions  # jingyu, 8/14/2024
     return curr_logfile
 
-def process_txt_immobile(txtfile):
+def process_txt_immobile(txtfile): # Jingyu 4/17/2025
     '''
     parses a behaviour text file and extracts trial-related data for immobile experiments.
 
@@ -543,6 +586,7 @@ def process_txt_immobile(txtfile):
     lick_times = []
     pump_times = []
     movie_times = []
+    frame_times = [] # Jingyu, 4/17/2025
     
     lt_trial = []
     pt_trial = []
@@ -568,12 +612,15 @@ def process_txt_immobile(txtfile):
             lt_trial = []
             mv_trial = []
             pt_trial = []
+        if line[0] == '$FM' and line[2] == '0': # Jingyu, 4/17/2025
+            frame_times.append(float(line[1]))  
         line = get_next_line(file)
         
     curr_logfile['movie_times'] = movie_times
     curr_logfile['lick_times'] = lick_times
     curr_logfile['pump_times'] = pump_times
     curr_logfile['trial_statements'] = trial_statements
+    curr_logfile['frame_times'] = frame_times # Jingyu, 4/17/2025
     return curr_logfile
 
 def get_next_line(file):

@@ -29,7 +29,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              ylabel=' ', yscale=None,
                              xlim=None, ylim=None,
                              title=' ',
-                             showscatter=False, showmainline=True,
+                             showscatter=False, showmainline=True, showline=True,
                              showmeans=False, showmedians=True, showextrema=False,
                              print_statistics=False, plot_statistics=True,
                              save=False, savepath=' ', dpi=120,
@@ -119,7 +119,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                    s=30, c=colour0, ec='none', lw=.5, zorder=3)
         ax.scatter(1.9, np.mean(data1), 
                    s=30, c=colour1, ec='none', lw=.5, zorder=3)
-        if paired:
+        if paired and showline:
             ax.plot([1.1, 1.9], 
                     [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)
@@ -133,7 +133,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                    s=30, c=colour0, ec='none', lw=.5, zorder=2)
         ax.scatter(1.9, np.median(data1), 
                    s=30, c=colour1, ec='none', lw=.5, zorder=2)
-        if paired:
+        if paired and showline:
             ax.plot([1.1, 1.9], 
                     [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)

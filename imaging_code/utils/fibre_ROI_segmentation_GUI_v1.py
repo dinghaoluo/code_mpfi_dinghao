@@ -2,58 +2,127 @@
 """
 Created on Mon Apr 14 14:15:45 2025
 
-@author: LuoD
+GUI for sorting fibres detected with MSER pipeline
+
+@author: Dinghao Luo
 """
 
+#%% imports 
+# import matplotlib to use Qt5 explicitly to fix PyInstaller issue 
+import matplotlib
+matplotlib.use('Qt5Agg')
 
 import sys
+import os 
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QWidget,
-    QFileDialog, QLabel, QLineEdit, QGridLayout, QSizePolicy
+    QFileDialog, QLabel, QLineEdit, QGridLayout, QTextEdit
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPalette, QColor
+from PyQt5.QtGui import QPalette, QColor, QTextCursor
 from skimage.measure import regionprops
 from scipy.ndimage import median_filter
 import cv2
 
 
+#%% main 
+class OutputStream:
+    def __init__(self, write_func):
+        self.write_func = write_func
+
+    def write(self, text):
+        self.write_func(text)
+
+    def flush(self):  # needed for compatibility
+        pass
+
+
 class ZoomableCanvas(FigureCanvas):
-    def __init__(self, figure):
+    def __init__(self, figure, ax):
         super().__init__(figure)
-        self.setFocusPolicy(Qt.ClickFocus)
-        self.setFocus()
-        self._zoom = 1.0
-        self._base_size = 512
-        self.setFixedSize(self._base_size, self._base_size)
+        self.ax = ax
+        self.zoom = 1.0
+        self._base_xlim = self.ax.get_xlim()
+        self._base_ylim = self.ax.get_ylim()
+        self._drag_start_pos = None
+        self._drag_start_xlim = None
+        self._drag_start_ylim = None
 
     def wheelEvent(self, event):
-        delta = event.angleDelta().y() / 120  # 1 per wheel step
-        factor = 1.1 if delta > 0 else 0.9
-        self._zoom *= factor
-        size = int(self._base_size * self._zoom)
-        size = max(256, min(2048, size))
-        self.setFixedSize(size, size)
-        self.draw()
+        if self.ax.images:
+            xmouse = event.position().x()
+            ymouse = event.position().y()
+            xdata, ydata = self.ax.transData.inverted().transform((xmouse, ymouse))
+
+            cur_xlim = self.ax.get_xlim()
+            cur_ylim = self.ax.get_ylim()
+            zoom_factor = 1 / 1.2 if event.angleDelta().y() > 0 else 1.2
+
+            xleft = xdata - (xdata - cur_xlim[0]) * zoom_factor
+            xright = xdata + (cur_xlim[1] - xdata) * zoom_factor
+            ytop = ydata - (ydata - cur_ylim[0]) * zoom_factor
+            ybottom = ydata + (cur_ylim[1] - ydata) * zoom_factor
+
+            self.ax.set_xlim([xleft, xright])
+            self.ax.set_ylim([ytop, ybottom])
+            self.draw()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            self._drag_start_pos = event.pos()
+            self._drag_start_xlim = self.ax.get_xlim()
+            self._drag_start_ylim = self.ax.get_ylim()
+        else:
+            super().mousePressEvent(event)  # allow mpl_connect to catch left click
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.RightButton and self._drag_start_pos is not None:
+            dx = event.pos().x() - self._drag_start_pos.x()
+            dy = event.pos().y() - self._drag_start_pos.y()
+    
+            trans = self.ax.transData.inverted()
+            dx_data = trans.transform((0, 0))[0] - trans.transform((dx, 0))[0]
+            dy_data = trans.transform((0, dy))[1] - trans.transform((0, 0))[1]  # flipped y
+    
+            new_xlim = (self._drag_start_xlim[0] + dx_data, self._drag_start_xlim[1] + dx_data)
+            new_ylim = (self._drag_start_ylim[0] + dy_data, self._drag_start_ylim[1] + dy_data)
+    
+            self.ax.set_xlim(new_xlim)
+            self.ax.set_ylim(new_ylim)
+            self.draw()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.RightButton:
+            self._drag_start_pos = None
+        else:
+            super().mouseReleaseEvent(event)  # let Matplotlib handle left click
+
+    def reset_view(self):
+        if self.ax.images:
+            img = self.ax.images[0]
+            self.ax.set_xlim(0, img.get_array().shape[1])
+            self.ax.set_ylim(img.get_array().shape[0], 0)
+            self.draw()
 
 
 class ROIEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('fibre-segger v1')
-        self.resize(1200, 700)
+        self.resize(800, 700)
         self.ref_image = None
         self.roi_dict = {}
         self.selected = set()
         self.labelled = None
+        self.undo_stack = []  # for undoing merging and deletion
         self.initUI()
+        sys.stdout = OutputStream(self.append_output)
+        sys.stderr = OutputStream(self.append_output)
 
     def initUI(self):
-        # background palette
         palette = self.palette()
         palette.setColor(QPalette.Window, QColor(220, 220, 220))
         palette.setColor(QPalette.Base, QColor(240, 240, 240))
@@ -64,17 +133,29 @@ class ROIEditor(QMainWindow):
         self.setPalette(palette)
 
         self.fig = Figure(dpi=100, facecolor='white')
-        self.canvas = ZoomableCanvas(self.fig)
         self.ax = self.fig.add_subplot(111)
         self.ax.axis('off')
+        self.canvas = ZoomableCanvas(self.fig, self.ax)
+        self.canvas.setFixedSize(1000, 1000)
 
-        # left column
         btn_load = QPushButton('load image')
         btn_segment = QPushButton('run segmentation')
         self.param_inputs = {}
         grid = QGridLayout()
-        param_names = ['area', 'aspect_ratio', 'solidity', 'eccentricity', 'thinness']
-        defaults = [10, 2, 0.7, 0.85, 0.5]
+        param_names = ['MSER threshold', 
+                       'MSER max variation',
+                       'area', 
+                       'aspect ratio', 
+                       'solidity', 
+                       'eccentricity', 
+                       'thinness']
+        defaults = [20, 
+                    1.0,
+                    100, 
+                    1.5, 
+                    0.7, 
+                    0.75, 
+                    0.5]
         for i, (name, default) in enumerate(zip(param_names, defaults)):
             label = QLabel(name)
             inp = QLineEdit(str(default))
@@ -96,19 +177,26 @@ class ROIEditor(QMainWindow):
         canvas_layout.addWidget(self.canvas)
         canvas_widget = QWidget()
         canvas_widget.setLayout(canvas_layout)
-        canvas_widget.setFixedWidth(600)
+        canvas_widget.setFixedWidth(1000)
 
         btn_delete = QPushButton('delete selected')
         btn_merge = QPushButton('merge selected')
+        btn_undo = QPushButton('undo')
         btn_save = QPushButton('save ROI dict')
         right_layout = QVBoxLayout()
         right_layout.setAlignment(Qt.AlignTop)
         right_layout.addWidget(btn_delete)
         right_layout.addWidget(btn_merge)
+        right_layout.addWidget(btn_undo)
         right_layout.addWidget(btn_save)
         right_widget = QWidget()
         right_widget.setLayout(right_layout)
         right_widget.setFixedWidth(200)
+        
+        # output box
+        self.output_box = QTextEdit()
+        self.output_box.setReadOnly(True)
+        right_layout.addWidget(self.output_box)
 
         full_layout = QHBoxLayout()
 
@@ -139,15 +227,25 @@ class ROIEditor(QMainWindow):
         btn_segment.clicked.connect(self.run_segmentation)
         btn_delete.clicked.connect(self.delete_selected)
         btn_merge.clicked.connect(self.merge_selected)
+        btn_undo.clicked.connect(self.undo_action)
         btn_save.clicked.connect(self.save_roi_dict)
-
+        
         self.canvas.mpl_connect('button_press_event', self.on_click)
+
+    def append_output(self, text):
+        self.output_box.moveCursor(QTextCursor.End)
+        self.output_box.insertPlainText(text)
+        self.output_box.ensureCursorVisible()
 
     def load_image(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Open NPY Image', filter='*.npy')
         if path:
+            self.ref_image_path = path
+            self.recname = os.path.basename(path).split('_ref_mat')[0]
             self.ref_image = np.load(path)
             self.plot_image()
+            self.canvas.reset_view()
+            self.append_output(f'{self.recname} loaded\n')
 
     def run_segmentation(self):
         if self.ref_image is None:
@@ -159,7 +257,7 @@ class ROIEditor(QMainWindow):
             return
 
         ref_filtered = median_filter(self.ref_image, size=(3, 3))
-        thresh_val = np.percentile(ref_filtered, 40)
+        thresh_val = np.percentile(ref_filtered, params['MSER threshold'])
         binary_mask = ref_filtered > thresh_val
         ref_masked = ref_filtered.copy()
         ref_masked[~binary_mask] = 0
@@ -167,7 +265,7 @@ class ROIEditor(QMainWindow):
 
         img_u8 = (ref_masked / ref_masked.max() * 255).astype(np.uint8)
         mser = cv2.MSER_create(5, 30, 500)
-        mser.setMaxVariation(1.0)
+        mser.setMaxVariation(params['MSER max variation'])
         regions, _ = mser.detectRegions(img_u8)
 
         mask = np.zeros_like(img_u8, dtype=np.int32)
@@ -185,7 +283,7 @@ class ROIEditor(QMainWindow):
             perim = region.perimeter
             thin = 4 * np.pi * area / (perim ** 2)
             if (area > params['area'] and sol < params['solidity'] and
-                ecc > params['eccentricity'] and ar > params['aspect_ratio'] and thin < params['thinness']):
+                ecc > params['eccentricity'] and ar > params['aspect ratio'] and thin < params['thinness']):
                 ypix, xpix = region.coords[:, 0], region.coords[:, 1]
                 roi_dict[roi_id] = {'xpix': xpix, 'ypix': ypix}
                 roi_id += 1
@@ -196,16 +294,24 @@ class ROIEditor(QMainWindow):
             self.labelled[roi['ypix'], roi['xpix']] = i
         self.selected.clear()
         self.plot_image()
+        self.canvas.reset_view()
 
-    def plot_image(self):
+    def plot_image(self, preserve_view=False):
+        if preserve_view:
+            xlim = self.ax.get_xlim()
+            ylim = self.ax.get_ylim()
+    
         self.ax.clear()
         self.ax.axis('off')
+    
         if self.ref_image is None:
             self.canvas.draw()
             return
+    
         self.ax.imshow(self.ref_image, cmap='gray',
                        vmin=np.percentile(self.ref_image, 0.5),
                        vmax=np.percentile(self.ref_image, 99.9))
+    
         if self.labelled is not None:
             overlay = np.zeros((*self.labelled.shape, 4))
             ids = np.unique(self.labelled)
@@ -220,6 +326,11 @@ class ROIEditor(QMainWindow):
             for roi_id in self.selected:
                 coords = np.column_stack(np.where(self.labelled == roi_id))
                 self.ax.plot(coords[:, 1], coords[:, 0], 'c.', markersize=1)
+    
+        if preserve_view:
+            self.ax.set_xlim(xlim)
+            self.ax.set_ylim(ylim)
+    
         self.canvas.draw()
 
     def on_click(self, event):
@@ -232,27 +343,36 @@ class ROIEditor(QMainWindow):
                 self.selected.remove(roi_id)
             else:
                 self.selected.add(roi_id)
-            self.plot_image()
+            self.plot_image(preserve_view=True)
 
     def delete_selected(self):
         if self.labelled is None:
             return
         for roi_id in self.selected:
+            self.undo_stack.append(self.labelled.copy())
             self.labelled[self.labelled == roi_id] = 0
         self.selected.clear()
         self.update_roi_dict()
-        self.plot_image()
+        self.plot_image(preserve_view=True)
 
     def merge_selected(self):
         if self.labelled is None or len(self.selected) < 2:
             return
         target_id = min(self.selected)
         for roi_id in self.selected:
+            self.undo_stack.append(self.labelled.copy())
             if roi_id != target_id:
                 self.labelled[self.labelled == roi_id] = target_id
         self.selected = {target_id}
         self.update_roi_dict()
-        self.plot_image()
+        self.plot_image(preserve_view=True)
+        
+    def undo_action(self):
+        if self.undo_stack:
+            self.labelled = self.undo_stack.pop()
+            self.update_roi_dict()
+            self.selected.clear()
+            self.plot_image(preserve_view=True)
 
     def update_roi_dict(self):
         props = regionprops(self.labelled)
@@ -262,10 +382,14 @@ class ROIEditor(QMainWindow):
             self.roi_dict[region.label] = {'xpix': xpix, 'ypix': ypix}
 
     def save_roi_dict(self):
-        path, _ = QFileDialog.getSaveFileName(self, 'Save ROI Dict', filter='*.npz')
-        if path:
-            np.savez(path, **self.roi_dict)
-            print(f'Saved to {path}')
+        if not hasattr(self, 'ref_image_path') or not hasattr(self, 'recname'):
+            print('reference image not loaded, cannot auto-save.')
+            return
+        save_dir = os.path.dirname(self.ref_image_path)
+        save_name = f'{self.recname}_ROI_dict.npy'
+        save_path = os.path.join(save_dir, save_name)
+        np.save(save_path, self.roi_dict)
+        print(f'saved to {save_path}')
 
 
 if __name__ == '__main__':

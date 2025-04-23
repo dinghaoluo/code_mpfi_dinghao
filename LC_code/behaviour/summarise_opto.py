@@ -38,14 +38,16 @@ pathHPCLCtermopt = rec_list.pathHPCLCtermopt_beh
 #%% 020 
 ctrl_lick_times_020 = []
 stim_lick_times_020 = []
+ctrl_lick_distances_020 = []
+stim_lick_distances_020 = []
 
 # for i, pathname in enumerate(pathLCBehopt):   
 #     sessname = pathname[-13:]
 #     curr_cond = condLCBehopt[i]
 #     curr_sess = sessLCBehopt[i]
-#     if str([0,2,0])[1:-1] not in str(curr_cond)[1:-1]:  # I have to commemmorate this as quite a clever trick
+#     if str([0,2,0])[1:-1] not in str(curr_cond)[1:-1]: 
 #         continue
-#     file_idx = curr_sess[curr_cond.index(2)]  # midtrial
+#     file_idx = curr_sess[curr_cond.index(2)]
 #     text_file = rf'{pathname}\{sessname}-0{file_idx}\{sessname}-0{file_idx}T.txt'
 #     curr_txt = process_behavioural_data(text_file)
     
@@ -88,6 +90,8 @@ stim_lick_times_020 = []
 #     # extract datapoints 
 #     ctrl_lick_times = []
 #     stim_lick_times = []
+#     ctrl_lick_distances = []
+#     stim_lick_distances = []
 #     for trial, licks in enumerate(opto_ctrl_dict['lick_times']):
 #         start_time = np.squeeze(opto_ctrl_dict['run_onsets'][trial])
 #         ctrl_lick_times.append(
@@ -98,14 +102,29 @@ stim_lick_times_020 = []
 #         stim_lick_times.append(
 #             [(l-start_time)/1000 for l in licks if l > start_time + 1000]
 #             )
+#     for trial, licks in enumerate(opto_ctrl_dict['lick_distances']):
+#         ctrl_lick_distances.append(
+#             [l for l in licks if l > 30]
+#             )
+#     for trial, licks in enumerate(opto_stim_dict['lick_distances']):
+#         stim_lick_distances.append(
+#             [l for l in licks if l > 30]
+#             )
     
-#     ctrl_lick_times_020.append(
-#         np.mean([licks[0] for licks in ctrl_lick_times if licks])
-#         )
-#     stim_lick_times_020.append(
-#         np.mean([licks[0] for licks in stim_lick_times if licks])
-#         )
+#     ctrl_first_lick_time = np.median([licks[0] for licks in ctrl_lick_times if licks])
+#     stim_first_lick_time = np.median([licks[0] for licks in stim_lick_times if licks])
+#     ctrl_first_lick_distance = np.median([licks[0] for licks in ctrl_lick_distances if licks])
+#     stim_first_lick_distance = np.median([licks[0] for licks in stim_lick_distances if licks])
     
+#     if ctrl_first_lick_time < 10 and stim_first_lick_time < 10:
+#         ctrl_lick_times_020.append(ctrl_first_lick_time)
+#         stim_lick_times_020.append(stim_first_lick_time)
+    
+#     if ctrl_first_lick_distance > 100 and stim_first_lick_distance > 100:
+#         ctrl_lick_distances_020.append(ctrl_first_lick_distance)
+#         stim_lick_distances_020.append(stim_first_lick_distance)
+
+
 for i, pathname in enumerate(pathLCopt):
     sessname = pathname[-17:]
     text_file = rf'{pathname}\{sessname}T.txt'
@@ -152,6 +171,8 @@ for i, pathname in enumerate(pathLCopt):
     # extract datapoints 
     ctrl_lick_times = []
     stim_lick_times = []
+    ctrl_lick_distances = []
+    stim_lick_distances = []
     for trial, licks in enumerate(opto_ctrl_dict['lick_times']):
         start_time = np.squeeze(opto_ctrl_dict['run_onsets'][trial])
         ctrl_lick_times.append(
@@ -162,14 +183,29 @@ for i, pathname in enumerate(pathLCopt):
         stim_lick_times.append(
             [(l-start_time)/1000 for l in licks if l > start_time + 1000]
             )
+    for trial, licks in enumerate(opto_ctrl_dict['lick_distances']):
+        ctrl_lick_distances.append(
+            [l for l in licks if l > 30]
+            )
+    for trial, licks in enumerate(opto_stim_dict['lick_distances']):
+        stim_lick_distances.append(
+            [l for l in licks if l > 30]
+            )
     
     ctrl_first_lick_time = np.median([licks[0] for licks in ctrl_lick_times if licks])
     stim_first_lick_time = np.median([licks[0] for licks in stim_lick_times if licks])
     
+    ctrl_first_lick_distance = np.median([licks[0] for licks in ctrl_lick_distances if licks])
+    stim_first_lick_distance = np.median([licks[0] for licks in stim_lick_distances if licks])
+    
     if ctrl_first_lick_time < 10 and stim_first_lick_time < 10:
         ctrl_lick_times_020.append(ctrl_first_lick_time)
         stim_lick_times_020.append(stim_first_lick_time)
-        
+    
+    if ctrl_first_lick_distance > 100 and stim_first_lick_distance > 100:
+        ctrl_lick_distances_020.append(ctrl_first_lick_distance)
+        stim_lick_distances_020.append(stim_first_lick_distance)
+            
 for i, pathname in enumerate(pathHPCopt):
     sessname = pathname[-17:]
     text_file = rf'{pathname}\{sessname}T.txt'
@@ -216,6 +252,8 @@ for i, pathname in enumerate(pathHPCopt):
     # extract datapoints 
     ctrl_lick_times = []
     stim_lick_times = []
+    ctrl_lick_distances = []
+    stim_lick_distances = []
     for trial, licks in enumerate(opto_ctrl_dict['lick_times']):
         start_time = np.squeeze(opto_ctrl_dict['run_onsets'][trial])
         ctrl_lick_times.append(
@@ -226,13 +264,27 @@ for i, pathname in enumerate(pathHPCopt):
         stim_lick_times.append(
             [(l-start_time)/1000 for l in licks if l > start_time + 1000]
             )
+    for trial, licks in enumerate(opto_ctrl_dict['lick_distances']):
+        ctrl_lick_distances.append(
+            [l for l in licks if l > 30]
+            )
+    for trial, licks in enumerate(opto_stim_dict['lick_distances']):
+        stim_lick_distances.append(
+            [l for l in licks if l > 30]
+            )
     
     ctrl_first_lick_time = np.median([licks[0] for licks in ctrl_lick_times if licks])
     stim_first_lick_time = np.median([licks[0] for licks in stim_lick_times if licks])
+    ctrl_first_lick_distance = np.median([licks[0] for licks in ctrl_lick_distances if licks])
+    stim_first_lick_distance = np.median([licks[0] for licks in stim_lick_distances if licks])
     
-    if ctrl_first_lick_time < 10 and stim_first_lick_time < 10 and ctrl_first_lick_time > 2 and stim_first_lick_time > 2:
+    if ctrl_first_lick_time < 10 and stim_first_lick_time < 10:
         ctrl_lick_times_020.append(ctrl_first_lick_time)
         stim_lick_times_020.append(stim_first_lick_time)
+    
+    if ctrl_first_lick_distance > 100 and stim_first_lick_distance > 100:
+        ctrl_lick_distances_020.append(ctrl_first_lick_distance)
+        stim_lick_distances_020.append(stim_first_lick_distance)
     
 pf.plot_violin_with_scatter(
     ctrl_lick_times_020, stim_lick_times_020, 
@@ -241,7 +293,18 @@ pf.plot_violin_with_scatter(
     ylabel='first-lick time (s)',
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_lick_times',
-    dpi=300)
+    dpi=300
+    )
+
+pf.plot_violin_with_scatter(
+    ctrl_lick_distances_020, stim_lick_distances_020, 
+    'grey', 'royalblue',
+    xticklabels=['ctrl.', 'stim.'],
+    ylabel='first-lick distance (cm)',
+    save=True,
+    savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_lick_distances',
+    dpi=300
+    )
 
 
 #%% 030 

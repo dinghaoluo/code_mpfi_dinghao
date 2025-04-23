@@ -292,13 +292,19 @@ def get_cell_info(info_filename):
     - spike_rates: 1d array of spike rates for all cells.
     """
     info = sio.loadmat(info_filename)
-    rec_info = info['rec'][0][0]
+    # rec_info = info['rec'][0][0]
     autocorr = info['autoCorr'][0][0]
     
-    spike_rates = rec_info['firingRate'][0]
+    # spike_rates = rec_info['firingRate'][0]
+    
+    # use the pipeline-calculated FR 
+    filestem = info_filename.split('_Info')[0]
+    spike_rates = sio.loadmat(
+        rf'{filestem}_FR_Run1.mat'
+        )['mFRStruct']['mFR'][0][0].flatten()
     
     is_pyr = autocorr['isPyrneuron'][0]
-    cell_identities = ['pyr' if i else 'int' for i in is_pyr]
+    cell_identities = ['putative_pyr' if i else 'int' for i in is_pyr]
     
     return cell_identities, spike_rates
 
@@ -346,6 +352,20 @@ def get_good_bad_idx_MATLAB(pathname):
     
     return good_idx_matlab, bad_idx_matlab
 
+def get_place_cell_idx(classification_filename):
+    """
+    get indices of place cells identified by the MATLAB pipeline.
+
+    parameters:
+    - classification_filename: path to the MATLAB classification file.
+
+    returns:
+    - place_cell_idx: array of indices for place cells.
+    """
+    # get indices of place cells identifies by the MATLAB pipeline
+    # -1 because the indices were 1-indexed, whereas get_pyr_info() uses 0-indexing
+    return sio.loadmat(classification_filename)['fieldSpCorrSessNonStimGood'][0][0]['indNeuron'][0]-1
+
 def get_relative_depth(pathname):
     depth_struct = sio.loadmat(pathname)['depthNeu'][0]
     return depth_struct['relDepthNeu'][0][0]  # a list 
@@ -378,21 +398,32 @@ def get_trial_matrix(trains, trialtype_idx, max_samples, clu):
             temp_matrix[idx, :] = np.asarray(trains[clu][trial][:max_samples])
     return temp_matrix
 
-def get_place_cell_idx(classification_filename):
+def get_trialtype_idx(stim_conds: list) -> tuple:
     """
-    get indices of place cells identified by the MATLAB pipeline.
-
+    retrieves indices for baseline, stimulation, and control trials.
+    
     parameters:
-    - classification_filename: path to the MATLAB classification file.
-
+    - stim_conds (list): list of stimulation conditions for each trial.
+    
     returns:
-    - place_cell_idx: array of indices for place cells.
+    - tuple:
+        1. list: indices for baseline trials.
+        2. list: indices for stimulation trials.
+        3. list: indices for control trials.
     """
-    # get indices of place cells identifies by the MATLAB pipeline
-    # -1 because the indices were 1-indexed, whereas get_pyr_info() uses 0-indexing
-    return sio.loadmat(classification_filename)['fieldSpCorrSessNonStimGood'][0][0]['indNeuron'][0]-1
+    stim_idx = [trial for trial, cond in enumerate(stim_conds)
+                if cond!='0']
+    
+    if not stim_idx:
+        return list(range(len(stim_conds))), [], []  # if no stim trials
+    else:
+        return (
+            list(range(stim_idx[0])), 
+            stim_idx, 
+            [idx+2 for idx in stim_idx]  # stim_idx+2 are indices of control trials
+            )
 
-def get_trialtype_idx(beh_filename):
+def get_trialtype_idx_MATLAB(beh_filename):
     """
     get indices for baseline, stimulation, and control trials.
 

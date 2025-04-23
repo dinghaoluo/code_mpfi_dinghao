@@ -13,12 +13,12 @@ plot the lick-to-pump profiles (both time and distance)
 #%% imports 
 import pandas as pd 
 import matplotlib.pyplot as plt 
+import sys 
+import numpy as np 
 
-# plotting parameters 
-import matplotlib
-plt.rcParams['font.family'] = 'Arial'
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from common import mpl_formatting
+mpl_formatting()
 
 
 #%% load data 
@@ -28,61 +28,75 @@ df = pd.read_pickle(r'Z:/Dinghao/code_dinghao/behaviour/all_{}_sessions.pkl'.for
 
 
 #%% load behav data 
-lick_times = df['lick_times']
-reward_times = df['reward_times']
+speed_times = df['speed_times']
+speed_distance = df['speed_distance']
 
-lick_distances = df['lick_distances']
-reward_distances = df['reward_distances']
+# stack all speed profiles (ignore time; assume uniform sampling)
+trial_speeds = [
+    np.array([s for t, s in trial])
+    for session in speed_times
+    for trial in session
+    ]
+trial_speeds_distance = [
+    np.array([s for s in trial])
+    for session in speed_distance
+    for trial in session
+    ]
 
-# updated to eliminate nested for loops, 3 Oct 2024 Dinghao 
-lick_to_pumps_times = [
-    (lick-reward_times[key][trial][0])/1250
-    for key in lick_times.keys()
-    for trial in range(len(lick_times[key]))
-    if lick_times[key][trial] and reward_times[key][trial]  # this is to make sure that the current trial has licks and rewards
-    for lick in lick_times[key][trial]]
+# determine max trial length
+max_len = max(len(speeds) for speeds in trial_speeds)
 
-lick_to_pumps_distances = [
-    lick-reward_distances[key][trial][0]
-    for key in lick_distances.keys()
-    for trial in range(len(lick_distances[key]))
-    if reward_distances[key][trial]  # this is to make sure that the current trial has licks and rewards
-    for lick in lick_distances[key][trial]]
+# initialise with nan
+all_speeds = np.full((len(trial_speeds), max_len), np.nan)
+
+# fill in speed values
+for i, speeds in enumerate(trial_speeds):
+    all_speeds[i, :len(speeds)] = speeds
+
+# compute mean ignoring nans
+mean_speed = np.nanmean(all_speeds, axis=0)
+mean_speed[0] = 15
+
+mean_speed_distance = np.nanmean(trial_speeds_distance, axis=0)
+
+# time axis based on sampling rate
+sampling_rate = 50  # Hz
+dt = 1 / sampling_rate
+time_axis = np.arange(max_len) * dt
 
 
 #%% main 
-fig, ax = plt.subplots(figsize=(1.9,1.5))
+fig, ax = plt.subplots(figsize=(1.9,1.7))
 
-# create histogram 
-ax.hist(lick_to_pumps_times, bins=30, range=(-5, 1), density=True, color='orchid')
+ax.plot(time_axis, mean_speed, color='k')
 
-ax.set(xlim=(-5, 1), xlabel='time to reward (s)', 
-       ylabel='hist. licks')
+ax.set(xlim=(0, 4), xlabel='time from run-onset (s)', xticks=[0,2,4],
+       ylabel='speed (cm/s)', yticks=[10, 30, 50])
 for s in ['top','right']: ax.spines[s].set_visible(False)
 
 fig.tight_layout()
 plt.show()
 for ext in ['.png', '.pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\lick2pump_profile_time\lick_to_pumps_{}{}'.format(exp_name, ext),
-                dpi=300,
-                bbox_inches='tight')
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\behaviour\speed_profiles\speed_profile_time_{exp_name}{ext}',
+        dpi=300,
+        bbox_inches='tight')
 plt.close(fig)
 
 
-fig, ax = plt.subplots(figsize=(1.9,1.5))
+fig, ax = plt.subplots(figsize=(1.9,1.7))
 
-# create histogram
-ax.hist(lick_to_pumps_distances, bins=30, range=(-100, 20), density=True, color='orchid')
-ax.vlines(0, 0, 0.035, 'darkgreen')
+ax.plot(mean_speed_distance, color='k')
 
-ax.set(xlim=(-100, 20), xlabel='dist. to reward (cm)', 
-       ylabel='hist. licks')
+ax.set(xlim=(0, 200), xlabel='dist. from run-onset (cm)', 
+       ylabel='speed (cm/s)')
 for s in ['top','right']: ax.spines[s].set_visible(False)
 
 fig.tight_layout()
 plt.show()
 for ext in ['.png', '.pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\lick2pump_profile_distance\lick_to_pumps_{}{}'.format(exp_name, ext),
-                dpi=300,
-                bbox_inches='tight')
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\behaviour\speed_profiles\speed_profile_distance_{exp_name}{ext}',
+        dpi=300,
+        bbox_inches='tight')
 plt.close(fig)

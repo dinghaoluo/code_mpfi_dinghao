@@ -58,6 +58,12 @@ else:
         'class': [],  # run-onset activated/inhibited/unresponsive
         'class_stim': [],
         'class_ctrl': [],
+        'pre_post_MATLAB': [],
+        'pre_post_stim_MATLAB': [],
+        'pre_post_ctrl_MATLAB': [],
+        'class_MATLAB': [],
+        'class_stim_MATLAB': [],
+        'class_ctrl_MATLAB': [],
         'var': [],  # trial-by-trial variability in firing
         'var_stim': [],
         'var_ctrl': [],
@@ -67,12 +73,27 @@ else:
         'TI': [],  # temporal information 
         'TI_stim': [],
         'TI_ctrl': [],
+        'var_MATLAB': [],  # trial-by-trial variability in firing
+        'var_stim_MATLAB': [],
+        'var_ctrl_MATLAB': [],
+        'SI_MATLAB': [],  # spatial information
+        'SI_stim_MATLAB': [],
+        'SI_ctrl_MATLAB': [],
+        'TI_MATLAB': [],  # temporal information 
+        'TI_stim_MATLAB': [],
+        'TI_ctrl_MATLAB': [],
         'prof_mean': [],  # mean firing profile
         'prof_sem': [],
         'prof_stim_mean': [],
         'prof_stim_sem': [],
         'prof_ctrl_mean': [],
         'prof_ctrl_sem': [],
+        'prof_mean_MATLAB': [],  # mean firing profile
+        'prof_sem_MATLAB': [],
+        'prof_stim_mean_MATLAB': [],
+        'prof_stim_sem_MATLAB': [],
+        'prof_ctrl_mean_MATLAB': [],
+        'prof_ctrl_sem_MATLAB': [],
         'prof_good_mean': [],
         'prof_good_sem': [],
         'prof_bad_mean': [],
@@ -112,8 +133,8 @@ MAX_TIME = 10  # collect (for each trial) a maximum of 10 s of spiking-profile
 MAX_SAMPLES = SAMP_FREQ * MAX_TIME
 
 # pre_post ratio thresholds 
-run_onset_activated_thres = 0.80
-run_onset_inhibited_thres = 1.25
+run_onset_activated_thres = 2/3
+run_onset_inhibited_thres = 3/2
 
 
 #%% GPU acceleration
@@ -188,9 +209,22 @@ for pathname in paths:
         )
     
     # behaviour parameters
-    baseline_idx, stim_idx, ctrl_idx = support.get_trialtype_idx(
+    (
+        baseline_idx_MATLAB, 
+        stim_idx_MATLAB, 
+        ctrl_idx_MATLAB
+    ) = support.get_trialtype_idx_MATLAB(
         r'{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.
         format(pathname, recname)
+        )
+        
+    stim_conds = [trial[15] for trial in beh_df['trial_statements']][1:]  # index 15 is the stim condition
+    (
+        baseline_idx,
+        stim_idx,
+        ctrl_idx
+    ) = support.get_trialtype_idx(
+        stim_conds
         )
 
     # iterate over all pyramidal cells 
@@ -198,7 +232,7 @@ for pathname in paths:
         # pyr or int (or other if the spike rate is too high or too low)
         # modified 31 Mar 2025
         cell_identity = cell_identities[clu]
-        if cell_identity == 'pyr':
+        if cell_identity == 'putative_pyr':
             if 0.15<spike_rates[clu]<7:
                 pass
             else:
@@ -215,23 +249,81 @@ for pathname in paths:
         stim_matrix = support.get_trial_matrix(
             trains, stim_idx, MAX_SAMPLES, clu)
         
+        baseline_matrix_MATLAB = support.get_trial_matrix(
+            trains, baseline_idx_MATLAB, MAX_SAMPLES, clu)
+        ctrl_matrix_MATLAB = support.get_trial_matrix(
+            trains, ctrl_idx_MATLAB, MAX_SAMPLES, clu)
+        stim_matrix_MATLAB = support.get_trial_matrix(
+            trains, stim_idx_MATLAB, MAX_SAMPLES, clu)
+        
         # mean profiles
         baseline_mean = np.nanmean(baseline_matrix, axis=0)
         ctrl_mean = np.nanmean(ctrl_matrix, axis=0)
         stim_mean = np.nanmean(stim_matrix, axis=0)
+        
+        baseline_mean_MATLAB = np.nanmean(baseline_matrix_MATLAB, axis=0)
+        ctrl_mean_MATLAB = np.nanmean(ctrl_matrix_MATLAB, axis=0)
+        stim_mean_MATLAB = np.nanmean(stim_matrix_MATLAB, axis=0)
         
         # sem profiles 
         baseline_sem = sem(baseline_matrix, axis=0)
         ctrl_sem = sem(ctrl_matrix, axis=0)
         stim_sem = sem(stim_matrix, axis=0)
         
+        baseline_sem_MATLAB = sem(baseline_matrix_MATLAB, axis=0)
+        ctrl_sem_MATLAB = sem(ctrl_matrix_MATLAB, axis=0)
+        stim_sem_MATLAB = sem(stim_matrix_MATLAB, axis=0)
+        
         # pre-post ratio calculation
-        baseline_run_onset_ratio, baseline_run_onset_ratiotype = support.classify_run_onset_activation_ratio(
-            baseline_mean, run_onset_activated_thres, run_onset_inhibited_thres)
-        ctrl_run_onset_ratio, ctrl_run_onset_ratiotype = support.classify_run_onset_activation_ratio(
-            ctrl_mean, run_onset_activated_thres, run_onset_inhibited_thres)
-        stim_run_onset_ratio, stim_run_onset_ratiotype = support.classify_run_onset_activation_ratio(
-            stim_mean, run_onset_activated_thres, run_onset_inhibited_thres)
+        (
+            baseline_run_onset_ratio, 
+            baseline_run_onset_ratiotype
+        ) = support.classify_run_onset_activation_ratio(
+            baseline_mean, 
+            run_onset_activated_thres, 
+            run_onset_inhibited_thres
+            )
+        (
+            ctrl_run_onset_ratio, 
+            ctrl_run_onset_ratiotype
+        ) = support.classify_run_onset_activation_ratio(
+            ctrl_mean, 
+            run_onset_activated_thres, 
+            run_onset_inhibited_thres
+            )
+        (
+            stim_run_onset_ratio, 
+            stim_run_onset_ratiotype
+        ) = support.classify_run_onset_activation_ratio(
+            stim_mean, 
+            run_onset_activated_thres,
+            run_onset_inhibited_thres
+            )
+            
+        (
+            baseline_run_onset_ratio_MATLAB, 
+            baseline_run_onset_ratiotype_MATLAB
+        ) = support.classify_run_onset_activation_ratio(
+            baseline_mean_MATLAB, 
+            run_onset_activated_thres, 
+            run_onset_inhibited_thres
+            )
+        (
+            ctrl_run_onset_ratio_MATLAB, 
+            ctrl_run_onset_ratiotype_MATLAB
+        ) = support.classify_run_onset_activation_ratio(
+            ctrl_mean_MATLAB, 
+            run_onset_activated_thres, 
+            run_onset_inhibited_thres
+            )
+        (
+            stim_run_onset_ratio_MATLAB, 
+            stim_run_onset_ratiotype_MATLAB
+        ) = support.classify_run_onset_activation_ratio(
+            stim_mean_MATLAB, 
+            run_onset_activated_thres,
+            run_onset_inhibited_thres
+            )
         
         # modulation index calculation
         MI, MI_early, MI_late = support.compute_modulation_index(
@@ -246,13 +338,30 @@ for pathname in paths:
         ctrl_var = support.compute_trial_by_trial_variability(ctrl_matrix)
         stim_var = support.compute_trial_by_trial_variability(stim_matrix)
         
+        baseline_var_MATLAB = support.compute_trial_by_trial_variability(baseline_matrix_MATLAB)
+        ctrl_var_MATLAB = support.compute_trial_by_trial_variability(ctrl_matrix_MATLAB)
+        stim_var_MATLAB = support.compute_trial_by_trial_variability(stim_matrix_MATLAB)
+        
         # spatial information
-        baseline_SI = [support.compute_spatial_information(trains_dist[clu][trial], occupancy[trial]) for 
-                       trial in baseline_idx]
-        ctrl_SI = [support.compute_spatial_information(trains_dist[clu][trial], occupancy[trial]) for 
-                   trial in ctrl_idx]
-        stim_SI = [support.compute_spatial_information(trains_dist[clu][trial], occupancy[trial]) for 
-                   trial in stim_idx]
+        baseline_SI = [support.compute_spatial_information(
+            trains_dist[clu][trial], occupancy[trial]) 
+            for trial in baseline_idx]
+        ctrl_SI = [support.compute_spatial_information(
+            trains_dist[clu][trial], occupancy[trial]) 
+            for trial in ctrl_idx]
+        stim_SI = [support.compute_spatial_information(
+            trains_dist[clu][trial], occupancy[trial]) 
+            for trial in stim_idx]
+        
+        baseline_SI_MATLAB = [support.compute_spatial_information(
+            trains_dist[clu][trial], occupancy[trial]) 
+            for trial in baseline_idx_MATLAB]
+        ctrl_SI_MATLAB = [support.compute_spatial_information(
+            trains_dist[clu][trial], occupancy[trial]) 
+            for trial in ctrl_idx_MATLAB]
+        stim_SI_MATLAB = [support.compute_spatial_information(
+            trains_dist[clu][trial], occupancy[trial]) 
+            for trial in stim_idx_MATLAB]
         
         # temporal information 
         baseline_TI = [support.compute_temporal_information(
@@ -267,6 +376,22 @@ for pathname in paths:
         stim_TI = [support.compute_temporal_information(
             trains[clu][trial][SAMP_FREQ*3:],
             bin_size_steps=1) for trial in stim_idx
+            if trains[clu][trial] is not None]
+        
+        baseline_TI_MATLAB = [support.compute_temporal_information(
+            trains[clu][trial][SAMP_FREQ*3:],
+            bin_size_steps=1
+            ) for trial in baseline_idx_MATLAB
+            if trains[clu][trial] is not None]
+        ctrl_TI_MATLAB = [support.compute_temporal_information(
+            trains[clu][trial][SAMP_FREQ*3:],
+            bin_size_steps=1
+            ) for trial in ctrl_idx_MATLAB
+            if trains[clu][trial] is not None]
+        stim_TI_MATLAB = [support.compute_temporal_information(
+            trains[clu][trial][SAMP_FREQ*3:],
+            bin_size_steps=1
+            ) for trial in stim_idx_MATLAB
             if trains[clu][trial] is not None]
         
         # good/bad trial mean profiles 
@@ -325,6 +450,12 @@ for pathname in paths:
                                     baseline_run_onset_ratiotype,  # class
                                     stim_run_onset_ratiotype,  # class_stim
                                     ctrl_run_onset_ratiotype,  # class_ctrl 
+                                    baseline_run_onset_ratio_MATLAB,
+                                    stim_run_onset_ratio_MATLAB,
+                                    ctrl_run_onset_ratio_MATLAB, 
+                                    baseline_run_onset_ratiotype_MATLAB,
+                                    stim_run_onset_ratiotype_MATLAB, 
+                                    ctrl_run_onset_ratiotype_MATLAB,
                                     baseline_var,  # var
                                     stim_var,  # var_stim
                                     ctrl_var,  # var_ctrl
@@ -334,12 +465,27 @@ for pathname in paths:
                                     baseline_TI,  # TI
                                     stim_TI,  # TI_stim
                                     ctrl_TI,  # TI_ctrl
+                                    baseline_var_MATLAB,
+                                    stim_var_MATLAB,
+                                    ctrl_var_MATLAB,
+                                    baseline_SI_MATLAB,
+                                    stim_SI_MATLAB,
+                                    ctrl_SI_MATLAB,
+                                    baseline_TI_MATLAB,
+                                    stim_TI_MATLAB,
+                                    ctrl_TI_MATLAB,
                                     baseline_mean,  # prof_mean
                                     baseline_sem,  # prof_sem
                                     stim_mean,  # prof_stim_mean
                                     stim_sem,  # prof_stim_sem
                                     ctrl_mean,  # prof_ctrl_mean
                                     ctrl_sem,  # prof_ctrl_sem
+                                    baseline_mean_MATLAB,  # prof_mean
+                                    baseline_sem_MATLAB,  # prof_sem
+                                    stim_mean_MATLAB,  # prof_stim_mean
+                                    stim_sem_MATLAB,  # prof_stim_sem
+                                    ctrl_mean_MATLAB,  # prof_ctrl_mean
+                                    ctrl_sem_MATLAB,  # prof_ctrl_sem
                                     good_mean,  # prof_good_mean
                                     good_sem,  # prof_good_sem
                                     bad_mean,  # prof_bad_mean
