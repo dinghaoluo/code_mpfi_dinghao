@@ -11,6 +11,7 @@ organise properties of individual ROIs into a profile dataframe
 #%% imports 
 import numpy as np 
 import sys 
+from tqdm import tqdm
 import pandas as pd
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
@@ -23,10 +24,10 @@ mpl_formatting()
 
 
 #%% dataframe initialisation/loading
-fname = r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\LCHPC_axon_GCaMP_all_profiles.parquet'
+fname = r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\LCHPC_axon_GCaMP_all_profiles.pkl'
 # if os.path.exists(fname):
 if False:
-    df = pd.read_parquet(fname, engine='pyarrow')
+    df = pd.read_pickle(fname)
     print(f'df loaded from {fname}')
     processed_sess = df.index.tolist()
 else:
@@ -36,7 +37,9 @@ else:
         'roi_type': [],  # str, 'primary' or 'constituent'
         'constituents': [],  # list, filled only if roi_type=='primary'
         'coord': [],  # list of tuples (x, y)
+        'size': [],  # pixel count of the ROI
         'run_onset_peak': [],  # booleon
+        'run_onset_peak_dFF': [],  # float
         'run_onset_peak_ch2': [],  # as control 
         'mean_profile': [],  # mean fluorescence profile (dFF)
         'sem_profile': [],
@@ -123,6 +126,11 @@ for path in paths:
         rf'\{recname}\processed_data\valid_rois_coord_dict.npy',
         allow_pickle=True
         ).item()
+    constituent_ROIs_coord_dict = np.load(
+        rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
+        rf'\{recname}\processed_data\constituent_rois_coord_dict.npy',
+        allow_pickle=True
+        ).item()
     
     # get list of clunames 
     primary_rois = set(
@@ -135,9 +143,10 @@ for path in paths:
         )
     all_rois = primary_rois | constituent_rois
     
-    for roi in all_rois:
+    for roi in tqdm(all_rois,
+                    desc='collecting ROI profiles'):
         roiname = f'ROI {roi}'
-        print(roiname)
+        # print(roiname)
         dFF = F_dFF[roiname]
         dFF2 = F2_dFF[roiname]
         
@@ -162,10 +171,11 @@ for path in paths:
             constituents = None
             
         # coord
-        try:
+        roi_idx = int(roiname.split(' ')[-1])
+        if roi_idx in primary_rois:
             coord = valid_ROIs_coord_dict[roiname]
-        except KeyError:
-            coord = None
+        elif roi_idx in constituent_rois:
+            coord = constituent_ROIs_coord_dict[roiname]
     
         # run-onset peak detection 
         peak, mean_prof, shuf_prof = pdf.peak_detection(
@@ -210,7 +220,9 @@ for path in paths:
              identity,
              constituents,
              coord,
+             len(coord[0]),  # size of ROI
              peak,
+             mean_prof[peak] if peak is not None else np.nan,
              peak_ch2,
              mean_profile,
              sem_profile,
@@ -221,5 +233,5 @@ for path in paths:
             )
         
 ## save dataframe 
-df.to_parquet(fname, engine='pyarrow', compression='snappy')
+df.to_pickle(fname)
 print('\ndataframe saved')

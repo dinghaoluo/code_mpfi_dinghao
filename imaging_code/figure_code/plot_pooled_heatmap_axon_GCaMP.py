@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Nov  6 12:52:50 2024
+Modified on Thur 24 Apr 2025 to add a size filter 
 
 plot the heatmap of pooled ROI activity of axon-GCaMP animals 
 
@@ -12,6 +13,7 @@ plot the heatmap of pooled ROI activity of axon-GCaMP animals
 import numpy as np 
 import matplotlib.pyplot as plt
 import sys
+import pandas as pd 
 from tqdm import tqdm
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
@@ -20,22 +22,48 @@ mpl_formatting()
 
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
-pathHPCLCGCaMP = rec_list.pathHPCLCGCaMP
+paths = rec_list.pathLCHPCGCaMP
+
+
+#%% parameters 
+ROI_size_threshold = 500  # pixel count 
 
 
 #%% load data 
-proc_path = r'Z:\Dinghao\code_dinghao\axon_GCaMP\all_sessions'
+df = pd.read_pickle(
+    r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP'
+    r'\LCHPC_axon_GCaMP_all_profiles.pkl'
+    )
+
+proc_path = r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
 temp_dict = np.load(
-    rf'{proc_path}\{pathHPCLCGCaMP[0][-17:]}\processed_data\RO_aligned_mean_dict.npy',
+    rf'{proc_path}\{paths[0][-17:]}\processed_data\RO_aligned_mean_dict.npy',
     allow_pickle=True
     ).item()
-pooled_ROIs = np.row_stack([temp_dict[key] for key in temp_dict])
-for rec_path in tqdm(pathHPCLCGCaMP, desc='loading sessions'):
+temp_coord_dict = np.load(
+    rf'{proc_path}\{paths[0][-17:]}\processed_data\valid_rois_coord_dict.npy',
+    allow_pickle=True
+    ).item()
+pooled_ROIs = np.row_stack(
+    [temp_dict[key] 
+     for key in temp_dict
+     if len(temp_coord_dict[key][0]) > ROI_size_threshold]
+    )
+
+for rec_path in tqdm(paths, desc='loading sessions'):
     temp_dict = np.load(
         rf'{proc_path}\{rec_path[-17:]}\processed_data\RO_aligned_mean_dict.npy',
         allow_pickle=True
         ).item()
-    temp_array = np.row_stack([temp_dict[key] for key in temp_dict])
+    temp_coord_dict = np.load(
+        rf'{proc_path}\{rec_path[-17:]}\processed_data\valid_rois_coord_dict.npy',
+        allow_pickle=True
+        ).item()
+    temp_array = np.row_stack(
+        [temp_dict[key] 
+         for key in temp_dict
+         if len(temp_coord_dict[key][0]) > ROI_size_threshold]
+        )
     pooled_ROIs = np.vstack((pooled_ROIs, temp_array))
                             
 tot_rois = pooled_ROIs.shape[0]
@@ -57,5 +85,9 @@ im_ordered = ax.imshow(im_matrix,
 plt.colorbar(im_ordered, shrink=.5, ticks=[0,1], label='norm. dF/F')
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(r'Z:\Dinghao\code_dinghao\axon_GCaMP\pooled_ordered_heatmap_RO_aligned{}'.format(ext),
-                dpi=300)
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP'
+        rf'\pooled_ordered_heatmap_RO_aligned{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )

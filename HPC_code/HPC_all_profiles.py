@@ -234,7 +234,7 @@ for pathname in paths:
         cell_identity = cell_identities[clu]
         if cell_identity == 'putative_pyr':
             if 0.15<spike_rates[clu]<7:
-                pass
+                cell_identity = 'pyr'
             else:
                 cell_identity = 'other'
         

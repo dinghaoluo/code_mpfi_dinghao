@@ -43,7 +43,7 @@ print('loading dataframes...')
 cell_profiles = pd.read_pickle(
     r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl'
     )
-df_pyr = cell_profiles[cell_profiles['cell_identity']=='pyr']  # pyramidal only 
+df_pyr = cell_profiles[cell_profiles['cell_identity']=='putative_pyr']  # pyramidal only 
 
 beh_df = pd.concat((
     pd.read_pickle(
@@ -95,7 +95,7 @@ for path in paths:
         
         cluname = idx
                     
-        if session['pre_post']<=2/3:
+        if session['class']=='run-onset ON':
             
             mean_prof_ctrl = np.mean(trains[cluname][ctrl_idx], axis=0)
             mean_prof_stim = np.mean(trains[cluname][stim_idx], axis=0)
@@ -125,7 +125,7 @@ for path in paths:
                 tau_values_ctrl_ON.append(tau_ctrl)
                 tau_values_stim_ON.append(tau_stim)
                 
-        if session['pre_post']>=3/2:
+        if session['class']=='run-onset OFF':
             
             mean_prof_ctrl = np.mean(trains[cluname][ctrl_idx], axis=0)
             mean_prof_stim = np.mean(trains[cluname][stim_idx], axis=0)
@@ -223,6 +223,7 @@ plot_violin_with_scatter([s/1250-3 for s in peak_ctrl_ON],
                          showscatter=True,
                          save=False,
                          savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\ON_decay_constant_ctrl_stim')
+
 
 #%% plot rate 
 fig, ax = plt.subplots(figsize=(3,3))

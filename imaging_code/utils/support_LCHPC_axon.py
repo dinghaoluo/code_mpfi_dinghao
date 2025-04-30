@@ -11,9 +11,18 @@ support functions for the LCHPC axon-GCaMP pipeline to reduce cluttering
 import numpy as np 
 from scipy.stats import sem
 import os 
+import sys 
 from tqdm import tqdm
 import matplotlib.pyplot as plt 
 from matplotlib.colors import LinearSegmentedColormap
+from skimage.measure import find_contours
+
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
+import imaging_pipeline_functions as ipf
+
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from common import mpl_formatting
+mpl_formatting()
 
 
 #%% functions for LCHPC_axon_all_profiles.py
@@ -94,8 +103,8 @@ def calculate_and_plot_overlap_indices(
         border=10
         ):
     """
-    calculate overlap indices between ROIs and channel 2, then save ROI overlays with reference images.
-
+    calculate overlap indices between ROIs and channel 2, and plot aligned ROI overlays with outlines.
+    
     parameters:
     - ref_im: np.ndarray
         reference image for channel 1
@@ -103,26 +112,23 @@ def calculate_and_plot_overlap_indices(
         reference image for channel 2
     - stat: list of dict
         list of ROI dictionaries, each containing 'xpix' and 'ypix' with ROI pixel coordinates
-    - valid_rois: list
-        list of indices of valid ROIs
+    - valid_rois: iterable
+        list or set of indices of valid ROIs
     - recname: str
         name of the recording session
     - proc_path: str
         path to save ROI overlay plots
     - border: int, optional
-        additional padding around ROI for plotting (default is 10)
-
+        padding around each ROI for cropped sub-image display (default is 10 pixels)
+    
     returns:
     - overlap_indices: dict
-        dictionary with ROI indices as keys and calculated overlap indices as values
+        dictionary mapping ROI indices to their overlap index (mean ch2 / mean ch1 within ROI)
     """
     overlap_indices = {}
-    
-    # ensure output directory exists
-    output_dir = (rf'{proc_path}\ROI_ch2_validation')
+    output_dir = os.path.join(proc_path, 'ROI_ch2_validation')
     os.makedirs(output_dir, exist_ok=True)
     
-    # loop over each valid ROI to compute overlap index and generate plots
     for roi in valid_rois:
         xpix = stat[roi]['xpix']
         ypix = stat[roi]['ypix']
@@ -133,39 +139,64 @@ def calculate_and_plot_overlap_indices(
         overlap_index = ch2_values.mean() / ch1_values.mean()
         overlap_indices[roi] = overlap_index
         
-        # plot ROI overlay with reference images
+        # define crop window
         x_min, x_max = xpix.min(), xpix.max()
         y_min, y_max = ypix.min(), ypix.max()
-        
         x_center = (x_min + x_max) // 2
         y_center = (y_min + y_max) // 2
         half_span = max(x_max - x_min, y_max - y_min) // 2 + border
+        x_min_sq = max(0, x_center - half_span)
+        x_max_sq = min(ref_im.shape[1], x_center + half_span)
+        y_min_sq = max(0, y_center - half_span)
+        y_max_sq = min(ref_im.shape[0], y_center + half_span)
+
+        # extract sub-images
+        ch1_sub = ref_im[y_min_sq:y_max_sq, x_min_sq:x_max_sq]
+        ch2_sub = ref_ch2_im[y_min_sq:y_max_sq, x_min_sq:x_max_sq]
+
+        # post-process for display
+        ch1_proc = ipf.post_processing_suite2p_gui(ch1_sub)
+        ch2_proc = ipf.post_processing_suite2p_gui(ch2_sub)
+
+        # create binary mask in cropped coordinates
+        roi_mask = np.zeros_like(ch1_sub, dtype=bool)
+        for x, y in zip(xpix, ypix):
+            x_rel = x - x_min_sq
+            y_rel = y - y_min_sq
+            if 0 <= x_rel < roi_mask.shape[1] and 0 <= y_rel < roi_mask.shape[0]:
+                roi_mask[y_rel, x_rel] = True
         
-        x_min_square = max(0, x_center - half_span)
-        x_max_square = min(ref_im.shape[1], x_center + half_span)
-        y_min_square = max(0, y_center - half_span)
-        y_max_square = min(ref_im.shape[0], y_center + half_span)
-        
-        channel1_sub = ref_im[y_min_square:y_max_square, x_min_square:x_max_square]
-        channel2_sub = ref_ch2_im[y_min_square:y_max_square, x_min_square:x_max_square]
-        
-        fig, axes = plt.subplots(1, 2, figsize=(4, 2))
-        
-        # plot channel 1 with ROI outline
-        axes[0].imshow(channel1_sub, cmap='gray', extent=(x_min_square, x_max_square, y_max_square, y_min_square))
-        axes[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], color='limegreen', edgecolor='none', s=1, alpha=1)
-        axes[0].set_title(f'ROI {roi}: {round(overlap_index, 3)}')
-        
-        # plot channel 2 with the same view
-        axes[1].imshow(channel2_sub, cmap='gray', extent=(x_min_square, x_max_square, y_max_square, y_min_square))
-        axes[1].set_title('channel 2 ref.')
-        
-        # save the plot
-        fig.savefig(rf'{output_dir}\roi_{roi}.png', 
-                    dpi=300,
-                    bbox_inches='tight')
+        # find contours (in y,x coords!)
+        contours = find_contours(roi_mask.astype(float), level=0.5)
+
+        # plotting
+        fig, axes = plt.subplots(1, 3, figsize=(6, 2.2))
+        for ax in axes:
+            ax.axis('off')
+
+        axes[0].imshow(ch1_proc, cmap='gray')  # raw channel 1
+        axes[0].set_title('ch1 raw')
+
+        axes[1].imshow(ch1_proc, cmap='gray')  # channel 1 with ROI overlay
+        # axes[1].scatter(xpix - x_min_sq, ypix - y_min_sq, 
+        #                 color='limegreen', s=1, edgecolor='none', alpha=0.5)
+        for contour in contours:
+            axes[1].plot(contour[:, 1], contour[:, 0], 
+                         linewidth=1, color='limegreen')
+        axes[1].set_title(f'ch1 + ROI ({round(overlap_index, 3)})')
+
+        axes[2].imshow(ch2_proc, cmap='gray')  # channel 2
+        axes[2].set_title('ch2')
+
+        fig.suptitle(f'ROI {roi} overlap')
+        fig.tight_layout()
+
+        for ext in ['.png', '.pdf']:
+            fig.savefig(os.path.join(output_dir, f'roi_{roi}{ext}'),
+                        dpi=300,
+                        bbox_inches='tight')
         plt.close(fig)
-    
+
     return overlap_indices
 
 def filter_valid_rois(stat):
@@ -249,62 +280,68 @@ def spatial_median_filter(mov,
 
     return filtered
 
-def plot_roi_overlays(ref_im, ref_ch2_im, stat, valid_rois, recname, proc_path):
+def get_roi_coord_dict(
+        ref_im, ref_ch2_im, 
+        stat, rois, recname, proc_path,
+        plot=True):
     """
-    create a 3-panel plot showing ROIs overlayed with channel references, and save it in specified formats.
+    generate a dictionary of ROI pixel coordinates and optionally save a 3-panel reference plot.
     
-    parameters
-    ----------
-    ref_im : np.ndarray
+    parameters:
+    - ref_im: np.ndarray
         reference image for channel 1
-    ref_ch2_im : np.ndarray
+    - ref_ch2_im: np.ndarray
         reference image for channel 2
-    stat : list of dict
+    - stat: list of dict
         list of ROI dictionaries, each containing 'xpix' and 'ypix' with ROI pixel coordinates
-    valid_rois : list
-        list of indices of valid ROIs
-    recname : str
+    - rois: iterable
+        list or set of ROI indices to include
+    - recname: str
         name of the recording session
-    proc_path : str
-        path for saving processed data
+    - proc_path: str
+        path to save the plot if plotting is enabled
+    - plot: bool, optional
+        whether to generate and save a 3-panel plot showing merged ROIs, channel 1, and channel 2 (default: True)
     
-    returns
-    -------
-    valid_roi_coord_dict : dict
-        dictionary containing pixel coordinates for each valid ROI
+    returns:
+    - roi_coord_dict: dict
+        dictionary mapping ROI names (e.g., 'ROI 23') to their [xpix, ypix] coordinates
     """
-    fig, axs = plt.subplots(1, 3, figsize=(6, 2))
-    fig.subplots_adjust(wspace=0.35, top=0.75)
+    if plot:
+        fig, axs = plt.subplots(1, 3, figsize=(6, 2))
+        fig.subplots_adjust(wspace=0.35, top=0.75)
+        
+        for ax in axs:
+            ax.set(xlim=(0, 512), ylim=(0, 512))
+            ax.set_aspect('equal')
+            ax.set_xticks([])  # remove x ticks
+            ax.set_yticks([])  # remove y ticks
+        
+        # custom color maps for channels 1 and 2
+        colors_ch1 = plt.cm.Greens(np.linspace(0, 0.8, 256))
+        colors_ch2 = plt.cm.Reds(np.linspace(0, 0.8, 256))
+        custom_cmap_ch1 = LinearSegmentedColormap.from_list('mycmap_ch1', colors_ch1)
+        custom_cmap_ch2 = LinearSegmentedColormap.from_list('mycmap_ch2', colors_ch2)
+        
+        # display reference images in channels 1 and 2
+        axs[0].set(title='merged ROIs')
+        axs[1].imshow(ref_im, cmap=custom_cmap_ch1)
+        axs[2].imshow(ref_ch2_im, cmap=custom_cmap_ch2)
+        axs[1].set(title='axon-GCaMP')
+        axs[2].set(title='Dbh:Ai14')
+        
+        for roi in rois:
+            axs[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], 
+                           edgecolor='none', s=0.1, alpha=0.2)
+        
+        fig.suptitle(recname)
+        for ext in ['.png', '.pdf']:
+            fig.savefig(os.path.join(proc_path, f'rois_v_ref{ext}'), dpi=200)
+        plt.close(fig)
     
-    for ax in axs:
-        ax.set(xlim=(0, 512), ylim=(0, 512))
-        ax.set_aspect('equal')
-        ax.set_xticks([])  # remove x ticks
-        ax.set_yticks([])  # remove y ticks
-    
-    # custom color maps for channels 1 and 2
-    colors_ch1 = plt.cm.Greens(np.linspace(0, 0.8, 256))
-    colors_ch2 = plt.cm.Reds(np.linspace(0, 0.8, 256))
-    custom_cmap_ch1 = LinearSegmentedColormap.from_list('mycmap_ch1', colors_ch1)
-    custom_cmap_ch2 = LinearSegmentedColormap.from_list('mycmap_ch2', colors_ch2)
-    
-    # display reference images in channels 1 and 2
-    axs[1].imshow(ref_im, cmap=custom_cmap_ch1)
-    axs[2].imshow(ref_ch2_im, cmap=custom_cmap_ch2)
-    axs[1].set(title='axon-GCaMP')
-    axs[2].set(title='Dbh:Ai14')
-    
-    # overlay ROIs and store their coordinates in valid_roi_dict
-    valid_roi_coord_dict = {}
-    for roi in valid_rois:
-        axs[0].scatter(stat[roi]['xpix'], stat[roi]['ypix'], edgecolor='none', s=0.1, alpha=0.2)
-        valid_roi_coord_dict[f'ROI {roi}'] = [stat[roi]['xpix'], stat[roi]['ypix']]
-    axs[0].set(title='merged ROIs')
-    
-    # plot 
-    fig.suptitle(recname)
-    for ext in ['.png', '.pdf']:
-        fig.savefig(os.path.join(proc_path, f'rois_v_ref{ext}'), dpi=200)
-    plt.close(fig)
-    
-    return valid_roi_coord_dict
+    # store ROI coords in roi_dict
+    roi_coord_dict = {}
+    for roi in rois:            
+        roi_coord_dict[f'ROI {roi}'] = [stat[roi]['xpix'], stat[roi]['ypix']]
+      
+    return roi_coord_dict

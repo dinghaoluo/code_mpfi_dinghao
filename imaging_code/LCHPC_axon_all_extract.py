@@ -53,7 +53,7 @@ XAXIS = np.arange((BEF + AFT) * SAMP_FREQ) / SAMP_FREQ - BEF
 
 #%% load beh dataframe 
 print('loading behaviour dataframe...')
-df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_HPCLCGCaMP_sessions.pkl')
+df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_LCHPCGCaMP_sessions.pkl')
 
 
 #%% GPU acceleration
@@ -143,9 +143,10 @@ def process_all(rec_path):
     valid_rois = set(valid_rois_dict)
     
     # 19 Mar 2025: we also want to process the constituent ROIs
-    all_rois = valid_rois | {roi 
-                             for sublist in valid_rois_dict.values() 
-                             for roi in sublist}
+    constituent_rois = {roi 
+                        for sublist in valid_rois_dict.values() 
+                        for roi in sublist}
+    all_rois = valid_rois | constituent_rois
 
     # filtering through channel 2
     support.calculate_and_plot_overlap_indices(
@@ -154,7 +155,11 @@ def process_all(rec_path):
         )
     
     # ROI plots
-    valid_rois_coord_dict = support.plot_roi_overlays(
+    constituent_rois_coord_dict = support.get_roi_coord_dict(
+        ref_im, ref_ch2_im, 
+        stat, constituent_rois, recname, proc_path
+        )
+    valid_rois_coord_dict = support.get_roi_coord_dict(
         ref_im, ref_ch2_im, 
         stat, valid_rois, recname, proc_path
         )
@@ -271,7 +276,7 @@ def process_all(rec_path):
                             bbox_inches='tight')
             plt.close(fig)
             
-            fig, ax = plt.subplots(figsize=(2.2, 1.7))
+            fig, ax = plt.subplots(figsize=(2.5, 1.7))
             axt = ax.twinx()
             axt.set_zorder(0)
             ax.set_zorder(1)
@@ -321,6 +326,7 @@ def process_all(rec_path):
                        for roi in valid_rois_dict}  # rename keys to align with other dicts
     np.save(rf'{proc_data_path}\valid_ROIs_dict.npy', valid_rois_dict)
     np.save(rf'{proc_data_path}\valid_ROIs_coord_dict.npy', valid_rois_coord_dict)
+    np.save(rf'{proc_data_path}\constituent_ROIs_coord_dict.npy', constituent_rois_coord_dict)
 
     # save merged ROIs 
     np.save(rf'{proc_data_path}\RO_aligned_dict.npy', all_run_dict)
@@ -430,7 +436,7 @@ def process_all(rec_path):
                             bbox_inches='tight')
             plt.close(fig)
             
-            fig, ax = plt.subplots(figsize=(2.2, 1.7))
+            fig, ax = plt.subplots(figsize=(2.5, 1.7))
             axt = ax.twinx()
             axt.set_zorder(0)
             ax.set_zorder(1)

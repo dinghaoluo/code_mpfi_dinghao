@@ -19,17 +19,23 @@ early_late_lick_cutoff = 120  # cm; for lick-selectivity calculation
 
 
 #%% main function 
-def process_behavioural_data(txtfile: str, 
-                             max_distance=220, 
-                             distance_resolution=1, 
-                             run_onset_initial=3.0, 
-                             run_onset_sustained=10.0, 
-                             run_onset_duration=300) -> dict:
+def process_behavioural_data(
+        txtfile: str, 
+        max_distance=220, 
+        distance_resolution=1, 
+        run_onset_initial=3.0, 
+        run_onset_sustained=10.0, 
+        run_onset_duration=300
+        ) -> dict:
     '''
     processes behavioural data from a txt file, aligning speed, lick, and reward events 
     to both time and distance bases, while extracting metrics such as run onsets, 
     lick selectivity, trial quality, and full stop status.
-    
+
+    gaps between trials are filled with 0 cm/s data sampled at 50 Hz to ensure continuous 
+    speed trace for stitching. run-onset is detected by first identifying a sustained high-speed 
+    segment, then tracing back to the last sub-threshold speed before it.
+
     parameters:
     ----------
     txtfile : str
@@ -45,14 +51,17 @@ def process_behavioural_data(txtfile: str,
     run_onset_duration : int, optional
         duration (in ms) for which the sustained speed threshold must be held 
         to confirm run onset (default is 300 ms).
-    
+
     returns:
     -------
     dict
         a dictionary containing aligned behavioural data across time and distance bases, including:
         - 'speed_times': list of lists, each containing [timestamp, speed] pairs for each trial.
+        - 'speed_times_full': single list of all [timestamp, speed] pairs concatenated across trials.
+        - 'speed_times_aligned': list of lists with speed traces aligned to run-onset (time = 0).
         - 'speed_distances': list of arrays, each containing speeds aligned to a common distance base.
         - 'lick_times': list of lists, each containing lick event timestamps for each trial.
+        - 'lick_times_aligned': list of lists with lick timestamps aligned to run-onset.
         - 'lick_distances': list of arrays, each containing lick events aligned to the distance base.
         - 'lick_maps': list of arrays, each binary array representing lick events mapped onto the distance base.
         - 'start_cue_times': list of lists, each containing timestamps of start cues.
@@ -68,135 +77,179 @@ def process_behavioural_data(txtfile: str,
             2. Speeds below 10 cm/s for a cumulative duration >5 seconds between run-onset and reward.
             3. Lack of a detected run-onset or delivered reward.
         - 'frame_times': list of timestamps for each movie frame, corrected for overflow.
+        - 'reward_omissions': raw omission info from txt parser.
     '''
-    # load and parse the txt file
-    data = process_txt(txtfile)  # uses user's custom `process_txt` function
+    data = process_txt(txtfile)
 
-    # correct for overflow in the data
     data['speed_times'] = correct_overflow(data['speed_times'], 'speed')
     data['lick_times'] = correct_overflow(data['lick_times'], 'lick')
     data['pump_times'] = correct_overflow(data['pump_times'], 'pump')
     data['movie_times'] = correct_overflow(data['movie_times'], 'movie')
     data['trial_statements'] = correct_overflow(data['trial_statements'], 'trial_statement')
     frame_times = correct_overflow(data['frame_times'], 'frame')
-    
-    # define common time and distance bases
+
     common_distance_base = np.linspace(0, max_distance, int(max_distance / distance_resolution))
-    
-    # initialise lists for storing data across trials
-    speed_times, speed_distances = [], []
-    lick_times, lick_distances, lick_maps = [], [], []
-    start_cue_times, reward_times, reward_distances = [], [], []
+
+    speed_times = []
+    lick_times = []
+    lick_maps = []
+    start_cue_times = []
+    reward_times = []
+    reward_distances = []
     run_onsets = []
     trial_statements = []
     lick_selectivities = []
     full_stops = []
     bad_trials = []
 
-    # process each trial
+    speed_times_full = []
+    speed_times_aligned, lick_times_aligned = [], []
+    speed_distances, lick_distances = [], []
+
+    previous_times, previous_speeds = [], []
+    previous_reward = []
+
     for trial_idx, (speed_trial, lick_trial, movie_trial, reward_trial) in enumerate(
         zip(data['speed_times'], data['lick_times'], data['movie_times'], data['pump_times'])
     ):
-        # extract times and speeds
         times = [s[0] for s in speed_trial]
         speeds = [s[1] for s in speed_trial]
         formatted_speed_times = list(zip(times, speeds))
         speed_times.append(formatted_speed_times)
-        
-        # calculate full stop
-        if trial_idx > 0:  # no full stop check for the first trial
-            previous_reward_time = reward_times[trial_idx - 1][-1] if reward_times[trial_idx - 1] else None
-            current_reward_time = reward_trial[-1] if reward_trial else None
-            if previous_reward_time is not None and current_reward_time is not None:
-                # filter speed data within the range
-                time_mask = [(t > previous_reward_time and t < current_reward_time) for t in times]
-                speeds_during_pause = np.array(speeds)[time_mask]
-                full_stop = np.any(speeds_during_pause < 10)  # true if speed drops below 10 cm/s
-            else:
-                full_stop = False
-        else:
-            full_stop = False  # first trial can't have a full stop
-        full_stops.append(full_stop)
-            
-        # process licks
-        lick_times_trial = [event[0] for event in lick_trial]
-        lick_distances_trial = np.interp(lick_times_trial, times, np.cumsum(speeds) * (np.diff(times, prepend=times[0]) / 1000))
+        speed_times_full.extend(formatted_speed_times)
 
-        # calculate cumulative distance
-        distances = np.cumsum(speeds) * (np.diff(times, prepend=times[0]) / 1000)  # cm
-        distances -= distances[0]  # reset distance to 0
+        distances = np.cumsum(speeds) * (np.diff(times, prepend=times[0]) / 1000)
+        distances -= distances[0]
 
-        # interpolate speeds onto the common distance base
-        max_distance_trial = min(distances[-1], max_distance)
-        valid_distance_base = common_distance_base[common_distance_base <= max_distance_trial]
-        interpolated_speed = np.interp(valid_distance_base, distances, speeds)
-        padded_speed = np.pad(interpolated_speed, (0, len(common_distance_base) - len(interpolated_speed)), 'constant')
-        speed_distances.append(padded_speed)
+        run_onset = np.nan
 
-        # run-onset detection
-        run_onset = -1  # default to -1 if no valid onset found
+        # fill the gap between trials with speed=0 if necessary
+        if previous_times and previous_speeds:
+            gap_start = previous_times[-1]
+            gap_end = times[0]
+            if gap_end - gap_start > 20:
+                gap_times = np.arange(gap_start + 20, gap_end, 20)
+                gap_speeds = np.zeros_like(gap_times)
+                previous_times = previous_times + list(gap_times)
+                previous_speeds = previous_speeds + list(gap_speeds)
+
+        # stitch previous and current trial
+        concat_times = previous_times + times
+        concat_speeds = previous_speeds + speeds
+        concat_times = np.array(concat_times)
+        concat_speeds = np.array(concat_speeds)
+
+        # compute uniform time base for putative onset detection
         uni_time = np.linspace(times[0], times[-1], int(times[-1] - times[0]))
         uni_speed = np.interp(uni_time, times, speeds)
-        sustained_threshold = run_onset_duration / 1000 * 1000  # convert 0.3 seconds to ms for sustained duration
+
+        # find sustained high-speed segment as putative onset
+        putative_onset = np.nan
         count = 0
         for i in range(len(uni_speed)):
             if uni_speed[i] > run_onset_sustained:
                 count += 1
             else:
                 count = 0
-            if uni_speed[i] > run_onset_initial and count > sustained_threshold:
-                run_onset = uni_time[i] - sustained_threshold
+            if uni_speed[i] > run_onset_initial and count > run_onset_duration:
+                putative_onset = uni_time[i] - run_onset_duration
                 break
-        run_onsets.append(run_onset)
-        
-        # bad trial metric #1: is there any lick between 30 and 90 cm?
-        is_bad_trial_lick = np.any((lick_distances_trial >= 30) & (lick_distances_trial <= 90))
-        
-        # bad trial metrics #2, #3 and #4: 
-        #     is there not a valid run-onset?
-        #     did the animal stop for more than 5 seconds in the trial?
-        #     did the animal not get a reward (implicit)
-        if run_onset != -1 and reward_trial:
-            reward_time = reward_trial[-1]
-            speeds_between_onset_reward = [speed for t, speed in formatted_speed_times if run_onset <= t <= reward_time]
-            total_low_speed_duration = np.sum(np.array(speeds_between_onset_reward) < 10) * (times[1] - times[0]) / 1000
-            is_bad_trial_speed = total_low_speed_duration > 5  # bad if more than 5 seconds of stoptime
+
+        # if found, search back to last sub-threshold dip
+        if not np.isnan(putative_onset):
+            prior_idx = np.where(concat_times <= putative_onset)[0]
+            prior_speeds = concat_speeds[prior_idx]
+            prior_times = concat_times[prior_idx]
+            below_idx = np.where(prior_speeds < run_onset_sustained)[0]
+            if len(below_idx) > 0 and (trial_idx == 0 or prior_times[below_idx[-1]] > previous_reward):
+                run_onset = prior_times[below_idx[-1]]
+            else:
+                run_onset = putative_onset
         else:
-            is_bad_trial_speed = True  # bad if no valid run-onset or no reward
-            
-        # bad trial metric #4: is there not a reward?
-        is_bad_trial_reward = len(reward_trial) == 0
-        
-        # final disjunction for bad/good trial
-        bad_trials.append(is_bad_trial_lick or is_bad_trial_speed or is_bad_trial_reward)
-        
-        # process lick data
+            # fallback: no sustained segment found, trace back from start of trial
+            prior_idx = np.where(concat_times <= times[0])[0]
+            prior_speeds = concat_speeds[prior_idx]
+            prior_times = concat_times[prior_idx]
+            below_idx = np.where(prior_speeds < run_onset_sustained)[0]
+            if len(below_idx) > 0 and (trial_idx == 0 or prior_times[below_idx[-1]] > previous_reward[-1]):
+                run_onset = prior_times[below_idx[-1]]
+            else:
+                run_onset = np.nan
+
+        run_onsets.append(run_onset)
+
+        if not np.isnan(run_onset):
+            aligned_times = [t - run_onset for t in concat_times if t > run_onset]
+            aligned_speeds = [s for t, s in zip(concat_times, concat_speeds) if t > run_onset]
+            speed_times_aligned.append(list(zip(aligned_times, aligned_speeds)))
+        else:
+            speed_times_aligned.append([])
+
         lick_times_trial = [event[0] for event in lick_trial]
-        lick_distances_trial = np.interp(lick_times_trial, times, distances)
         lick_times.append(lick_times_trial)
-        lick_distances.append(lick_distances_trial)
-        
+
+        if not np.isnan(run_onset):
+            lick_times_aligned.append([t - run_onset for t in lick_times_trial if t > run_onset])
+        else:
+            lick_times_aligned.append([])
+
+        lick_distances_trial = np.interp(lick_times_trial, times, distances)
+
+        if not np.isnan(run_onset):
+            run_distance = np.interp(run_onset, times, distances)
+            lick_distances.append(np.array([d - run_distance for t, d in zip(lick_times_trial, lick_distances_trial) if t > run_onset]))
+
+            distances_shifted = distances - run_distance
+            valid_distance_base = common_distance_base[common_distance_base <= (distances_shifted[-1] if len(distances_shifted) > 0 else 0)]
+            interpolated_speed_shifted = np.interp(valid_distance_base, distances_shifted, speeds, left=0, right=0)
+            padded_speed_shifted = np.pad(interpolated_speed_shifted, (0, len(common_distance_base) - len(interpolated_speed_shifted)), 'constant')
+            speed_distances.append(padded_speed_shifted)
+        else:
+            lick_distances.append([])
+            speed_distances.append(np.zeros_like(common_distance_base))
+
         lick_indices = np.searchsorted(common_distance_base, lick_distances_trial)
         lick_map_trial = np.zeros(len(common_distance_base))
         valid_indices = lick_indices[lick_indices < len(lick_map_trial)]
         lick_map_trial[valid_indices] = 1
         lick_maps.append(lick_map_trial)
 
-        # process reward data
         reward_times.append(reward_trial)
         reward_distances.append(np.interp(reward_trial, times, distances) if reward_trial else [])
 
-        # extract start cue times
         start_cue_times.append([m[0] for m in movie_trial if m[1] == 2])
+        trial_statements.append(data['trial_statements'][trial_idx])
 
-        # trial statement times and optogenetic protocol
-        trial_statement = data['trial_statements'][trial_idx]
-        trial_statements.append(trial_statement)
-        
-        # lick selectivity
         lick_selectivities.append(lick_index(lick_map_trial))
 
-    # structure the result
+        if trial_idx > 0:
+            previous_reward_time = reward_times[trial_idx - 1][-1] if reward_times[trial_idx - 1] else None
+            current_reward_time = reward_trial[-1] if reward_trial else None
+            if previous_reward_time is not None and current_reward_time is not None:
+                time_mask = [(t > previous_reward_time and t < current_reward_time) for t in times]
+                speeds_during_pause = np.array(speeds)[time_mask]
+                full_stop = np.any(speeds_during_pause < 10)
+            else:
+                full_stop = False
+        else:
+            full_stop = False
+        full_stops.append(full_stop)
+
+        is_bad_trial_lick = np.any((lick_distances_trial >= 30) & (lick_distances_trial <= 90))
+        if not np.isnan(run_onset) and reward_trial:
+            reward_time = reward_trial[-1]
+            speeds_between_onset_reward = [speed for t, speed in formatted_speed_times if run_onset <= t <= reward_time]
+            total_low_speed_duration = np.sum(np.array(speeds_between_onset_reward) < 10) * (times[1] - times[0]) / 1000
+            is_bad_trial_speed = total_low_speed_duration > 5
+        else:
+            is_bad_trial_speed = True
+        is_bad_trial_reward = len(reward_trial) == 0
+        bad_trials.append(is_bad_trial_lick or is_bad_trial_speed or is_bad_trial_reward)
+
+        previous_times = times
+        previous_speeds = speeds
+        previous_reward = reward_trial
+
     return {
         'speed_times': speed_times,
         'speed_distances': speed_distances,
@@ -211,8 +264,11 @@ def process_behavioural_data(txtfile: str,
         'trial_statements': trial_statements,
         'full_stops': full_stops,
         'bad_trials': bad_trials,
-        'frame_times': frame_times,  # this was actually added just to prevent np.array(... type='object) from automatically producing a 2D array, 6 Dec 2024
-        'reward_omissions': data['reward_omissions'] # Jingyu, 1/10/2025
+        'frame_times': frame_times,
+        'reward_omissions': data['reward_omissions'],
+        'speed_times_full': speed_times_full,
+        'speed_times_aligned': speed_times_aligned,
+        'lick_times_aligned': lick_times_aligned
     }
 
 def process_behavioural_data_imaging(txtfile: str, 
