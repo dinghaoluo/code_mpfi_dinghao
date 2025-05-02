@@ -920,81 +920,107 @@ def process_locomotion(wheel_tuples,
     speed_smoothed = uniform_filter1d(speed, size=window_samples)
 
     # detect run onsets
-    run_onset_times = [np.nan]  # first trial does not have a run-onset 
+    run_onset_times = [np.nan]  # first trial skipped
 
     for i in range(1, len(trial_start_times)):
-        t0_prev = trial_start_times[i - 1]
-        t0 = trial_start_times[i]
-        t1 = trial_end_times[i] if i < len(trial_end_times) else upsampled_timestamps[-1]
+        t_prev = trial_start_times[i-1]
+        t0     = trial_start_times[i]
+        t1     = trial_end_times[i] if i < len(trial_end_times) else upsampled_timestamps[-1]
 
-        idx0_prev = np.searchsorted(upsampled_timestamps, t0_prev)
-        idx0 = np.searchsorted(upsampled_timestamps, t0)
-        idx1 = np.searchsorted(upsampled_timestamps, t1)
+        # trial boundaries in the upsampled array
+        idx_prev_start = np.searchsorted(upsampled_timestamps, t_prev)
+        idx_curr_start = np.searchsorted(upsampled_timestamps, t0)
+        idx_curr_end   = np.searchsorted(upsampled_timestamps, t1)
 
-        # find reset within previous trial
-        trace_reset_prev = upsampled_distance_cm[idx0_prev:idx0]
-        diffs = np.diff(trace_reset_prev)
-        reset_points = np.where(diffs < -track_length_cm / 2)[0]
+        # — reset detection on raw distances (same as before) —
+        trace_prev = upsampled_distance_cm[idx_prev_start:idx_curr_start]
+        diffs      = np.diff(trace_prev)
+        resets     = np.where(diffs < -track_length_cm/2)[0]
 
-        if len(reset_points) > 0:
-            reset_idx = reset_points[-1] + 1
-            post_reset = np.where(trace_reset_prev[reset_idx:] > track_length_cm)[0]
-            if len(post_reset) > 0:
-                idx_reset_exit = idx0_prev + reset_idx + post_reset[0]
+        if resets.size > 0:
+            last_reset = resets[-1] + 1
+            post       = np.where(trace_prev[last_reset:] > track_length_cm)[0]
+            if post.size:
+                idx_exit = idx_prev_start + last_reset + post[0]
             else:
-                post_overall = np.where(trace_reset_prev > track_length_cm)[0]
-                idx_reset_exit = idx0_prev + post_overall[0] if len(post_overall) else idx0_prev
+                overall = np.where(trace_prev > track_length_cm)[0]
+                idx_exit = (idx_prev_start + overall[0]) if overall.size else idx_curr_start
         else:
-            post_overall = np.where(trace_reset_prev > track_length_cm)[0]
-            idx_reset_exit = idx0_prev + post_overall[0] if len(post_overall) else idx0_prev
+            overall = np.where(trace_prev > track_length_cm)[0]
+            idx_exit = (idx_prev_start + overall[0]) if overall.size else idx_curr_start
 
-        idx_start = idx_reset_exit
-        idx_end = idx1
-        trial_speed = speed_smoothed[idx_start:idx_end]
+        idx_start = idx_exit
+        idx_end   = idx_curr_end
 
-        is_running = trial_speed > min_speed1
-        run_lengths, stop_lengths, count = [], [], 0
-        for val in is_running:
-            if val:
-                if count < 0:
-                    stop_lengths.append(-count)
-                    count = 1
+        # define segments
+        len_diff   = idx_curr_start - idx_start
+        speed_all  = speed_smoothed[idx_start:idx_end]
+        speed_cur  = speed_smoothed[idx_curr_start:idx_curr_end]
+
+        # compute run/stop lengths for the current-trial speed
+        is_run = speed_cur > min_speed1
+        run_lengths, stop_lengths = [], []
+        cnt = 0
+        for v in is_run:
+            if v:
+                if cnt < 0:
+                    stop_lengths.append(-cnt)
+                    cnt = 1
                 else:
-                    count += 1
+                    cnt += 1
             else:
-                if count > 0:
-                    run_lengths.append(count)
-                    count = -1
+                if cnt > 0:
+                    run_lengths.append(cnt)
+                    cnt = -1
                 else:
-                    count -= 1
-        if count > 0:
-            run_lengths.append(count)
-        elif count < 0:
-            stop_lengths.append(-count)
+                    cnt -= 1
+        if cnt > 0:
+            run_lengths.append(cnt)
+        elif cnt < 0:
+            stop_lengths.append(-cnt)
 
-        ind_first_run = np.argmax(is_running)
-        ind_conti_run = next((i for i, r in enumerate(run_lengths) if r > 0.3 * sample_freq_hz), None)
+        # first running sample in trial
+        ind_first = np.where(is_run)[0]
+        ind_first = ind_first[0] if ind_first.size else None
 
-        if ind_first_run > 0:
-            if ind_conti_run is not None and ind_conti_run > 0:
-                ind_start = sum(run_lengths[:ind_conti_run]) + sum(stop_lengths[:ind_conti_run]) + 1
+        # first continuous-run block >0.3 s
+        ind_conti = next((j for j, r in enumerate(run_lengths) if r > 0.3 * sample_freq_hz), None)
+
+        # compute ind_start (0-based into speed_all)
+        if ind_first is not None and ind_first > 0:
+            if ind_conti is not None and ind_conti > 0:
+                offset = sum(run_lengths[:ind_conti]) + sum(stop_lengths[:ind_conti])
+                ind_start = offset + len_diff
             else:
-                ind_start = ind_first_run
+                ind_start = ind_first + len_diff
         else:
-            if ind_conti_run is not None and ind_conti_run > 0:
-                ind_start = sum(run_lengths[:ind_conti_run]) + sum(stop_lengths[:ind_conti_run]) + 1
+            if ind_conti is not None and ind_conti > 0:
+                offset = sum(run_lengths[:ind_conti]) + sum(stop_lengths[:ind_conti])
+                ind_start = offset + len_diff
             else:
-                pre_speed = speed_smoothed[idx0_prev:idx0]
-                is_stationary = pre_speed < min_speed1
-                ind_last_rest = np.where(is_stationary)[0][-1] if np.any(is_stationary) else 0
-                run_onset_times.append(upsampled_timestamps[idx0_prev + ind_last_rest])
-                continue
+                # no adequate run in trial: find last full stop in pre-trial segment
+                pre_mask = speed_all[:len_diff] > min_speed1
+                zeros    = np.where(~pre_mask)[0]
+                ind_start = zeros[-1] if zeros.size else -2
 
-        back_idx = idx_start + ind_start
-        pre_onset = speed_smoothed[idx_start:back_idx]
-        below = np.where(pre_onset <= min_speed)[0]
-        true_onset_idx = idx_start + (below[-1] if len(below) else np.argmin(pre_onset))
+        # now back-search for the last moment ≤ min_speed before ind_start
+        if ind_start > 0:
+            segment = speed_all[:ind_start]
+            lows    = np.where(segment <= min_speed)[0]
+            if lows.size:
+                onset_local = lows[-1]
+            else:
+                # fallback: pick lowest-speed sample
+                onset_local = int(np.argmin(segment))
+        else:
+            # no full stop at all: pick min-speed in pre-trial window
+            seg_pre = speed_all[:len_diff]
+            onset_local = int(np.argmin(seg_pre)) if seg_pre.size else np.nan
 
-        run_onset_times.append(upsampled_timestamps[true_onset_idx])
+        true_idx = idx_start + onset_local
+        if np.isnan(true_idx):
+            run_onset_times.append(np.nan)
+        else:
+            run_onset_times.append(upsampled_timestamps[int(true_idx)])
 
     return run_onset_times, upsampled_timestamps, upsampled_distance_cm, speed_smoothed

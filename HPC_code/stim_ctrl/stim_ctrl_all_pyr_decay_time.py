@@ -10,9 +10,10 @@ analyse the decay time constants of pyramidal cells in stim. vs ctrl. trials
 
 #%% imports 
 import numpy as np 
+import pickle 
 import matplotlib.pyplot as plt 
 import sys 
-import pandas as pd
+import os 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -45,15 +46,6 @@ cell_profiles = pd.read_pickle(
     )
 df_pyr = cell_profiles[cell_profiles['cell_identity']=='putative_pyr']  # pyramidal only 
 
-beh_df = pd.concat((
-    pd.read_pickle(
-        r'Z:/Dinghao/code_dinghao/behaviour/all_HPCLC_sessions.pkl'
-        ),
-    pd.read_pickle(
-        r'Z:/Dinghao/code_dinghao/behaviour/all_HPCLCterm_sessions.pkl'
-        )
-    ))
-
 
 #%% main 
 tau_values_ctrl_ON = []
@@ -77,6 +69,15 @@ spike_rate_OFF = []
 for path in paths:
     recname = path[-17:]
     print(f'\n{recname}')
+    
+    if os.path.exists(
+            rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCLC\{recname}.pkl'
+            ):
+        with open(
+                rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCLC\{recname}.pkl',
+                'rb'
+                ):
+            data = pickle.load()
     
     trains = np.load(
         rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{recname}\{recname}_all_trains.npy',

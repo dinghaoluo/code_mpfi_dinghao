@@ -25,8 +25,7 @@ import behaviour_functions as bf
 
 
 #%% recording list
-if r'Z:\Dinghao\code_dinghao' not in sys.path:
-    sys.path.append('Z:\\Dinghao\\code_dinghao')
+sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 
 list_to_process = input(
