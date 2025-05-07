@@ -19,6 +19,7 @@ import sys
 
 
 #%% load dataframe 
+print('loading dataframe...')
 df = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
 df_pyr = df[df['cell_identity']=='pyr']
 
@@ -26,7 +27,7 @@ df_pyr = df[df['cell_identity']=='pyr']
 #%% functions
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from plotting_functions import plot_violin_with_scatter
-from common import normalise, normalise_to_all, mpl_formatting 
+from common import normalise, normalise_to_all, mpl_formatting, smooth_convolve
 mpl_formatting()
 
 def compute_mean_and_sem(arr):
@@ -62,13 +63,15 @@ OFF = df_sorted[df_sorted['class']=='run-onset OFF']
 
 
 #%% overall plot 
-fig, ax = plt.subplots(figsize=(2,2))
+fig, ax = plt.subplots(figsize=(2.4,1.9))
 
-ax.imshow(pop_mat, aspect='auto', cmap='Greys', interpolation='none',
-          extent=(-1, 4, 0, pop_mat.shape[0]))
+gim = ax.imshow(pop_mat, aspect='auto', cmap='Greys', interpolation='sinc',
+                extent=(-1, 4, 0, pop_mat.shape[0]))
 ax.set(title=f'{ON.shape[0]} ON, {OFF.shape[0]} OFF',
        xlabel='time from run-onset (s)',
        ylabel='cell #')
+
+plt.colorbar(gim, shrink=.5, ticks=[0, 1])
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
@@ -80,13 +83,13 @@ for ext in ['.png', '.pdf']:
     
 fig, ax = plt.subplots(figsize=(2.4,1.9))
 
-cw = ax.imshow(pop_mat, aspect='auto', cmap='coolwarm', interpolation='none',
+cw = ax.imshow(pop_mat, aspect='auto', cmap='coolwarm', interpolation='sinc',
           extent=(-1, 4, 0, pop_mat.shape[0]))
 ax.set(title=f'{ON.shape[0]} ON, {OFF.shape[0]} OFF',
        xlabel='time from run-onset (s)',
        ylabel='cell #')
 
-plt.colorbar(cw, shrink=.5)
+plt.colorbar(cw, shrink=.5, ticks=[0, 1])
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
@@ -109,9 +112,9 @@ ON_mat = np.asarray([normalise(cell[2500:2500+5*1250]) for cell in ON_mat])
 fig, axs = plt.subplots(1, 2, figsize=(5,2))
 plt.subplots_adjust(wspace=.5)
 
-axs[0].imshow(ON_mat, aspect='auto', cmap='Greys', interpolation='none',
+axs[0].imshow(ON_mat, aspect='auto', cmap='Greys', interpolation='sinc',
               extent=(-1, 4, 0, ON_mat.shape[0]))
-axs[1].imshow(OFF_mat, aspect='auto', cmap='Greys', interpolation='none',
+axs[1].imshow(OFF_mat, aspect='auto', cmap='Greys', interpolation='sinc',
               extent=(-1, 4, 0, OFF_mat.shape[0]))
 
 axs[0].set(title='run-onset ON')
@@ -131,9 +134,9 @@ for ext in ['.png', '.pdf']:
 fig, axs = plt.subplots(1, 2, figsize=(5,2))
 plt.subplots_adjust(wspace=.5)
 
-axs[0].imshow(ON_mat, aspect='auto', cmap='coolwarm', interpolation='none',
+axs[0].imshow(ON_mat, aspect='auto', cmap='coolwarm', interpolation='sinc',
               extent=(-1, 4, 0, ON_mat.shape[0]))
-axs[1].imshow(OFF_mat, aspect='auto', cmap='coolwarm', interpolation='none',
+axs[1].imshow(OFF_mat, aspect='auto', cmap='coolwarm', interpolation='sinc',
               extent=(-1, 4, 0, OFF_mat.shape[0]))
 
 axs[0].set(title='run-onset ON')

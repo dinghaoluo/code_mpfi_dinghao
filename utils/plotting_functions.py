@@ -32,7 +32,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              showscatter=False, showmainline=True, showline=True,
                              showmeans=False, showmedians=True, showextrema=False,
                              print_statistics=False, plot_statistics=True,
-                             save=False, savepath=' ', dpi=120,
+                             save=False, savepath=' ', dpi=300,
                              figsize=(1.8,2.4)):
     """
     plot half-violins with optional scatter and statistical comparisons
@@ -225,7 +225,7 @@ def plot_ecdfs(data0, data1,
                xlabel=' ', ylabel='cumulative probability',
                legend_labels=[' ', ' '],
                colours=['lightcoral', 'firebrick'],
-               save=False, savepath=' ', dpi=300, figsize=(3, 4)):
+               save=False, savepath=' ', dpi=300, figsize=(2, 2.5)):
     """
     plot ECDFs for two datasets.
 
@@ -258,7 +258,7 @@ def plot_ecdfs(data0, data1,
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-    ax.legend(frameon=False)
+    ax.legend(frameon=False, fontsize=6)
     # ax.grid(alpha=0.3)
     
     for s in ['top', 'right']:

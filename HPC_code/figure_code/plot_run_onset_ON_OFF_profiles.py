@@ -46,19 +46,19 @@ df_OFF = df_pyr[df_pyr['class']=='run-onset OFF']
 
 
 #%% plain and simple first--just the mean profiles 
-ON_all = [cell.prof_mean[2500:3750+4*1250] for cell in 
-          df_pyr[df_pyr['class']=='run-onset ON']
+ON_all = [cell.prof_ctrl_mean[2500:3750+4*1250] for cell in 
+          df_pyr[df_pyr['class_ctrl']=='run-onset ON']
           .itertuples(index=False)]
 ON_all_mean = np.mean(ON_all, axis=0)
 ON_all_sem = sem(ON_all, axis=0)
 
-OFF_all = [cell.prof_mean[2500:3750+4*1250] for cell in 
-           df_pyr[df_pyr['class']=='run-onset OFF']
+OFF_all = [cell.prof_ctrl_mean[2500:3750+4*1250] for cell in 
+           df_pyr[df_pyr['class_ctrl']=='run-onset OFF']
            .itertuples(index=False)]
 OFF_all_mean = np.mean(OFF_all, axis=0)
 OFF_all_sem = sem(OFF_all, axis=0)
 
-fig, ax = plt.subplots(figsize=(2,1.4))
+fig, ax = plt.subplots(figsize=(2.6,2))
 
 ON_ln, = ax.plot(xaxis, ON_all_mean, lw=0.8, c='firebrick')
 ax.fill_between(xaxis,
@@ -68,9 +68,8 @@ ax.fill_between(xaxis,
 for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
     
-ax.set(title='run-onset ON',
-       ylabel='spike rate (Hz)',
-       xlabel='time from run-onset (s)')
+ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
+       ylabel='spike rate (Hz)', yticks=[1, 2, 3, 4], ylim=(.9, 4.1))
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
@@ -80,7 +79,7 @@ for ext in ['.png', '.pdf']:
         )
     
     
-fig, ax = plt.subplots(figsize=(2,1.4))
+fig, ax = plt.subplots(figsize=(2.6,2))
 
 ON_ln, = ax.plot(xaxis, OFF_all_mean, lw=.8, c='purple')
 ax.fill_between(xaxis,
@@ -90,9 +89,8 @@ ax.fill_between(xaxis,
 for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
     
-ax.set(title='run-onset OFF',
-       ylabel='spike rate (Hz)',
-       xlabel='time from run-onset (s)')
+ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
+       ylabel='spike rate (Hz)', yticks=[1, 2, 3, 4], ylim=(.9, 4.1))
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
