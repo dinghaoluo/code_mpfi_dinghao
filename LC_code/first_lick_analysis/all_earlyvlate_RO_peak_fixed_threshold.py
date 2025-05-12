@@ -277,10 +277,10 @@ midlate_sem = sem(midlate_profiles, axis=0)
 late_mean = np.mean(late_profiles, axis=0)
 late_sem = sem(late_profiles, axis=0)
 
-early_c      = (0.95, 0.55, 0.55)  # soft pinkish red
-earlymid_c   = (0.85, 0.35, 0.35)  # medium red
-midlate_c    = (0.65, 0.20, 0.20)  # dark red
-late_c       = (0.40, 0.10, 0.30)  # deep wine / maroon
+early_c     = (0.55, 0.65, 0.95)  # soft light royal blue
+earlymid_c  = (0.35, 0.50, 0.85)  # medium royal blue
+midlate_c   = (0.20, 0.35, 0.65)  # darker royal blue
+late_c      = (0.10, 0.25, 0.40)  # deep navy-toned blue
 
 
 fig, ax = plt.subplots(figsize=(2.1, 2.7))

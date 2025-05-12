@@ -95,6 +95,16 @@ peak_stim_only_ON = []
 peak_ctrl_only_OFF = []
 peak_stim_only_OFF = []
 
+mean_prof_ctrl_only_ON_sess = []
+mean_prof_stim_only_ON_sess = []
+mean_prof_ctrl_only_OFF_sess = []
+mean_prof_stim_only_OFF_sess = []
+
+all_ctrl_stim_lick_time_delta = []
+all_ctrl_stim_lick_distance_delta = []
+
+all_amp_ON_delta = []
+
 for path in paths:
     recname = path[-17:]
     print(f'\n{recname}')
@@ -125,13 +135,35 @@ for path in paths:
     ctrl_idx = [trial+2 for trial in stim_idx]
     baseline_idx = list(np.arange(stim_idx[0]))
     
+    first_lick_times = [t[0][0] - s for t, s
+                        in zip(beh['lick_times'], beh['run_onsets'])
+                        if t]
+    ctrl_stim_lick_time_delta = np.mean(
+        [t for i, t in enumerate(first_lick_times) if i in stim_idx]
+        ) - np.mean(
+            [t for i, t in enumerate(first_lick_times) if i in ctrl_idx]
+            )
+    all_ctrl_stim_lick_time_delta.append(ctrl_stim_lick_time_delta)
+            
+    first_lick_distances = [t[0]
+                            if type(t)!=float and len(t)>0
+                            else np.nan
+                            for t 
+                            in beh['lick_distances_aligned']
+                            ][1:]
+    ctrl_stim_lick_distance_delta = np.mean(
+        [t for i, t in enumerate(first_lick_distances) if i in stim_idx]
+        ) - np.mean(
+            [t for i, t in enumerate(first_lick_distances) if i in ctrl_idx]
+            )
+    all_ctrl_stim_lick_distance_delta.append(ctrl_stim_lick_distance_delta)
+    
     curr_df_pyr = df_pyr[df_pyr['recname']==recname]
     
     for idx, session in curr_df_pyr.iterrows():
-        
         cluname = idx
-                    
-        if session['class']=='run-onset ON':
+
+        if session['class_ctrl']=='run-onset ON':
             
             mean_prof_ctrl = np.mean(trains[cluname][ctrl_idx], axis=0)
             mean_prof_stim = np.mean(trains[cluname][stim_idx], axis=0)
@@ -139,17 +171,17 @@ for path in paths:
             mean_prof_stim_ON.append(mean_prof_stim)
             
             peak_idx_ctrl = detect_peak(mean_prof_ctrl, 
-                                        session['class'],
+                                        session['class_ctrl'],
                                         run_onset_bin=3750)
             tau_ctrl, fit_params_ctrl = compute_tau(
-                TIME, mean_prof_ctrl, peak_idx_ctrl, session['class']
+                TIME, mean_prof_ctrl, peak_idx_ctrl, session['class_ctrl']
                 )
         
             peak_idx_stim = detect_peak(mean_prof_stim, 
-                                        session['class'],
+                                        session['class_ctrl'],
                                         run_onset_bin=3750)
             tau_stim, fit_params_stim = compute_tau(
-                TIME, mean_prof_stim, peak_idx_stim, session['class']
+                TIME, mean_prof_stim, peak_idx_stim, session['class_ctrl']
                 )
             
             peak_ctrl_ON.append(peak_idx_ctrl)
@@ -160,7 +192,7 @@ for path in paths:
                 tau_values_ctrl_ON.append(tau_ctrl)
                 tau_values_stim_ON.append(tau_stim)
         
-        if session['class']!='run-onset ON' and session['class_stim']=='run-onset ON':
+        if session['class_ctrl']!='run-onset ON' and session['class_stim']=='run-onset ON':
             
             mean_prof_ctrl = np.mean(trains[cluname][ctrl_idx], axis=0)
             mean_prof_stim = np.mean(trains[cluname][stim_idx], axis=0)
@@ -189,7 +221,7 @@ for path in paths:
                 tau_values_ctrl_new_ON.append(tau_ctrl)
                 tau_values_stim_new_ON.append(tau_stim)
         
-        if session['class']=='run-onset OFF':
+        if session['class_ctrl']=='run-onset OFF':
             
             mean_prof_ctrl = np.mean(trains[cluname][ctrl_idx], axis=0)
             mean_prof_stim = np.mean(trains[cluname][stim_idx], axis=0)
@@ -197,18 +229,18 @@ for path in paths:
             mean_prof_stim_OFF.append(mean_prof_stim)
             
             peak_idx_ctrl = detect_peak(mean_prof_ctrl, 
-                                        session['class'],
+                                        session['class_ctrl'],
                                         run_onset_bin=3750)
             tau_ctrl, fit_params_ctrl = compute_tau(
-                TIME, mean_prof_ctrl, peak_idx_ctrl, session['class']
+                TIME, mean_prof_ctrl, peak_idx_ctrl, session['class_ctrl']
                 )
                         
             peak_idx_stim = detect_peak(mean_prof_stim, 
-                                        session['class'],
+                                        session['class_ctrl'],
                                         run_onset_bin=3750)
 
             tau_stim, fit_params_stim = compute_tau(
-                TIME, mean_prof_stim, peak_idx_stim, session['class']
+                TIME, mean_prof_stim, peak_idx_stim, session['class_ctrl']
                 )
             
             peak_ctrl_OFF.append(peak_idx_ctrl)
@@ -219,7 +251,7 @@ for path in paths:
                 tau_values_ctrl_OFF.append(tau_ctrl)
                 tau_values_stim_OFF.append(tau_stim)
                 
-        if session['class']!='run-onset OFF' and session['class_stim']=='run-onset OFF':
+        if session['class_ctrl']!='run-onset OFF' and session['class_stim']=='run-onset OFF':
             
             mean_prof_ctrl = np.mean(trains[cluname][ctrl_idx], axis=0)
             mean_prof_stim = np.mean(trains[cluname][stim_idx], axis=0)
@@ -264,8 +296,8 @@ for path in paths:
             
             peak_ctrl_only_ON.append(peak_idx_ctrl)
             
-            # if fit_params_ctrl['adj_r_squared']>0.6:
-            tau_values_ctrl_only_ON.append(tau_ctrl)
+            if fit_params_ctrl['adj_r_squared']>0.6:
+                tau_values_ctrl_only_ON.append(tau_ctrl)
                 
         if session['class_stim']=='run-onset ON':
             
@@ -281,8 +313,8 @@ for path in paths:
             
             peak_stim_only_ON.append(peak_idx_stim)
             
-            # if fit_params_stim['adj_r_squared']>0.6:
-            tau_values_stim_only_ON.append(tau_stim)
+            if fit_params_stim['adj_r_squared']>0.6:
+                tau_values_stim_only_ON.append(tau_stim)
                 
         if session['class_ctrl']=='run-onset OFF':
             
@@ -298,8 +330,8 @@ for path in paths:
             
             peak_ctrl_only_OFF.append(peak_idx_ctrl)
             
-            # if fit_params_ctrl['adj_r_squared']>0.6:
-            tau_values_ctrl_only_OFF.append(tau_ctrl)
+            if fit_params_ctrl['adj_r_squared']>0.6:
+                tau_values_ctrl_only_OFF.append(tau_ctrl)
                 
         if session['class_stim']=='run-onset OFF':
             
@@ -315,9 +347,22 @@ for path in paths:
             
             peak_stim_only_OFF.append(peak_idx_stim)
             
-            # if fit_params_stim['adj_r_squared']>0.6:
-            tau_values_stim_only_OFF.append(tau_stim)
+            if fit_params_stim['adj_r_squared']>0.6:
+                tau_values_stim_only_OFF.append(tau_stim)
                 
+    # store per-session mean profile of ctrl-only and stim-only ON cells
+    if len(mean_prof_ctrl_only_ON) > 0:
+        sess_mean_ctrl = np.mean(mean_prof_ctrl_only_ON[-len(curr_df_pyr):], axis=0)
+        mean_prof_ctrl_only_ON_sess.append(sess_mean_ctrl)
+    
+    if len(mean_prof_stim_only_ON) > 0:
+        sess_mean_stim = np.mean(mean_prof_stim_only_ON[-len(curr_df_pyr):], axis=0)
+        mean_prof_stim_only_ON_sess.append(sess_mean_stim)
+        
+    if len(mean_prof_ctrl_only_ON) > 0 and len(mean_prof_stim_only_ON) > 0:
+        amp_ON_delta = np.mean(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
+        all_amp_ON_delta.append(amp_ON_delta)
+
 
 #%% plotting 
 plot_violin_with_scatter(tau_values_ctrl_ON, tau_values_stim_new_ON, 
@@ -351,8 +396,8 @@ plot_ecdfs(tau_values_stim_ON, tau_values_stim_new_ON,
            xlabel='τ (s)', 
            legend_labels=['pers. ON', 'new ON'],
            colours=['firebrick', 'darkorange'],
-           save=True,
-           savepath=r'C:\Users\luod\OneDrive - Max Planck Florida Institute for Neuroscience\Desktop\persistentandNewON.png')
+           save=False,
+           savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\new_ON_decay_constant_ecdf')
 
 
 #%% mean profile 
@@ -395,29 +440,29 @@ fig, ax = plt.subplots(figsize=(2.6,2))
 # ax.fill_between(xaxis, mean_stim_ON + sem_stim_ON, mean_stim_ON - sem_stim_ON,
 #                 color='firebrick', edgecolor='none', alpha=.15)
 
-# ax.plot(xaxis, mean_ctrl_new_ON, label='mean_ctrl_new_ON', color='moccasin')
-# ax.fill_between(xaxis, mean_ctrl_new_ON + sem_ctrl_new_ON, mean_ctrl_new_ON - sem_ctrl_new_ON,
-#                 color='moccasin', edgecolor='none', alpha=.15)
+ax.plot(xaxis, mean_ctrl_new_ON, label='mean_ctrl_new_ON', color='moccasin')
+ax.fill_between(xaxis, mean_ctrl_new_ON + sem_ctrl_new_ON, mean_ctrl_new_ON - sem_ctrl_new_ON,
+                color='moccasin', edgecolor='none', alpha=.15)
 
-# ax.plot(xaxis, mean_stim_new_ON, label='mean_stim_new_ON', color='darkorange')
-# ax.fill_between(xaxis, mean_stim_new_ON + sem_stim_new_ON, mean_stim_new_ON - sem_stim_new_ON,
-#                 color='darkorange', edgecolor='none', alpha=.15)
+ax.plot(xaxis, mean_stim_new_ON, label='mean_stim_new_ON', color='darkorange')
+ax.fill_between(xaxis, mean_stim_new_ON + sem_stim_new_ON, mean_stim_new_ON - sem_stim_new_ON,
+                color='darkorange', edgecolor='none', alpha=.15)
 
-ax.plot(xaxis, mean_ctrl_OFF, label='mean_ctrl_OFF', color='violet')
-ax.fill_between(xaxis, mean_ctrl_OFF + sem_ctrl_OFF, mean_ctrl_OFF - sem_ctrl_OFF,
-                color='violet', edgecolor='none', alpha=.15)
+# ax.plot(xaxis, mean_ctrl_OFF, label='mean_ctrl_OFF', color='violet')
+# ax.fill_between(xaxis, mean_ctrl_OFF + sem_ctrl_OFF, mean_ctrl_OFF - sem_ctrl_OFF,
+#                 color='violet', edgecolor='none', alpha=.15)
 
-ax.plot(xaxis, mean_stim_OFF, label='mean_stim_OFF', color='purple')
-ax.fill_between(xaxis, mean_stim_OFF + sem_stim_OFF, mean_stim_OFF - sem_stim_OFF,
-                color='purple', edgecolor='none', alpha=.15)
+# ax.plot(xaxis, mean_stim_OFF, label='mean_stim_OFF', color='purple')
+# ax.fill_between(xaxis, mean_stim_OFF + sem_stim_OFF, mean_stim_OFF - sem_stim_OFF,
+#                 color='purple', edgecolor='none', alpha=.15)
 
-ax.plot(xaxis, mean_ctrl_new_OFF, label='mean_ctrl_new_OFF', color='lightcyan')
-ax.fill_between(xaxis, mean_ctrl_new_OFF + sem_ctrl_new_OFF, mean_ctrl_new_OFF - sem_ctrl_new_OFF,
-                color='lightcyan', edgecolor='none', alpha=.15)
+# ax.plot(xaxis, mean_ctrl_new_OFF, label='mean_ctrl_new_OFF', color='lightcyan')
+# ax.fill_between(xaxis, mean_ctrl_new_OFF + sem_ctrl_new_OFF, mean_ctrl_new_OFF - sem_ctrl_new_OFF,
+#                 color='lightcyan', edgecolor='none', alpha=.15)
 
-ax.plot(xaxis, mean_stim_new_OFF, label='mean_stim_new_OFF', color='darkblue')
-ax.fill_between(xaxis, mean_stim_new_OFF + sem_stim_new_OFF, mean_stim_new_OFF - sem_stim_new_OFF,
-                color='darkblue', edgecolor='none', alpha=.15)
+# ax.plot(xaxis, mean_stim_new_OFF, label='mean_stim_new_OFF', color='darkblue')
+# ax.fill_between(xaxis, mean_stim_new_OFF + sem_stim_new_OFF, mean_stim_new_OFF - sem_stim_new_OFF,
+#                 color='darkblue', edgecolor='none', alpha=.15)
 
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -427,8 +472,9 @@ ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
 ax.set_title('baseline PyrUp (<2/3) and PyrDown (>3/2)', fontsize=10)
 ax.legend(fontsize=4, frameon=False)
 
-fig.savefig(r'C:\Users\luod\OneDrive - Max Planck Florida Institute for Neuroscience\Desktop\persistentandNewOFF.png',
-            dpi=300, bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\HPCLC_ctrl_stim_new_curves{ext}',
+                dpi=300, bbox_inches='tight')
 
 
 
@@ -445,7 +491,7 @@ plot_violin_with_scatter([s/1250-3 for s in peak_ctrl_ON],
                          showmedians=False,
                          showscatter=True,
                          save=False,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\ON_decay_constant_ctrl_stim')
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim_ON_peak_shift')
 
 
 #%% plot ctrl and stim only 
@@ -455,6 +501,13 @@ sem_ctrl_only_ON = sem(mean_prof_ctrl_only_ON, axis=0)[2500:2500+5*1250]
 
 mean_stim_only_ON = np.mean(mean_prof_stim_only_ON, axis=0)[2500:2500+5*1250]
 sem_stim_only_ON = sem(mean_prof_stim_only_ON, axis=0)[2500:2500+5*1250]
+
+mean_ctrl_only_OFF = np.mean(mean_prof_ctrl_only_OFF, axis=0)[2500:2500+5*1250]
+sem_ctrl_only_OFF = sem(mean_prof_ctrl_only_OFF, axis=0)[2500:2500+5*1250]
+
+mean_stim_only_OFF = np.mean(mean_prof_stim_only_OFF, axis=0)[2500:2500+5*1250]
+sem_stim_only_OFF = sem(mean_prof_stim_only_OFF, axis=0)[2500:2500+5*1250]
+
 
 # plot
 fig, ax = plt.subplots(figsize=(2.6,2))
@@ -475,14 +528,204 @@ ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
 ax.set_title('baseline PyrUp (<2/3) and PyrDown (>3/2)', fontsize=10)
 ax.legend(fontsize=4, frameon=False)
 
-fig.savefig(r'C:\Users\luod\OneDrive - Max Planck Florida Institute for Neuroscience\Desktop\ctrl_stim_only_ON.png',
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\HPCLCterm_ctrl_stim_only_ON.png',
             dpi=300, bbox_inches='tight')
 
 
-plot_ecdfs(tau_values_ctrl_only_ON, tau_values_stim_only_ON,
-           title='ECDF – run-onset ON',
-           xlabel='τ (s)', 
-           legend_labels=['ctrl. ON', 'stim. ON'],
-           colours=['lightcoral', 'firebrick'],
-           save=True,
-           savepath=r'C:\Users\luod\OneDrive - Max Planck Florida Institute for Neuroscience\Desktop\ctrl_stim_only_ON_ecdf.png')
+mean_ctrl_only_ON = np.mean(mean_prof_ctrl_only_ON, axis=0)[2500:2500+5*1250]
+sem_ctrl_only_ON = sem(mean_prof_ctrl_only_ON, axis=0)[2500:2500+5*1250]
+
+mean_stim_only_ON = np.mean(mean_prof_stim_only_ON, axis=0)[2500:2500+5*1250]
+sem_stim_only_ON = sem(mean_prof_stim_only_ON, axis=0)[2500:2500+5*1250]
+
+# plot
+fig, ax = plt.subplots(figsize=(2.6,2))
+
+ax.plot(xaxis, mean_ctrl_only_OFF, label='mean_ctrl_OFF', color='violet')
+ax.fill_between(xaxis, mean_ctrl_only_OFF + sem_ctrl_only_OFF, mean_ctrl_only_OFF - sem_ctrl_only_OFF,
+                color='violet', edgecolor='none', alpha=.15)
+
+ax.plot(xaxis, mean_stim_only_OFF, label='mean_stim_OFF', color='purple')
+ax.fill_between(xaxis, mean_stim_only_OFF + sem_stim_only_OFF, mean_stim_only_OFF - sem_stim_only_OFF,
+                color='purple', edgecolor='none', alpha=.15)
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+
+ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
+       ylabel='spike rate (Hz)', yticks=[1, 2, 3, 4], ylim=(.9, 4.1))
+ax.set_title('baseline PyrUp (<2/3) and PyrDown (>3/2)', fontsize=10)
+ax.legend(fontsize=4, frameon=False)
+
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\HPCLCterm_ctrl_stim_only_OFF.png',
+            dpi=300, bbox_inches='tight')
+
+
+#%% single session overlay
+save_dir = r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\single_sessions'
+os.makedirs(save_dir, exist_ok=True)
+
+for i in range(len(mean_prof_ctrl_only_ON_sess)):
+    fig, ax = plt.subplots(figsize=(2.6,2))
+
+    ctrl_trace = mean_prof_ctrl_only_ON_sess[i][2500:2500+5*1250]
+    stim_trace = mean_prof_stim_only_ON_sess[i][2500:2500+5*1250]
+
+    ax.plot(xaxis, ctrl_trace, label='ctrl', color='lightcoral')
+    ax.plot(xaxis, stim_trace, label='stim', color='firebrick')
+
+    for s in ['top', 'right']:
+        ax.spines[s].set_visible(False)
+
+    ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
+           ylabel='spike rate (Hz)')
+    ax.set_title(f'{paths[i][-17:]} ON', fontsize=10)
+    ax.legend(fontsize=5, frameon=False)
+
+    fig.savefig(os.path.join(save_dir, f'{paths[i][-17:]}_ON.png'),
+                dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    
+    
+    fig, ax = plt.subplots(figsize=(2.6,2))
+
+    ctrl_trace = mean_prof_ctrl_only_OFF_sess[i][2500:2500+5*1250]
+    stim_trace = mean_prof_stim_only_OFF_sess[i][2500:2500+5*1250]
+
+    ax.plot(xaxis, ctrl_trace, label='ctrl', color='violet')
+    ax.plot(xaxis, stim_trace, label='stim', color='purple')
+
+    for s in ['top', 'right']:
+        ax.spines[s].set_visible(False)
+
+    ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
+           ylabel='spike rate (Hz)')
+    ax.set_title(f'{paths[i][-17:]} OFF', fontsize=10)
+    ax.legend(fontsize=5, frameon=False)
+
+    fig.savefig(os.path.join(save_dir, f'{paths[i][-17:]}_OFF.png'),
+                dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    
+    
+#%% 
+mean_ctrl_only_ON = np.mean(mean_prof_ctrl_only_ON, axis=0)[2500:2500+5*1250]
+sem_ctrl_only_ON = sem(mean_prof_ctrl_only_ON, axis=0)[2500:2500+5*1250]
+
+mean_stim_only_ON = np.mean(mean_prof_stim_only_ON, axis=0)[2500:2500+5*1250]
+sem_stim_only_ON = sem(mean_prof_stim_only_ON, axis=0)[2500:2500+5*1250]
+
+# plot
+fig, ax = plt.subplots(figsize=(2.6,2))
+
+ax.plot(xaxis, mean_ctrl_only_OFF, label='mean_ctrl_OFF', color='violet')
+ax.fill_between(xaxis, mean_ctrl_only_OFF + sem_ctrl_only_OFF, mean_ctrl_only_OFF - sem_ctrl_only_OFF,
+                color='violet', edgecolor='none', alpha=.15)
+
+ax.plot(xaxis, mean_stim_only_OFF, label='mean_stim_OFF', color='purple')
+ax.fill_between(xaxis, mean_stim_only_OFF + sem_stim_only_OFF, mean_stim_only_OFF - sem_stim_only_OFF,
+                color='purple', edgecolor='none', alpha=.15)
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+
+ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
+       ylabel='spike rate (Hz)', yticks=[1, 2, 3, 4], ylim=(.9, 4.1))
+ax.set_title('baseline PyrUp (<2/3) and PyrDown (>3/2)', fontsize=10)
+ax.legend(fontsize=4, frameon=False)
+
+fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\ctrl_stim_only_OFF.png',
+            dpi=300, bbox_inches='tight')
+
+
+#%% amplitude statistics
+amp_ctrl_only_ON = np.mean([
+    prof[3750+625:3750+1875] for prof
+    in mean_prof_ctrl_only_ON
+    ], 
+    axis=1)
+amp_stim_only_ON = np.mean([
+    prof[3750+625:3750+1875] for prof
+    in mean_prof_stim_only_ON
+    ], 
+    axis=1)
+
+plot_violin_with_scatter(amp_ctrl_only_ON, amp_stim_only_ON, 
+                         'coral', 'firebrick',
+                         paired=False,
+                         showmedians=True,
+                         ylabel='spike rate (Hz)',
+                         dpi=300,
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\ctrl_only_stim_only_ON_amp')
+
+amp_ctrl_only_OFF = np.mean([
+    prof[3750+625:3750+1875] for prof
+    in mean_prof_ctrl_only_OFF
+    ], 
+    axis=1)
+amp_stim_only_OFF = np.mean([
+    prof[3750+625:3750+1875] for prof
+    in mean_prof_stim_only_OFF
+    ], 
+    axis=1)
+
+plot_violin_with_scatter(amp_ctrl_only_OFF, amp_stim_only_OFF, 
+                         'violet', 'purple',
+                         paired=False,
+                         ylabel='spike rate (Hz)',
+                         dpi=300,
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\ctrl_only_stim_only_OFF_amp')
+
+amp_stim_ON = [
+    np.mean(prof[3750+625:3750+1875]) for prof
+    in mean_prof_stim_ON
+    ]
+amp_stim_new_ON = [
+    np.mean(prof[3750+625:3750+1875]) for prof
+    in mean_prof_stim_new_ON
+    ]
+
+plot_violin_with_scatter(amp_stim_ON, amp_stim_new_ON, 
+                         'firebrick', 'darkorange',
+                         paired=False,
+                         showmedians=True,
+                         ylabel='spike rate (Hz)',
+                         dpi=300,
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\ctrl_only_stim_new_ON_amp')
+
+
+
+#%% tests 
+from scipy.stats import linregress
+
+all_amp_ON_delta_filt = [v for i, v in enumerate(all_amp_ON_delta)
+                         if not np.isnan(all_ctrl_stim_lick_distance_delta[i])]
+all_ctrl_stim_lick_distance_delta_filt = [v for i, v in enumerate(all_ctrl_stim_lick_distance_delta)
+                                          if not np.isnan(all_ctrl_stim_lick_distance_delta[i])]
+
+slope, intercept, r_value, p_value, std_err = linregress(all_amp_ON_delta_filt, all_ctrl_stim_lick_distance_delta_filt)
+
+del all_ctrl_stim_lick_distance_delta_filt[5]
+del all_ctrl_stim_lick_distance_delta_filt[15]
+del all_amp_ON_delta_filt[5]
+del all_amp_ON_delta_filt[15]
+
+
+fig, ax = plt.subplots(figsize=(3,3))
+
+ax.scatter(all_amp_ON_delta_filt, all_ctrl_stim_lick_distance_delta_filt)
+
+x_vals = np.array(ax.get_xlim())
+y_vals = intercept + slope * x_vals
+
+# plot the regression line
+ax.plot(x_vals, y_vals, color='red', linewidth=1)
+
+ax.text(0.05, 0.95, f'R = {r_value:.2f}\np = {p_value:.3f}',
+        transform=ax.transAxes, ha='left', va='top', fontsize=8)
+
+ax.set(xlabel='stim.-ctrl. ON cells (Hz)',
+       ylabel='')

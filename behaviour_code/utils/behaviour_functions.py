@@ -91,6 +91,7 @@ def process_behavioural_data(
     data['new_trial_statements'] = correct_overflow(
         data['new_trial_statements'], 'new_trial_statement'
         )  # equivalent to trialDescr in the MATLAB pipeline 
+    data['pulse_times'] = correct_overflow(data['pulse_times'], 'pulse')
     frame_times = correct_overflow(data['frame_times'], 'frame')
 
     # these are inputs to process_locomotion()
@@ -280,6 +281,8 @@ def process_behavioural_data(
         'reward_distances_aligned': reward_distances_aligned,
         'run_onsets': run_onsets,
         'lick_selectivities': lick_selectivities,
+        'pulse_descriptions': data['pulse_descriptions'],
+        'pulse_times': data['pulse_times'],
         'trial_statements': data['trial_statements'],
         'new_trial_statements': data['new_trial_statements'],
         'full_stops': full_stops,
@@ -293,13 +296,15 @@ def process_behavioural_data(
 
 
 #%% for different types of recording
-def process_behavioural_data_imaging(txtfile: str, 
-                                     max_distance=220, 
-                                     distance_resolution=1, 
-                                     run_onset_initial=3.0, 
-                                     run_onset_sustained=10.0, 
-                                     run_onset_duration=300, 
-                                     frame_threshold_ms=50) -> dict:
+def process_behavioural_data_imaging(
+        txtfile: str, 
+        max_distance=220, 
+        distance_resolution=0.1, 
+        run_onset_initial=3.0, 
+        run_onset_sustained=10.0, 
+        run_onset_duration=300, 
+        frame_threshold_ms=50
+        ) -> dict:
     """
     processes behavioural and imaging data, aligning wheel-derived events with imaging frames.
 
@@ -534,8 +539,12 @@ def process_txt(txtfile):
     curr_logfile = {} 
     file = open(txtfile, 'r')
     
+    pulse_command_list = []
+    
     line = ['']
     while line[0] != '$TR':
+        if line[0] == '$PP':  # sometimes this is before the first trial 
+            pulse_command_list.append(line)
         line = get_next_line(file)
         
     lick_times = []
@@ -552,7 +561,6 @@ def process_txt(txtfile):
     pt_trial = []
     mv_trial = []
     pc_trial = []
-    pulse_command_list = []
     current_pulse_command = []
     
     trial_statements = []  # start of trial 
@@ -560,9 +568,7 @@ def process_txt(txtfile):
     reward_omissions = []
     
     while line[0].find('$') == 0:
-        if line[0] == '$TR': # need to update motor_times here - but ignore motors before first trial started. 
-            # motor_times.append(mt_trial)
-            # mt_trial = []
+        if line[0] == '$TR':
             trial_statements.append(line)
         if line[0] == '$MV':
             mv_trial.append([float(line[1]), float(line[2])])
@@ -581,7 +587,7 @@ def process_txt(txtfile):
         if line[0] == '$PC':
             pc_trial.append(float(line[1]))
         if line[0] == '$PP':
-            current_pulse_command = line       
+            current_pulse_command = line
         if line[0] == '$NT':
             new_trial_statements.append(line)
             
@@ -739,11 +745,12 @@ def correct_overflow(data, label):
     if label=='pulse':
         try:
             first_trial_with_pulse = next(x for x in data if len(x)!=0)  # first trial with pulse, Jingyu, 20240926
-            curr_time = first_trial_with_pulse[0]
+            curr_time = float(first_trial_with_pulse[-1])
+            print(curr_time)
             for t in range(tot_trial):
-                if len(data[t])==0:  # if there is no pulse, append an empty list
+                if len(data[t])==0:  # if current trial has no pulse 
                     new_data.append([])
-                elif data[t][-1]-curr_time>=0:  # if the last pulse cell is within overflow, then simply append
+                elif data[t][-1]-curr_time>=0:
                     new_data.append(data[t])
                     curr_time = data[t][-1]
                 else:  # once overflow is detected, do not update curr_time

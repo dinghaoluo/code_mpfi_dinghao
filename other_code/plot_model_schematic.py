@@ -15,14 +15,15 @@ from scipy.signal import fftconvolve
 
 #%% plotting 
 # HPC curve 
-taxis_HPC = np.linspace(0, 5, 500)
-tau_rise = 0.35
-tau_decay = 5
-HPC = np.exp(-taxis_HPC / tau_decay) - np.exp(-taxis_HPC / tau_rise)
+taxis_HPC = np.linspace(-.5, 6, 550)
+sigmoid_onset = 1 / (1 + np.exp(-5 * (taxis_HPC - 0.3)))  # onset at ~0.3 s
+exponential_tail = np.exp(-taxis_HPC / 5)  # slow decay
+
+HPC = sigmoid_onset * exponential_tail
 HPC /= np.max(HPC)
 
-HPC_mod = np.exp(-taxis_HPC / 3) - np.exp(-taxis_HPC / tau_rise)
-HPC_mod /= np.max(HPC_mod)/.25
+# HPC_mod: reduced amplitude version
+HPC_mod = HPC * 0.25
 
 # LC curve
 taxis_LC = np.linspace(-1, 1, 200)
@@ -40,16 +41,15 @@ taxis_mod = np.linspace(0, 6, 600)
 taxis_mod = taxis_mod - 1
 
 fig, ax = plt.subplots(figsize=(2.2, 1.6))
-ax.plot(taxis_HPC, HPC_mod, c='lightcoral', alpha=.6)
-ax.plot(taxis_HPC, HPC, c='firebrick', alpha=1)
+# ax.plot(taxis_HPC, HPC_mod, c='lightcoral', alpha=.6)
+ax.plot(taxis_HPC, HPC, c='firebrick', alpha=.8)
+ax.plot(taxis_HPC, 1-HPC, c='purple', alpha=.8)
 # ax.plot(taxis_LC, gauss_peak, c='royalblue')
 # ax.plot(taxis_mod, dopamine, c='darkgreen', ls='--')
 
 # scaled LC peaks
-# ax.plot(taxis_LC, gauss_peak * .9, c='royalblue', alpha=.8)
-# ax.plot(taxis_LC, gauss_peak * 1, c='royalblue', alpha=1)
+ax.plot(taxis_LC, gauss_peak * 1, c='royalblue', lw=2, alpha=1)
 # ax.plot(taxis_LC, gauss_peak * .7, c='royalblue', alpha=0.5)
-# ax.plot(taxis_LC, gauss_peak * .5, c='royalblue', alpha=0.3)
 
 # LC stim 
 # ax.plot(taxis_LC, gauss_peak * .75, c='grey', alpha=.6)
@@ -65,6 +65,47 @@ ax.set(xlim=(-1, 5), xticks=[],
 plt.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_HPC_reduced.png',
+fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_LC_stim_HPC_diversity_response.png',
+            dpi=300,
+            bbox_inches='tight')
+
+
+#%% simplified/generic 
+# HPC curve 
+t = np.linspace(-1, 5, 500)
+hpc_generic = 1 / (1 + np.exp(-8 * (t - 0)))  # sigmoid at t = 0
+
+# LC curves 
+# 1
+gauss_std = 0.25
+gauss_peak = np.exp(-0.5 * (t / gauss_std)**2)
+gauss_peak /= np.max(gauss_peak)
+lc_tonic = np.copy(gauss_peak)
+peak_idx = np.argmax(lc_tonic)
+lc_tonic[peak_idx:] = lc_tonic[peak_idx]  # flatten from peak onward
+
+# 2
+taxis_LC = np.linspace(-1, 1, 200)
+gauss_std = 0.25 # standard deviation in seconds (sharp peak)
+gauss_peak = np.exp(-0.5 * (taxis_LC / gauss_std)**2)
+gauss_peak /= np.max(gauss_peak)  # normalise to peak at 1
+
+# plot
+fig, ax = plt.subplots(figsize=(2.2, 1.6))
+ax.plot(t, hpc_generic, c='firebrick', lw=3, ls='dashed')
+# ax.plot(t, 1-hpc_generic, c='purple', lw=2, ls='dashed')
+# ax.plot(t, lc_tonic, c='royalblue', lw=2, ls='dashed')  # LC tonic trace
+# ax.plot(taxis_LC, gauss_peak, c='royalblue', lw=2) 
+
+# remove spines and ticks
+for s in ['left', 'right', 'top', 'bottom']:
+    ax.spines[s].set_visible(False)
+
+ax.set(xlim=(-1, 5), xticks=[], ylim=(0, 1.1), yticks=[])
+
+plt.tight_layout()
+plt.show()
+
+fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_HPC_diversity.png',
             dpi=300,
             bbox_inches='tight')
