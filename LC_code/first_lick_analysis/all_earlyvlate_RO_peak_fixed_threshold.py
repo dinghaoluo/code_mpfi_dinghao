@@ -283,33 +283,32 @@ midlate_c   = (0.20, 0.35, 0.65)  # darker royal blue
 late_c      = (0.10, 0.25, 0.40)  # deep navy-toned blue
 
 
-fig, ax = plt.subplots(figsize=(2.1, 2.7))
+fig, ax = plt.subplots(figsize=(2.2, 1.8))
 
-ax.plot(XAXIS, early_mean, c=early_c, label='early')
+ax.plot(XAXIS, early_mean, c='grey', label='early')
 ax.fill_between(XAXIS, early_mean+early_sem,
                        early_mean-early_sem,
-                       color=early_c, edgecolor='none', alpha=.25)
+                       color='grey', edgecolor='none', alpha=.25)
 
-ax.plot(XAXIS, earlymid_mean, color=earlymid_c, label='earlymid')
+ax.plot(XAXIS, earlymid_mean, color='royalblue', label='late')
 ax.fill_between(XAXIS, earlymid_mean+earlymid_sem,
                        earlymid_mean-earlymid_sem,
-                       color=earlymid_c, edgecolor='none', alpha=.25)
+                       color='royalblue', edgecolor='none', alpha=.25)
 
-ax.plot(XAXIS, midlate_mean, c=midlate_c, label='midlate')
-ax.fill_between(XAXIS, midlate_mean+midlate_sem,
-                       midlate_mean-midlate_sem,
-                       color=midlate_c, edgecolor='none', alpha=.25)
+# ax.plot(XAXIS, midlate_mean, c=midlate_c, label='midlate')
+# ax.fill_between(XAXIS, midlate_mean+midlate_sem,
+#                        midlate_mean-midlate_sem,
+#                        color=midlate_c, edgecolor='none', alpha=.25)
 
-ax.plot(XAXIS, late_mean, color=late_c, label='late')
-ax.fill_between(XAXIS, late_mean+late_sem,
-                       late_mean-late_sem,
-                       color=late_c, edgecolor='none', alpha=.25)
+# ax.plot(XAXIS, late_mean, color=late_c, label='late')
+# ax.fill_between(XAXIS, late_mean+late_sem,
+#                        late_mean-late_sem,
+#                        color=late_c, edgecolor='none', alpha=.25)
 
 plt.legend(fontsize=5, frameon=False)
 
-ax.set(xlabel='time from run-onset (s)', 
-       xticks=[-.5,0,.5], xlim=(-.5,.5),
-       ylabel='spike rate (Hz)', ylim=(2.2, 4.8))
+ax.set(xlabel='time from run-onset (s)', xlim=(-1,4),
+       ylabel='spike rate (Hz)')
 
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -323,29 +322,29 @@ comparison_pairs = [
     ('earlymid', earlymid_spike_rates, 'late', late_spike_rates)
 ]
 
-title_lines = []
-for name1, a, name2, b in comparison_pairs:
-    a = [x for x in a if not np.isnan(x)]
-    b = [x for x in b if not np.isnan(x)]
-    stat, p = ranksums(a, b)
-    if p < 0.0001:
-        p_str = 'p<0.0001'
-    else:
-        p_str = f'p={p:.3g}'
-    title_lines.append(f'{name1} vs {name2}: {p_str}')
+# title_lines = []
+# for name1, a, name2, b in comparison_pairs:
+#     a = [x for x in a if not np.isnan(x)]
+#     b = [x for x in b if not np.isnan(x)]
+#     stat, p = ranksums(a, b)
+#     if p < 0.0001:
+#         p_str = 'p<0.0001'
+#     else:
+#         p_str = f'p={p:.3g}'
+#     title_lines.append(f'{name1} vs {name2}: {p_str}')
 
-ax.set_title('\n' + '\n'.join(title_lines), fontsize=6)
+# ax.set_title('\n' + '\n'.join(title_lines), fontsize=6)
     
 fig.tight_layout()
 plt.show()
 
-for ext in ['.png', '.pdf']:
-    fig.savefig(
-        r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
-        rf'\all_run_onset_mean_profiles{ext}',
-        dpi=300,
-        bbox_inches='tight'
-        )
+# for ext in ['.png', '.pdf']:
+#     fig.savefig(
+#         r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
+#         rf'\all_run_onset_mean_profiles{ext}',
+#         dpi=300,
+#         bbox_inches='tight'
+#         )
     
 #%% std comparison 
 # clean NaNs

@@ -92,10 +92,10 @@ gauss_peak /= np.max(gauss_peak)  # normalise to peak at 1
 
 # plot
 fig, ax = plt.subplots(figsize=(2.2, 1.6))
-ax.plot(t, hpc_generic, c='firebrick', lw=3, ls='dashed')
+# ax.plot(t, hpc_generic, c='firebrick', lw=3, ls='dashed')
 # ax.plot(t, 1-hpc_generic, c='purple', lw=2, ls='dashed')
 # ax.plot(t, lc_tonic, c='royalblue', lw=2, ls='dashed')  # LC tonic trace
-# ax.plot(taxis_LC, gauss_peak, c='royalblue', lw=2) 
+ax.plot(taxis_LC, gauss_peak, c='royalblue', lw=2) 
 
 # remove spines and ticks
 for s in ['left', 'right', 'top', 'bottom']:
@@ -106,6 +106,6 @@ ax.set(xlim=(-1, 5), xticks=[], ylim=(0, 1.1), yticks=[])
 plt.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_HPC_diversity.png',
+fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_LC_phasic_solid.png',
             dpi=300,
             bbox_inches='tight')

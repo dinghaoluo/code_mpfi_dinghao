@@ -746,7 +746,6 @@ def correct_overflow(data, label):
         try:
             first_trial_with_pulse = next(x for x in data if len(x)!=0)  # first trial with pulse, Jingyu, 20240926
             curr_time = float(first_trial_with_pulse[-1])
-            print(curr_time)
             for t in range(tot_trial):
                 if len(data[t])==0:  # if current trial has no pulse 
                     new_data.append([])

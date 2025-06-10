@@ -100,6 +100,30 @@ for ext in ['.png', '.pdf']:
         )
 
 
+#%% good v bad trials 
+ON_all_good = [cell.prof_good_mean for cell in 
+               df_pyr[df_pyr['class_ctrl']=='run-onset ON']
+               .itertuples(index=False) if len(cell.prof_good_mean)==12500]
+ON_all_bad = [cell.prof_bad_mean for cell in 
+              df_pyr[df_pyr['class_ctrl']=='run-onset ON']
+              .itertuples(index=False) if len(cell.prof_bad_mean)==12500]
+
+ON_all_good_mean = np.mean(ON_all_good, axis=0)[2500:3750+4*1250]
+ON_all_good_sem = sem(ON_all_good, axis=0)[2500:3750+4*1250]
+ON_all_bad_mean = np.mean(ON_all_bad, axis=0)[2500:3750+4*1250]
+ON_all_bad_sem = sem(ON_all_bad, axis=0)[2500:3750+4*1250]
+
+fig, ax = plt.subplots(figsize=(2.2, 1.6))
+ax.plot(xaxis, ON_all_good_mean, c='firebrick')
+ax.fill_between(xaxis, ON_all_good_mean+ON_all_good_sem,
+                       ON_all_good_mean-ON_all_good_sem,
+                       color='firebrick', edgecolor='none', alpha=.2)
+ax.plot(xaxis, ON_all_bad_mean, c='grey')
+ax.fill_between(xaxis, ON_all_bad_mean+ON_all_bad_sem,
+                       ON_all_bad_mean-ON_all_bad_sem,
+                       color='grey', edgecolor='none', alpha=.2)
+
+
 #%% plot ctrl v stim profiles
 ON_all_ctrl = [cell.prof_mean for cell in 
                df_pyr[df_pyr['class_ctrl']=='run-onset ON']

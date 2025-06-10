@@ -154,4 +154,5 @@ for sessname in sess_list:
 pf.plot_violin_with_scatter(all_licks_ctrl, all_licks_stim, 'grey', 'royalblue', 
                             paired=True,
                             xticklabels=['ctrl.', 'stim.'], ylabel='distance 1st-licks (cm)',
+                            showscatter=False,
                             save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_lickdist_020\summary', dpi=300)
