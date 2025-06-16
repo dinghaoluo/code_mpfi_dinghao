@@ -277,17 +277,13 @@ def process_all(rec_path):
             plt.close(fig)
             
             fig, ax = plt.subplots(figsize=(2.5, 1.7))
-            axt = ax.twinx()
-            axt.set_zorder(0)
-            ax.set_zorder(1)
-            ax.patch.set_visible(False)
             
-            ref_ca_ln, = axt.plot(XAXIS, run_aligned_mean_ch2, 
-                                  linewidth=1,
-                                  c='indianred', label='tdT', alpha=.5)
-            axt.fill_between(XAXIS, run_aligned_mean_ch2+run_aligned_sem_ch2,
-                                    run_aligned_mean_ch2-run_aligned_sem_ch2,
-                             color='indianred', alpha=.1, edgecolor='none')
+            ref_ca_ln, = ax.plot(XAXIS, run_aligned_mean_ch2, 
+                                 linewidth=1,
+                                 c='indianred', label='tdT', alpha=.5)
+            ax.fill_between(XAXIS, run_aligned_mean_ch2+run_aligned_sem_ch2,
+                                   run_aligned_mean_ch2-run_aligned_sem_ch2,
+                            color='indianred', alpha=.1, edgecolor='none')
             
             ca_ln, = ax.plot(XAXIS, run_aligned_mean, 
                              linewidth=1,
@@ -298,17 +294,13 @@ def process_all(rec_path):
                             color='darkgreen', alpha=.2, edgecolor='none',
                             zorder=10)
             
-            # manually extract handles for legend (fixes twin axes issue)
-            handles = [ca_ln, ref_ca_ln]
-            labels = [h.get_label() for h in handles]
-            ax.legend(handles, labels, fontsize=6, frameon=False)
+            ax.legend(fontsize=6, frameon=False)
             
             ax.set(xlabel='time from run-onset (s)',
-                   ylabel='dF/F')
-            axt.set(ylabel='dF/F')
+                   ylabel='dF/F')           
             
             ax.spines['top'].set_visible(False)
-            axt.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
             
             fig.suptitle('ROI {} run-onset-aligned'.format(roi))
             for ext in ('.png', '.pdf'):

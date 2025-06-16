@@ -187,6 +187,7 @@ def smooth_convolve(data, sigma=3, axis=1):
     ValueError
         if the input array is empty or if sigma is not positive.
     '''
+    data = np.array(data)
     if data.size == 0:
         raise ValueError('input array is empty.')
 

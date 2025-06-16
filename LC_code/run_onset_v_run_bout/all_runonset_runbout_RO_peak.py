@@ -13,21 +13,24 @@ LC: visual and statistical comparison between run-onset and run-bout-onset LC
 
 #%% imports
 import sys
+
+import mat73
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import sem, wilcoxon
-import matplotlib.pyplot as plt 
 import scipy.io as sio
-import mat73
-import os 
+from scipy.stats import sem, wilcoxon
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, smooth_convolve
-mpl_formatting()
 import plotting_functions as pf
 
-sys.path.append('Z:\Dinghao\code_dinghao')
+sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
+
+mpl_formatting()
+
+# import rec lists 
 recs = [path[-17:] for path in rec_list.pathLC]
 
 
@@ -99,7 +102,7 @@ def main(keys, list_identity):
         temp_recname = cluname[:cluname.find(' ')]
         
         # assumes cluname is 'A123i-20250101-01 x', where x starts at 2
-        clunum = int(cluname.split(' ')[-1])-2  # index for retrieving fsa
+        clunum = int(cluname.split('clu')[1])-2  # index for retrieving fsa
         
         if temp_recname not in recs:
             continue
@@ -529,6 +532,92 @@ def main(keys, list_identity):
                                 save=True, 
                                 savepath=rf'Z:\Dinghao\code_dinghao\LC_ephys\run_onset_v_run_bout\LC_{list_identity}_Dbh_ROpeaking_run_onset_run_bout_amp_violin', 
                                 dpi=300)
+    
+    
+    # speed match plotting 
+    print('plotting overall speed comparison...')
+
+    run_onset_speeds_mat = np.stack(run_onset_speeds, axis=0)
+    run_bout_speeds_mat = np.stack(run_bout_speeds, axis=0)
+    run_bout_speeds_matched_mat = np.stack(run_bout_speeds_matched, axis=0)
+    
+    # compute mean and sem
+    mean_run_onset_speed = smooth_convolve(np.mean(
+        run_onset_speeds_mat, axis=0
+        )[:2*SAMP_FREQ], 
+        sigma=SAMP_FREQ/100)
+    sem_run_onset_speed = smooth_convolve(sem(
+        run_onset_speeds_mat, axis=0
+            )[:2*SAMP_FREQ], 
+        sigma=SAMP_FREQ/100)
+    
+    mean_run_bout_speed = smooth_convolve(np.mean(
+        run_bout_speeds_mat, axis=0
+        )[:2*SAMP_FREQ], 
+        sigma=SAMP_FREQ/100)
+    sem_run_bout_speed = smooth_convolve(sem(
+        run_bout_speeds_mat, axis=0
+        )[:2*SAMP_FREQ], 
+        sigma=SAMP_FREQ/100)
+    
+    mean_run_bout_speed_matched = smooth_convolve(np.mean(
+        run_bout_speeds_matched_mat, axis=0
+        )[:2*SAMP_FREQ], 
+        sigma=SAMP_FREQ/100)
+    sem_run_bout_speed_matched = smooth_convolve(sem(
+        run_bout_speeds_matched_mat, axis=0
+        )[:2*SAMP_FREQ], 
+        sigma=SAMP_FREQ/100)
+    
+    fig, axs = plt.subplots(1,2, figsize=(4,1.8))
+    
+    # panel 1: not matched
+    axs[0].plot(XAXIS_SPEED, mean_run_onset_speed, color='k')
+    axs[0].plot(XAXIS_SPEED, mean_run_bout_speed, color='green')
+    axs[0].fill_between(XAXIS_SPEED,
+                        mean_run_onset_speed + sem_run_onset_speed,
+                        mean_run_onset_speed - sem_run_onset_speed,
+                        color='k', alpha=.1, edgecolor='none')
+    axs[0].fill_between(XAXIS_SPEED,
+                        mean_run_bout_speed + sem_run_bout_speed,
+                        mean_run_bout_speed - sem_run_bout_speed,
+                        color='green', alpha=.1, edgecolor='none')
+    axs[0].set(title='run-bouts not matched')
+    
+    # panel 2: matched
+    axs[1].plot(XAXIS_SPEED, mean_run_onset_speed, color='k')
+    axs[1].plot(XAXIS_SPEED, mean_run_bout_speed_matched, color='red')
+    axs[1].fill_between(XAXIS_SPEED,
+                        mean_run_onset_speed + sem_run_onset_speed,
+                        mean_run_onset_speed - sem_run_onset_speed,
+                        color='k', alpha=.1, edgecolor='none')
+    axs[1].fill_between(XAXIS_SPEED,
+                        mean_run_bout_speed_matched + sem_run_bout_speed_matched,
+                        mean_run_bout_speed_matched - sem_run_bout_speed_matched,
+                        color='red', alpha=.1, edgecolor='none')
+    axs[1].set(title='run-bouts matched')
+    
+    for ax in axs:
+        ax.set(xlim=(-1,1), xticks=[-1,0,1],
+               ylim=(0, max(mean_run_onset_speed.max(), 
+                            mean_run_bout_speed.max(), 
+                            mean_run_bout_speed_matched.max()) * 1.1),
+               xlabel='time (s)',
+               ylabel='speed (cm/s)')
+        for s in ['top', 'right']:
+            ax.spines[s].set_visible(False)
+    
+    for ext in ['.png', '.pdf']:
+        fig.savefig(
+            r'Z:\Dinghao\code_dinghao\behaviour\LC_run_onset_run_bout'
+            rf'\overall_matched_bouts{ext}',
+            dpi=300,
+            bbox_inches='tight'
+        )
+    
+    plt.show()
+    plt.close(fig)
+    
     
 if __name__ == '__main__':
     main(tagged_RO_peak_keys, 'tagged')

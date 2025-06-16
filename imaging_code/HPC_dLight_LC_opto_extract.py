@@ -24,7 +24,7 @@ import imaging_pipeline_functions as ipf
 
 sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
-paths = rec_list.pathdLightLCOpto + rec_list.pathdLightLCOptoCtrl
+paths = rec_list.pathdLightLCOpto + rec_list.pathdLightLCOptoCtrl + rec_list.pathdLightLCOptoInh
 
 
 #%% parameters 
@@ -94,6 +94,8 @@ def main(path):
     mov = np.memmap(binpath, mode='r', dtype='int16', shape=shape).astype(np.float32)
     mov2 = np.memmap(bin2path, mode='r', dtype='int16', shape=shape).astype(np.float32)
     
+    tot_frames = mov.shape[0]  # once loaded, update tot_frames to be the max frame number, 16 June 2025
+    
     ipf.plot_reference(mov, recname=recname, outpath=savepath, channel=1)
     ipf.plot_reference(mov2, recname=recname, outpath=savepath, channel=2)
     
@@ -139,8 +141,8 @@ def main(path):
     # block out opto artefact periods 
     pulse_period_frames = np.concatenate(
         [np.arange(
-            pulse_train[0]-3,
-            pulse_train[-1]+3  # +3 as a buffer
+            max(0, pulse_train[0]-3),
+            min(pulse_train[-1]+15, tot_frames)  # +15 as a buffer
             )
         for pulse_train in pulse_frames_split]
         )
@@ -256,29 +258,41 @@ def main(path):
                                        GPU_AVAILABLE=GPU_AVAILABLE,
                                        CHUNK=True)
     
-    print('computing single-pixel dF/F...')
-    # compute dF/F per pixel
+    # compute dF/F per pixel within the stim window 
+    start_frame = max(0, valid_pulse_start_frames[0] - BEF * SAMP_FREQ - 300)  # 300 because of the dFF rolling window width (sigma)
+    end_frame = min(tot_frames, valid_pulse_start_frames[-1] + AFT * SAMP_FREQ + 330)  # 330 for a 1-second margin 
+    print(f'computing single-pixel dF/F from {start_frame} to {end_frame}...')
+    
     t0 = time()
-    dFF_pix = ipf.calculate_dFF(mov, sigma=300, t_axis=0, 
+    dFF_pix = ipf.calculate_dFF(mov[start_frame:end_frame], 
+                                sigma=300, 
+                                t_axis=0, 
                                 GPU_AVAILABLE=GPU_AVAILABLE,
                                 CHUNK=True)
-    dFF_pix2 = ipf.calculate_dFF(mov2, sigma=300, t_axis=0, 
+    dFF_pix2 = ipf.calculate_dFF(mov2[start_frame:end_frame], 
+                                 sigma=300, 
+                                 t_axis=0, 
                                  GPU_AVAILABLE=GPU_AVAILABLE,
                                  CHUNK=True)
     print(f'dF/F done in {time() - t0:.2f} s')
     
-    # mask artefact frames *before* alignment
-    print('masking stimulation artefacts in pixel-wise dF/F...')
-    dFF_pix[pulse_period_frames, :, :] = np.nan
-    dFF_pix2[pulse_period_frames, :, :] = np.nan
+    # mask artefact frames:
+    pulse_period_frames_adj = pulse_period_frames - start_frame
+    pulse_period_frames_adj = pulse_period_frames_adj[
+        (pulse_period_frames_adj >= 0) & (pulse_period_frames_adj < dFF_pix.shape[0])
+    ]
     
-    # extract aligned dF/F traces per pixel
-    print('aligning pixel-wise dF/F traces to stimulations...')
+    dFF_pix[pulse_period_frames_adj, :, :] = np.nan
+    dFF_pix2[pulse_period_frames_adj, :, :] = np.nan
+    
+    # alignment:
     aligned_dFF_pix = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
     aligned_dFF_pix2 = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
+    
     for i, p in enumerate(valid_pulse_start_frames):
-        aligned_dFF_pix[i] = dFF_pix[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
-        aligned_dFF_pix2[i] = dFF_pix2[p-(BEF)*SAMP_FREQ : p+(AFT)*SAMP_FREQ]
+        p_adj = p - start_frame
+        aligned_dFF_pix[i] = dFF_pix[p_adj - BEF*SAMP_FREQ : p_adj + AFT*SAMP_FREQ]
+        aligned_dFF_pix2[i] = dFF_pix2[p_adj - BEF*SAMP_FREQ : p_adj + AFT*SAMP_FREQ]
         
     np.save(rf'{savepath}\processed_data\{recname}_pixelwise_dFF.npy',
             aligned_dFF_pix)
@@ -333,6 +347,7 @@ def main(path):
                     reference_axon_only)
     
 
+#%% execute 
 if __name__ == '__main__':
     for path in paths:
         main(path)

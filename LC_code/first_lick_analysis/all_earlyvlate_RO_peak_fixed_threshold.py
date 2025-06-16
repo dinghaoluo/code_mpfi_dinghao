@@ -295,15 +295,15 @@ ax.fill_between(XAXIS, earlymid_mean+earlymid_sem,
                        earlymid_mean-earlymid_sem,
                        color='royalblue', edgecolor='none', alpha=.25)
 
-# ax.plot(XAXIS, midlate_mean, c=midlate_c, label='midlate')
-# ax.fill_between(XAXIS, midlate_mean+midlate_sem,
-#                        midlate_mean-midlate_sem,
-#                        color=midlate_c, edgecolor='none', alpha=.25)
+ax.plot(XAXIS, midlate_mean, c=midlate_c, label='midlate')
+ax.fill_between(XAXIS, midlate_mean+midlate_sem,
+                       midlate_mean-midlate_sem,
+                       color=midlate_c, edgecolor='none', alpha=.25)
 
-# ax.plot(XAXIS, late_mean, color=late_c, label='late')
-# ax.fill_between(XAXIS, late_mean+late_sem,
-#                        late_mean-late_sem,
-#                        color=late_c, edgecolor='none', alpha=.25)
+ax.plot(XAXIS, late_mean, color=late_c, label='late')
+ax.fill_between(XAXIS, late_mean+late_sem,
+                       late_mean-late_sem,
+                       color=late_c, edgecolor='none', alpha=.25)
 
 plt.legend(fontsize=5, frameon=False)
 
@@ -338,13 +338,13 @@ comparison_pairs = [
 fig.tight_layout()
 plt.show()
 
-# for ext in ['.png', '.pdf']:
-#     fig.savefig(
-#         r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
-#         rf'\all_run_onset_mean_profiles{ext}',
-#         dpi=300,
-#         bbox_inches='tight'
-#         )
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
+        rf'\all_run_onset_mean_profiles{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )
     
 #%% std comparison 
 # clean NaNs

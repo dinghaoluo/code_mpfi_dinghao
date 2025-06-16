@@ -516,8 +516,9 @@ def main(paths, exp='HPCLC'):
     ax.set_title(rf'{exp}\nbaseline PyrUp (<2/3) and PyrDown (>3/2)', fontsize=10)
     ax.legend(fontsize=4, frameon=False)
     
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_stim_only_ON.png',
-                dpi=300, bbox_inches='tight')
+    for ext in ['.png', '.pdf']:
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_stim_only_ON{ext}',
+                    dpi=300, bbox_inches='tight')
     
     
     mean_ctrl_only_ON = np.mean(mean_prof_ctrl_only_ON, axis=0)[2500:2500+5*1250]
@@ -545,8 +546,9 @@ def main(paths, exp='HPCLC'):
     ax.set_title(rf'{exp}\nbaseline PyrUp (<2/3) and PyrDown (>3/2)', fontsize=10)
     ax.legend(fontsize=4, frameon=False)
     
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_stim_only_OFF.png',
-                dpi=300, bbox_inches='tight')
+    for ext in ['.png', '.pdf']:
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_stim_only_OFF{ext}',
+                    dpi=300, bbox_inches='tight')
     
     
     # single session overlay

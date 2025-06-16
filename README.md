@@ -18,6 +18,8 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *lick_dist_comp_HPC_LCterm_stim.py*  
 │   │   ├── *lick_time_comp_HPC_LC_stim.py*  
 │   │   └── *lick_time_comp_HPC_LCterm_stim.py*  
+│   ├── **crossover_point**  
+│   │   └── *crossover_point_analysis.py*  
 │   ├── **decay_time**  
 │   │   └── *decay_time_analysis.py*  
 │   ├── **dimensionality_reduction**  
@@ -31,6 +33,7 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *plot_all_pyr_heatmap_dist.py*  
 │   │   ├── *plot_all_pyr_info_ctrl_stim.py*  
 │   │   ├── *plot_all_pyr_pre_post_ratio.py*  
+│   │   ├── *plot_all_pyr_pre_post_raw_change.py*  
 │   │   └── *plot_run_onset_ON_OFF_profiles.py*  
 │   ├── **history_dependency**  
 │   │   └── *lick_history_dependency.py*  
@@ -41,6 +44,8 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   └── *HPC_population_activity_1st_lick.py*  
 │   ├── **poisson_deviation**  
 │   │   └── *HPCLC_pyract_single_cell_profiles.py*  
+│   ├── **remapping**  
+│   │   └── *HPC_global_remapping_pop_vector.py*  
 │   ├── **sequence**  
 │   │   ├── *HPCLC_plot_sequence.py*  
 │   │   ├── *HPCLC_plot_sequence_dist.py*  
@@ -70,9 +75,17 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only_sig_MI.py*  
 │   │   ├── *HPCLCterm_stim_ctrl_all_pyr_profiles_single_sess.py*  
 │   │   ├── *HPC_all_mod_depth_comp.py*  
-│   │   └── *HPC_all_modulation_statistics.py*  
-│   └── **theta_phase**  
-│       └── *HPC_all_theta_stim.py*  
+│   │   ├── *HPC_all_modulation_statistics.py*  
+│   │   ├── *HPC_all_stim_effects.py*  
+│   │   ├── *HPC_all_stim_effects_CI.py*  
+│   │   ├── *HPC_all_stim_effects_classify.py*  
+│   │   ├── *HPC_all_stim_effects_smoothed.py*  
+│   │   ├── *HPC_all_stim_population.py*  
+│   │   └── *stim_ctrl_all_pyr_decay_time.py*  
+│   ├── **theta_phase**  
+│   │   └── *HPC_all_theta_stim.py*  
+│   └── **utils**  
+│       └── *support_HPC.py*  
 ├── **LC_code**  
 │   ├── *LC_all_extract.py*  
 │   ├── *LC_all_identity_UMAP.py*  
@@ -115,7 +128,8 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *plot_tagging_responses.py*  
 │   │   └── *plot_trials_LC.py*  
 │   ├── **first_lick_analysis**  
-│   │   ├── *all_earlyvlate_RO_peak.py*  
+│   │   ├── *all_earlyvlate_RO_peak_dynamic_threshold.py*  
+│   │   ├── *all_earlyvlate_RO_peak_fixed_threshold.py*  
 │   │   ├── *all_earlyvlate_RO_peak_population.py*  
 │   │   ├── *all_earlyvlate_RO_peak_population_lick2pump.py*  
 │   │   ├── *all_earlyvlate_RO_peak_population_med3licks.py*  
@@ -139,7 +153,8 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   └── *early_v_late_burst_probability.py*  
 │   ├── **run_onset_v_run_bout**  
 │   │   └── *all_runonset_runbout_RO_peak.py*  
-│   ├── *tagging_latency.py*  
+│   ├── **tagging_analysis**  
+│   │   └── *tagging_latency.py*  
 │   └── **utils**  
 │       └── *single_unit.py*  
 ├── *README.md*  
@@ -152,12 +167,20 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   ├── *tagged_train_alignedRew.py*  
 │   └── *tagged_train_alignedRun.py*  
 ├── **behaviour_code**  
+│   ├── **behaviour_control**  
+│   │   ├── *LC_controls.py*  
+│   │   └── *LC_opto_controls.py*  
 │   ├── **figure_code**  
 │   │   ├── *plot_behaviour.py*  
 │   │   ├── *plot_immobile.py*  
-│   │   └── *plot_lick_to_pumps.py*  
+│   │   ├── *plot_lick_to_pumps.py*  
+│   │   ├── *plot_single_session.py*  
+│   │   └── *plot_speeds.py*  
+│   ├── *off_target_run_bouts.py*  
 │   ├── *process_behaviour.py*  
-│   └── *process_behaviour_immobile.py*  
+│   ├── *process_behaviour_immobile.py*  
+│   └── **utils**  
+│       └── *behaviour_functions.py*  
 ├── **caiman_code**  
 │   ├── *2nd_channel_registration.py*  
 │   ├── *Untitled.ipynb*  
@@ -167,19 +190,27 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   ├── *utils_mesmerize.py*  
 │   └── *visualize.ipynb*  
 ├── **imaging_code**  
-│   ├── *colocalisation_analysis.py*  
+│   ├── *HPC_dLight_LC_opto_extract.py*  
+│   ├── *HPC_dLight_LC_opto_pixel_wise_map.py*  
+│   ├── *HPC_extract_significant_ROI.py*  
+│   ├── *HPC_run_imaging_pipeline.py*  
+│   ├── *LCHPC_axon_all_extract.py*  
+│   ├── *LCHPC_axon_all_profiles.py*  
+│   ├── *LCHPC_single_pixel_extract.py*  
 │   ├── *convert_movie_tif.py*  
-│   ├── *extract_axon_GCaMP.py*  
-│   ├── *extract_significant_ROI.py*  
+│   ├── **correlational_analysis**  
+│   │   ├── *LCHPC_axon_correlation.py*  
+│   │   └── *colocalisation_analysis.py*  
 │   ├── **figure_code**  
+│   │   ├── *plot_example_frames_HPC_dLight_LC_opto.py*  
 │   │   ├── *plot_lick_profile.py*  
 │   │   ├── *plot_lick_profile_to_pumps.py*  
 │   │   ├── *plot_pooled_heatmap_axon_GCaMP.py*  
+│   │   ├── *plot_raw traces_axon_GCaMP.py*  
 │   │   ├── *plot_sorted_heatmaps_grids.py*  
 │   │   ├── *plot_sorted_heatmaps_rois.py*  
 │   │   ├── *plot_std_heatmap.py*  
 │   │   └── *plot_whole_field.py*  
-│   ├── *run_imaging_pipeline.py*  
 │   ├── **suite2p_code**  
 │   │   ├── *registration_roi_extraction_s2p_wanglab.py*  
 │   │   └── *suite2p-wang-lab_SparseDetect_test_seperate.py*  
@@ -189,23 +220,31 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 │   │   ├── *tonic_fft.py*  
 │   │   └── *whole_session_f_dff.py*  
 │   └── **utils**  
+│       ├── *New Text Document.txt*  
+│       ├── *Thumbs.db*  
+│       ├── *fibre-segmenter.ico*  
+│       ├── *fibre_ROI_segmentation.py*  
+│       ├── *fibre_ROI_segmentation_GUI_Jingyu_test.py*  
+│       ├── *fibre_ROI_segmentation_GUI_v1.py*  
+│       ├── *fibre_ROI_segmentation_GUI_v2.py*  
 │       ├── *imaging_pipeline_functions.py*  
 │       ├── *imaging_pipeline_main_functions.py*  
 │       ├── *imaging_utility_functions.py*  
-│       └── *suite2p_functions.py*  
+│       ├── *suite2p_functions.py*  
+│       └── *support_LCHPC_axon.py*  
 ├── **matlab_preprocessing**  
 │   ├── *RunSpikePipeline.m*  
 │   ├── *RunSpikePipeline_pix.m*  
 │   └── *RunSpikePipeline_pix_Run0.m*  
 ├── **other_code**  
 │   ├── *log_temperature_humidity.py*  
+│   ├── *plot_model_schematic.py*  
 │   └── *plot_temperature_humidity.py*  
 ├── **pharmacology_code**  
 │   ├── *summarise_SCH23390.py*  
 │   └── *summarise_prop.py*  
 └── **utils**  
     ├── *alignment_functions.py*  
-    ├── *behaviour_functions.py*  
     ├── *common.py*  
     ├── *dsr1_functions.py*  
     ├── *logger_module.py*  
@@ -218,6 +257,14 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 
 ## pre-processing
 
+### behavior analysis 
+
+Behaviour analysis of the running VR task is handled by scripts under `/behaviour_code`. `process_behaviour.py` process all sessions from all experiments, saving the processed behavior data as a `.pkl` file under each session's data folder. This `.pkl` file can be straightforwardly loaded elsewhere with `pickle.load`.
+
+Behaviour analysis of the immobile VR task is handled, alternatively, by `process_behaviour_immobile.py`. 
+
+`off_target_run_bouts.py` is a Python implementation of the run-bout detection algorithm in the MATLAB pipeline.
+
 ### 2-photon imaging
 
 2-photon imaging data were pre-processed using [suite2p](https://github.com/MouseLand/suite2p)  
@@ -225,6 +272,8 @@ my scripts at MPFI; unless otherwise specified, I am the author of all the scrip
 **axon-GCaMP recordings**: after sorting using Suite2p with customised parameters to detect neuronal processes, `extract_axon_GCaMP.py` extracts dF/F traces aligned to behavioural landmarks (e.g. run-onsets, reward deliveries) of valid ROIs. Suite2p saves sorted ROIs in such a manner that each ROI has an `imerge` list consisting of all of its constituent ROIs and ROIs resulting from multiple merges would contain an `imerge` list that is a superset of all of the constituents of ROIs from previous merging steps. Therefore, a `valid_ROI_dict` is generated, containing only the ROIs from the final merge step (i.e. which are not themselves constituents of other ROIs).  
 
 **neuromodulator sensor recordings**: after registration (and ROI detection) using Suite2p, `run_imaging_pipeline.py` provides 2 ways to process the data based on grid-like ROIs and Suite2p ROIs. Grid-like ROIs divide the imaging plane into square grids and extract traces based strictly within those grids, without spatial filtering. Suite2p ROIs are detected using a customised parameter set to prioritise temporal variances of detected ROIs.
+
+**opto-neuromodulator sensor recordings**: when optogenetics is performed simultaneously with imaging, one can use `HPC_dLight_LC_opto_extract.py` (named so since currently only HPC-dLight + LC-opto recordings are being performed) to extract a) aligned-to-stim. activity traces and b) single-pixel aligned traces for future use. The 'future use' for now consists of using `HPC_dLight_LC_opto_pixel_wise_map` to extract a pixel-wise t-map to ascertain the areas of highest and most consistent changes in response to stimulations.
 
 ### hippocampus ephys data 
 
