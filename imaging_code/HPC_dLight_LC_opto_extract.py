@@ -36,7 +36,6 @@ AFT = 10
 TAXIS = np.arange(-BEF*SAMP_FREQ, AFT*SAMP_FREQ) / SAMP_FREQ
 
 BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
-STIM_IDX = (TAXIS >= 1.15) & (TAXIS < 2.0)
 
 
 #%% GPU acceleration
@@ -65,6 +64,13 @@ except Exception as e:
 def main(path):
     recname = path.split('\\')[-1]
     print(f'\n{recname}')
+    
+    # switch
+    BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
+    if path in rec_list.pathdLightLCOptoInh:
+        STIM_IDX = (TAXIS >= 5.15) & (TAXIS < 6.0)
+    else:
+        STIM_IDX = (TAXIS >= 1.15) & (TAXIS < 2.0)
     
     binpath = os.path.join(path, 'suite2p/plane0/data.bin')
     bin2path = os.path.join(path, 'suite2p/plane0/data_chan2.bin')

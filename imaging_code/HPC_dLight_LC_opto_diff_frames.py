@@ -22,7 +22,7 @@ import imaging_pipeline_functions as ipf
 
 sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
-paths = rec_list.pathdLightLCOpto
+paths = rec_list.pathdLightLCOpto + rec_list.pathdLightLCOptoCtrl
 
 
 #%% parameters 

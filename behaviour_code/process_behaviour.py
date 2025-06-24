@@ -29,7 +29,16 @@ sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 
 list_to_process = input(
-    'Process which list? 1. HPCLC, 2. HPCLCterm, 3. LC, 4. HPCGRABNE, 5. HPCLCGCaMP, 6. PROCESS ALL\n'
+    '''
+    Process which list?
+    1. HPCLC, 
+    2. HPCLCterm, 
+    3. LC, 
+    4. HPCGRABNE, 
+    5. HPCLCGCaMP, 
+    6. HPCdLightLCOpto, 
+    7. PROCESS ALL\n
+    '''
     )
 
 if list_to_process == '1':
@@ -47,6 +56,9 @@ elif list_to_process == '4':
 elif list_to_process == '5':
     paths = rec_list.pathLCHPCGCaMP
     prefix = 'LCHPCGCaMP'
+elif list_to_process == '6':
+    paths = rec_list.pathdLightLCOpto
+    prefix = 'HPCdLightLCOpto'
 
 
 #%% main 
@@ -68,7 +80,7 @@ def process_all(prefix, list_to_process, paths):
                         rf'\{recname[-17:-3]}\{recname[-17:]}'
                         rf'\{recname[-17:]}T.txt')
             behavioural_data = bf.process_behavioural_data(txt_path)
-        elif list_to_process in ['4', '5']:
+        elif list_to_process in ['4', '5', '6']:
             txt_path = (rf'Z:\Dinghao\MiceExp\ANMD{recname[1:4]}'
                         rf'\{recname[:4]}{recname[5:]}T.txt')
             behavioural_data = bf.process_behavioural_data_imaging(txt_path)
@@ -84,19 +96,20 @@ def process_all(prefix, list_to_process, paths):
 
 
 if __name__ == '__main__':
-    if list_to_process in ['1', '2', '3', '4', '5']:
+    if list_to_process in ['1', '2', '3', '4', '5', '6']:
         process_all(prefix, list_to_process, paths)
-    elif list_to_process == '6':
-        lists = ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP']
+    elif list_to_process == '7':
+        lists = ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP', 'HPCdLightLCOpto']
         paths_list = [
             rec_list.pathHPCLCopt,
             rec_list.pathHPCLCtermopt,
             rec_list.pathLC,
             rec_list.pathHPCGRABNE,
-            rec_list.pathLCHPCGCaMP
+            rec_list.pathLCHPCGCaMP,
+            rec_list.pathdLightLCOpto
             ]
-        for i in range(5):
+        for i in range(6):
             print(f'processing {lists[i]}...\n')
             process_all(lists[i], str(i+1), paths_list[i])
     else:
-        raise Exception('not a valid input; only 1, 2, 3, 4, 5 and 6 are supported')
+        raise Exception('not a valid input; only 1, 2, 3, 4, 5, 6 and 7 are supported')

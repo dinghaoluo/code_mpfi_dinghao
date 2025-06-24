@@ -27,72 +27,44 @@ def process_behavioural_data(
         run_onset_sustained=10.0, 
         run_onset_duration=300
         ) -> dict:
-    '''
-    processes behavioural data from a txt file, aligning speed, lick, and reward events 
-    to both time and distance bases, while extracting metrics such as run onsets, 
-    lick selectivity, trial quality, and full stop status.
-
-    run-onset is detected using the interpolated wheel trace, matching the logic in the
-    original MATLAB pipeline: first identifying sustained high-speed segments and then
-    tracing back to the last sub-threshold frame.
-
+    """
+    processes behavioural data from a txt file.
+    
     parameters:
-    ----------
-    txtfile : str
-        path to the txt file containing behavioural data.
-    max_distance : int, optional
-        maximum distance for aligning data across trials (default is 220 cm).
-    distance_resolution : int, optional
-        distance step size in cm for interpolated distance base (default is 1 cm).
-    run_onset_initial : float, optional
-        initial speed threshold for detecting run onset (default is 3.0 cm/s).
-    run_onset_sustained : float, optional
-        sustained speed threshold for detecting run onset (default is 10.0 cm/s).
-    run_onset_duration : int, optional
-        duration (in ms) for which the sustained speed threshold must be held 
-        to confirm run onset (default is 300 ms).
-
+    - txtfile: path to the behaviour .txt file
+    - max_distance: maximum distance (in cm) used to align across trials
+    - distance_resolution: bin size (in cm) for distance interpolation
+    - run_onset_initial: initial low threshold for run onset (cm/s)
+    - run_onset_sustained: sustained high threshold for run onset (cm/s)
+    - run_onset_duration: minimum duration (in ms) to confirm sustained running
+    
     returns:
-    -------
-    dict
-        a dictionary containing aligned behavioural data across time and distance bases, including:
-        - 'speed_times': list of lists, each containing [timestamp, speed] pairs for each trial.
-        - 'speed_times_full': single list of all [timestamp, speed] pairs concatenated across trials.
-        - 'speed_times_aligned': list of lists with speed traces aligned to run-onset (time = 0).
-        - 'speed_distances': list of arrays, each containing speeds aligned to a common distance base.
-        - 'lick_times': list of lists, each containing lick event timestamps for each trial.
-        - 'lick_times_aligned': list of lists with lick timestamps aligned to run-onset.
-        - 'lick_distances': list of arrays, each containing lick events aligned to the distance base.
-        - 'lick_maps': list of arrays, each binary array representing lick events mapped onto the distance base.
-        - 'start_cue_times': list of lists, each containing timestamps of start cues.
-        - 'reward_times': list of lists, each containing timestamps of reward deliveries.
-        - 'reward_distance': list of arrays, each containing reward events aligned to the distance base.
-        - 'run_onsets': list of timestamps for detected run-onset events in each trial.
-        - 'lick_selectivities': list of float values, one for each trial, representing lick selectivity indices.
-        - 'trial_statements': list of lists containing trial-specific metadata and protocols.
-        - 'full_stops': list of booleans indicating whether the animal fully stopped (speed < 10 cm/s) 
-          between the previous trial's reward and the current trial's reward.
-        - 'bad_trials': list of booleans indicating whether each trial was classified as "bad" based on:
-            1. Presence of licks between 30 and 90 cm.
-            2. Speeds below 10 cm/s for a cumulative duration >5 seconds between run-onset and reward.
-            3. Lack of a detected run-onset or delivered reward.
-        - 'frame_times': list of timestamps for each movie frame, corrected for overflow.
-        - 'reward_omissions': raw omission info from txt parser.
-    '''
+    - dict: structured behavioural data including speed, licks, rewards, alignment to time and distance,
+            as well as run onsets, trial quality flags, and upsampled locomotion traces
+    """
     data = process_txt(txtfile)
-
-    data['speed_times'] = correct_overflow(data['speed_times'], 'speed')
-    data['lick_times'] = correct_overflow(data['lick_times'], 'lick')
-    data['pump_times'] = correct_overflow(data['pump_times'], 'pump')
-    data['movie_times'] = correct_overflow(data['movie_times'], 'movie')
-    data['trial_statements'] = correct_overflow(
-        data['trial_statements'], 'trial_statement'
-        )  # equivalent to taskDescr in the MATLAB pipeline 
-    data['new_trial_statements'] = correct_overflow(
-        data['new_trial_statements'], 'new_trial_statement'
-        )  # equivalent to trialDescr in the MATLAB pipeline 
-    data['pulse_times'] = correct_overflow(data['pulse_times'], 'pulse')
-    frame_times = correct_overflow(data['frame_times'], 'frame')
+    
+    # to fix overflow correction, 20250620 Dinghao 
+    start_time = float(data['trial_statements'][0][1])
+    if data['speed_times']:
+        data['speed_times'] = correct_overflow(data['speed_times'], 'speed', start_time)
+    if data['lick_times']:
+        data['lick_times'] = correct_overflow(data['lick_times'], 'lick', start_time)
+    if data['pump_times']:
+        data['pump_times'] = correct_overflow(data['pump_times'], 'pump', start_time)
+    if data['movie_times']:
+        data['movie_times'] = correct_overflow(data['movie_times'], 'movie', start_time)
+    if data['trial_statements']:
+        data['trial_statements'] = correct_overflow(
+            data['trial_statements'], 'trial_statement', start_time
+            )  # equivalent to taskDescr in the MATLAB pipeline 
+    if data['new_trial_statements']:
+        data['new_trial_statements'] = correct_overflow(
+            data['new_trial_statements'], 'new_trial_statement', start_time
+            )  # equivalent to trialDescr in the MATLAB pipeline 
+    if data['pulse_times']:
+        data['pulse_times'] = correct_overflow(data['pulse_times'], 'pulse', start_time)
+    frame_times = correct_overflow(data['frame_times'], 'frame', start_time)
 
     # these are inputs to process_locomotion()
     wheel_tuples = [(t, v) for trial in data['speed_times'] for (t, _, v) in trial]
@@ -125,8 +97,8 @@ def process_behavioural_data(
     # now we start constructing aligned data structures
     speed_times_aligned = []
     speed_distances_aligned = []
-    lick_times = []
     lick_distances_aligned = []
+    lick_times_aligned = []
     lick_maps = []
     lick_selectivities = []
     start_cue_times = []
@@ -141,6 +113,7 @@ def process_behavioural_data(
             speed_times_aligned.append([])  # append empty list if no onset 
             speed_distances_aligned.append([])  # same as above
             lick_distances_aligned.append([])
+            lick_times_aligned.append([])
             lick_maps.append([])
             lick_selectivities.append(np.nan)
             start_cue_times.append(np.nan)
@@ -195,6 +168,7 @@ def process_behavioural_data(
             try:
                 lick_times_raw = [t for t, _ in data['lick_times'][trial_idx]]
                 lick_times_post_onset = [t for t in lick_times_raw if t >= onset]
+                lick_times_aligned.append([t-onset for t in lick_times_post_onset])
     
                 # map these lick timestamps to distances within the trial
                 lick_dists = np.interp(
@@ -261,8 +235,8 @@ def process_behavioural_data(
                 bad_trials.append(is_bad_lick or is_bad_speed or is_bad_reward)
                 
             except IndexError:  # the last trial's data are not logged due to incompletion
-                lick_times.append(np.nan)
                 lick_distances_aligned.append(np.nan)
+                lick_times_aligned.append(np.nan)
                 lick_selectivities.append(np.nan)
                 start_cue_times.append(np.nan)
                 reward_times.append(np.nan)
@@ -274,6 +248,7 @@ def process_behavioural_data(
         'speed_times_aligned': speed_times_aligned,
         'speed_distances_aligned': speed_distances_aligned,
         'lick_times': data['lick_times'],
+        'lick_times_aligned': lick_times_aligned,
         'lick_distances_aligned': lick_distances_aligned,
         'lick_maps': lick_maps,
         'start_cue_times': start_cue_times,
@@ -306,23 +281,19 @@ def process_behavioural_data_imaging(
         frame_threshold_ms=50
         ) -> dict:
     """
-    processes behavioural and imaging data, aligning wheel-derived events with imaging frames.
-
+    processes behavioural data and aligns events to imaging frame times.
+    
     parameters:
-    - txtfile: path to behaviour .txt file
-    - max_distance: max distance in cm for common distance base
-    - distance_resolution: spacing of distance bins in cm
-    - run_onset_initial: pre-run threshold in cm/s
-    - run_onset_sustained: high-speed threshold in cm/s
-    - run_onset_duration: sustained threshold duration in ms
-    - frame_threshold_ms: max allowed gap between frame timestamps before interpolation
-
+    - txtfile: path to the behaviour .txt file
+    - max_distance: maximum distance (in cm) used to align across trials
+    - distance_resolution: bin size (in cm) for distance interpolation
+    - run_onset_initial: initial threshold for run onset (cm/s)
+    - run_onset_sustained: sustained threshold for run onset (cm/s)
+    - run_onset_duration: minimum sustained time for valid run onset (ms)
+    - frame_threshold_ms: max allowed frame interval before interpolation
+    
     returns:
-    - dict: containing behavioural and imaging-aligned outputs, including:
-        - speed/lick/reward aligned to time and distance
-        - run_onset_frames: frame index of each run-onset
-        - reward_frames: frame index of each pump time
-        - start_cue_frames: frame index of each start cue
+    - dict: behavioural data with imaging-aligned event frames (onsets, cues, rewards)
     """
     # process behavioural data
     behavioural_data = process_behavioural_data(txtfile, max_distance, distance_resolution, 
@@ -375,32 +346,25 @@ def process_behavioural_data_imaging(
 
 def process_behavioural_data_immobile(txtfile: str) -> dict: #Jingyu, 4/17/2025
     """
-    processes behavioural data for immobile experiments.
-
+    processes immobile experimental data without locomotion.
+    
     parameters:
     - txtfile: path to the behaviour .txt file
-
+    
     returns:
-    - dict: trial-wise parsed outputs including:
-        - lick_times: lick timestamps
-        - reward_times: pump delivery times
-        - start_cue_times: trial start cue times
-        - trial_statements: metadata and protocol for each trial
-        - frame_times: raw imaging frame timestamps (if available)
-
-    notes:
-    - assumes animal is immobile, and wheel/speed data are irrelevant.
+    - dict: lick, reward, cue, trial metadata and frame times for each trial
     """
     # load and parse the txt file
     data = process_txt_immobile(txtfile)  # uses user's custom `process_txt` function
     
     # correct for overflow in the data
-    data['lick_times'] = correct_overflow(data['lick_times'], 'lick')
-    data['pump_times'] = correct_overflow(data['pump_times'], 'pump')
-    data['movie_times'] = correct_overflow(data['movie_times'], 'movie')
-    data['trial_statements'] = correct_overflow(data['trial_statements'], 'trial_statement')
+    start_time = float(data['trial_statements'][0][1])
+    data['lick_times'] = correct_overflow(data['lick_times'], 'lick', start_time)
+    data['pump_times'] = correct_overflow(data['pump_times'], 'pump', start_time)
+    data['movie_times'] = correct_overflow(data['movie_times'], 'movie', start_time)
+    data['trial_statements'] = correct_overflow(data['trial_statements'], 'trial_statement', start_time)
     if len(data['frame_times'])>0:
-        frame_times = correct_overflow(data['frame_times'], 'frame')
+        frame_times = correct_overflow(data['frame_times'], 'frame', start_time)
     else:
         frame_times = []
     
@@ -442,17 +406,15 @@ def process_behavioural_data_immobile(txtfile: str) -> dict: #Jingyu, 4/17/2025
 
 def process_behavioural_data_immobile_imaging(txtfile, frame_threshold_ms=50):  # Jingyu 4/17/2025
     """
-    adds frame-aligned indices to immobile behavioural data.
-
+    adds imaging frame alignment to immobile behavioural data.
+    
     parameters:
-    - txtfile: path to the behavioural .txt file
-    - frame_threshold_ms: max gap allowed between frame timestamps
-
+    - txtfile: path to the behaviour .txt file
+    - frame_threshold_ms: max allowed interval between frames before interpolation
+    
     returns:
-    - dict: everything from `process_behavioural_data_immobile`, plus:
-        - reward_frames: frame index of each pump event
-        - start_cue_frames: frame index of each start cue event
-    """    
+    - dict: behavioural data including reward and cue frame indices
+    """
     # process behavioural data
     behavioural_data = process_behavioural_data_immobile(txtfile)
 
@@ -693,7 +655,7 @@ def get_next_line(file):
         line = file.readline().rstrip('\n').split(',')
     return line
 
-def correct_overflow(data, label):
+def correct_overflow(data, label, start_time):
     '''
     adjust timestamp-based trial data for hardware overflow events.
 
@@ -744,8 +706,7 @@ def correct_overflow(data, label):
                 new_data.append(new_trial)
     if label=='pulse':
         try:
-            first_trial_with_pulse = next(x for x in data if len(x)!=0)  # first trial with pulse, Jingyu, 20240926
-            curr_time = float(first_trial_with_pulse[-1])
+            curr_time = start_time
             for t in range(tot_trial):
                 if len(data[t])==0:  # if current trial has no pulse 
                     new_data.append([])

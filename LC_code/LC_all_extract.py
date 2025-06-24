@@ -63,125 +63,125 @@ else:
     print('GPU-acceleartion unavailable\n')
 
 
-#%% main 
-def main():
+#%% parameters 
+samp_freq = 1250  # Hz
+sigma_spike = samp_freq * 0.03  # 30 ms
+max_length = 12500  # samples 
 
-    # parameters 
-    samp_freq = 1250  # Hz
-    sigma_spike = samp_freq * 0.03  # 30 ms
-    max_length = 12500  # samples 
+gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
+
+
+#%% main 
+def main(path):
+    all_trains = {}
+    all_rasters = {}
     
-    gaus_spike = gaussian_kernel_unity(sigma_spike, GPU_AVAILABLE)
+    recname = path[-17:]
+    print(recname)
+        
+    filename = os.path.join(path, f'{recname}_DataStructure_mazeSection1_TrialType1')
     
-    for pathname in paths:
-        all_trains = {}
-        all_rasters = {}
-        
-        recname = pathname[-17:]
-        print(recname)
-            
-        filename = os.path.join(pathname, f'{pathname[-17:]}_DataStructure_mazeSection1_TrialType1')
-        
-        spike_time_file = h5py.File(f'{filename}_alignedSpikesPerNPerT_msess1_Run0.mat')['trialsRunSpikes']
-        
-        time_bef = spike_time_file['TimeBef']; time_aft = spike_time_file['Time']
-        tot_clu = time_aft.shape[1]
-        tot_trial = time_aft.shape[0]-1  # trial 1 is empty
-        
-        # spike reading
-        spike_time = np.empty((tot_clu, tot_trial), dtype='object')
-        for clu in tqdm(range(tot_clu), desc='reading spike trains'):
-            # process all trials at once using vectorised operations
-            combined_spike_time = np.array([
-                # concatenate spike times from before and after
-                np.concatenate((
-                    spike_time_file[time_bef[trial, clu]][0]
-                    if not isinstance(spike_time_file[time_bef[trial, clu]][0], np.uint64) else [],
-                    spike_time_file[time_aft[trial, clu]][0]
-                    if not isinstance(spike_time_file[time_aft[trial, clu]][0], np.uint64) else []
-                ))
-                for trial in range(1, tot_trial+1)  # trial 1 is empty 
-            ], dtype='object')
-        
-            # store the combined spike times
-            spike_time[clu, :] = combined_spike_time
-        
-        # initialisation
-        ''' 
-        this has undergone some revamping--empty object arrays were initially used 
-        when initialising all_trains and all_rasters, but the outdated array type
-        defies vectorisation; considering that one never needed the arrays to be of
-        variable-length, I now initialise them to be fixed-length, numeric arrays 
-        for better performance and less memory usage
-        20 Dec 2024 Dinghao 
-        '''
-        if GPU_AVAILABLE:    
-            rasters_gpu = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
-            trains_gpu = xp.zeros_like(rasters_gpu)
-            for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
-                for trial in range(tot_trial):
-                    # adjust spike index alignment (no negative indices)
-                    spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
-                    spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
-                    rasters_gpu[clu, trial, spikes] = 1  # set spike times to 1
-        else:
-            rasters = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
-            trains = xp.zeros_like(rasters)
-            for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
-                for trial in range(tot_trial):
-                    # adjust spike index alignment (no negative indices)
-                    spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
-                    spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
-                    rasters[clu, trial, spikes] = 1  # set spike times to 1
-        
-        t0 = time()
-        if GPU_AVAILABLE:
-            # GPU-accelerated convolution using CuPy
-            trains_gpu = cpss.fftconvolve(
-                rasters_gpu, gaus_spike[None, None, :], 
-                mode='same'
-                ) * samp_freq
-            trains = trains_gpu.get()
-            rasters = rasters_gpu.get()
-            print(
-                'convolution on GPU done in '
-                f'{str(timedelta(seconds=int(time() - t0)))} s')
-        else:
-            # CPU convolution using SciPy's FFT-based convolution for better performance
-            trains = fftconvolve(
-                rasters, gaus_spike[None, None, :], 
-                mode='same'
-                )
-            print(
-                'convolution on CPU done in '
-                f'{str(timedelta(seconds=int(time() - t0)))} s')
-        
-        for clu in range(tot_clu):
-            cluname = f'{recname} clu{clu+2}'
-            all_trains[cluname] = trains[clu]
-            all_rasters[cluname] = rasters[clu]
-        
-        print('done; saving...')
-        sess_folder = rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions\{recname}'
-        np.save(
-            rf'{sess_folder}\{recname}_all_trains.npy',
-            all_trains
+    spike_time_file = h5py.File(f'{filename}_alignedSpikesPerNPerT_msess1_Run0.mat')['trialsRunSpikes']
+    
+    time_bef = spike_time_file['TimeBef']; time_aft = spike_time_file['Time']
+    tot_clu = time_aft.shape[1]
+    tot_trial = time_aft.shape[0]-1  # trial 1 is empty
+    
+    # spike reading
+    spike_time = np.empty((tot_clu, tot_trial), dtype='object')
+    for clu in tqdm(range(tot_clu), desc='reading spike trains'):
+        # process all trials at once using vectorised operations
+        combined_spike_time = np.array([
+            # concatenate spike times from before and after
+            np.concatenate((
+                spike_time_file[time_bef[trial, clu]][0]
+                if not isinstance(spike_time_file[time_bef[trial, clu]][0], np.uint64) else [],
+                spike_time_file[time_aft[trial, clu]][0]
+                if not isinstance(spike_time_file[time_aft[trial, clu]][0], np.uint64) else []
+            ))
+            for trial in range(1, tot_trial+1)  # trial 1 is empty 
+        ], dtype='object')
+    
+        # store the combined spike times
+        spike_time[clu, :] = combined_spike_time
+    
+    # initialisation
+    ''' 
+    this has undergone some revamping--empty object arrays were initially used 
+    when initialising all_trains and all_rasters, but the outdated array type
+    defies vectorisation; considering that one never needed the arrays to be of
+    variable-length, I now initialise them to be fixed-length, numeric arrays 
+    for better performance and less memory usage
+    20 Dec 2024 Dinghao 
+    '''
+    if GPU_AVAILABLE:    
+        rasters_gpu = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
+        trains_gpu = xp.zeros_like(rasters_gpu)
+        for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
+            for trial in range(tot_trial):
+                # adjust spike index alignment (no negative indices)
+                spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
+                spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
+                rasters_gpu[clu, trial, spikes] = 1  # set spike times to 1
+    else:
+        rasters = xp.zeros((tot_clu, tot_trial, max_length), dtype=xp.uint16)
+        trains = xp.zeros_like(rasters)
+        for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
+            for trial in range(tot_trial):
+                # adjust spike index alignment (no negative indices)
+                spikes = xp.array(spike_time[clu, trial], dtype=xp.int32) + 3 * samp_freq
+                spikes = spikes[spikes < max_length]  # clip spikes beyond max_length
+                rasters[clu, trial, spikes] = 1  # set spike times to 1
+    
+    t0 = time()
+    if GPU_AVAILABLE:
+        # GPU-accelerated convolution using CuPy
+        trains_gpu = cpss.fftconvolve(
+            rasters_gpu, gaus_spike[None, None, :], 
+            mode='same'
+            ) * samp_freq
+        trains = trains_gpu.get()
+        rasters = rasters_gpu.get()
+        print(
+            'convolution on GPU done in '
+            f'{str(timedelta(seconds=int(time() - t0)))} s')
+    else:
+        # CPU convolution using SciPy's FFT-based convolution for better performance
+        trains = fftconvolve(
+            rasters, gaus_spike[None, None, :], 
+            mode='same'
             )
-        np.save(
-            rf'{sess_folder}\{recname}_all_rasters.npy',
-            all_rasters
-            )
-        print(f'saved to {sess_folder}'
-              f'({str(timedelta(seconds=int(time() - t0)))})\n')
-        
-        # free memory pool if GPU
-        if GPU_AVAILABLE:
-            del rasters_gpu, trains_gpu
-            mempool.free_all_blocks()
-            pinned_mempool.free_all_blocks()
-        del rasters, trains, spike_time, all_trains, all_rasters
-        # spike_time_file.close()  # Close HDF5 file
-        gc.collect()
+        print(
+            'convolution on CPU done in '
+            f'{str(timedelta(seconds=int(time() - t0)))} s')
+    
+    for clu in range(tot_clu):
+        cluname = f'{recname} clu{clu+2}'
+        all_trains[cluname] = trains[clu]
+        all_rasters[cluname] = rasters[clu]
+    
+    print('done; saving...')
+    sess_folder = rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions\{recname}'
+    np.save(
+        rf'{sess_folder}\{recname}_all_trains.npy',
+        all_trains
+        )
+    np.save(
+        rf'{sess_folder}\{recname}_all_rasters.npy',
+        all_rasters
+        )
+    print(f'saved to {sess_folder}'
+          f'({str(timedelta(seconds=int(time() - t0)))})\n')
+    
+    # free memory pool if GPU
+    if GPU_AVAILABLE:
+        del rasters_gpu, trains_gpu
+        mempool.free_all_blocks()
+        pinned_mempool.free_all_blocks()
+    del rasters, trains, spike_time, all_trains, all_rasters
+    # spike_time_file.close()  # Close HDF5 file
+    gc.collect()
         
 if __name__ == '__main__':
-    main()
+    for path in paths:
+        main(path)

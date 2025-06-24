@@ -132,7 +132,7 @@ class ZoomableCanvas(FigureCanvas):
 class ROIEditor(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('fibre-segger v2.0')
+        self.setWindowTitle('fibre-segger v3.0')
         self.showMaximized()
         self.ref_image = None
         self.roi_dict = {}

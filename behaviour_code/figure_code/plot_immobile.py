@@ -10,17 +10,18 @@ simple script to quickly check immobile training progress
 
 #%% imports 
 import sys 
+import os 
 import numpy as np 
 import matplotlib.pyplot as plt 
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code\utils')
 from behaviour_functions import process_behavioural_data_immobile
 
 
 #%% main 
 # unpack the file
-animal = 'ANMD107'
-recname = f'A{animal[-3:]}-20250213-01'
+animal = 'ANMD134'
+recname = f'A{animal[-3:]}-20250624-01'
 
 file = process_behavioural_data_immobile(f'Z:/Dinghao/MiceExp/{animal}/{recname}T.txt')
 
@@ -37,7 +38,7 @@ blackout_duration = float(trial_statements[-1][5])/1000/1000  # same as above
 trial_duration = start_cue_duration + delay_duration + blackout_duration
 
 # pre cue 
-pre_cue_time = 8  # in seconds 
+pre_cue_time = 5  # in seconds 
 total_duration = trial_duration + pre_cue_time
 
 # histogram for calculating mean profile 
@@ -112,6 +113,9 @@ info = f'linear slope during delay: {slope_delay:.2f} Hz/s (R²={r_squared_delay
 fig.suptitle(f'{recname}\n{info}')
 fig.tight_layout()
 
-plt.savefig(f'Z:/Dinghao/MiceExp/{animal}/behaviour_plots/{recname}.png',
+outpath = f'Z:/Dinghao/MiceExp/{animal}/behaviour_plots'
+os.makedirs(outpath, exist_ok=True)
+
+plt.savefig(os.path.join(outpath, f'{recname}.png'),
             dpi=300,
             bbox_inches='tight')

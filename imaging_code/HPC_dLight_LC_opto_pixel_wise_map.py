@@ -43,7 +43,7 @@ for path in paths:
     
     tmappath = r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\t_maps'
     
-    if os.path.exists(rf'{tmappath}\{recname}_tmap.png'):
+    if os.path.exists(rf'{savepath}\processed_data\{recname}_tmap.npy'):
         print(f'{recname} has been processed... skipped')
         continue
     
@@ -150,3 +150,7 @@ for path in paths:
         )
         
     plt.close('all')
+    
+    # save the tmap 
+    np.save(rf'{savepath}\processed_data\{recname}_tmap.npy',
+            tmap)
