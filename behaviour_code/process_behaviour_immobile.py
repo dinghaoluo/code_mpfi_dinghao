@@ -14,15 +14,14 @@ modified:
 
 
 #%% imports 
-import numpy as np 
 import sys
 import os
-import pandas as pd
+import pickle 
 from time import time 
 from datetime import timedelta
 
 # import pre-processing functions 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code\utils')
 import behaviour_functions as bf
 
 
@@ -30,66 +29,31 @@ import behaviour_functions as bf
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 
-pathIm = rec_list.pathIm
-prefix = 'immobile'
-
-
-#%% container
-fname = r'Z:\Dinghao\code_dinghao\behaviour\all_{}_sessions.pkl'.format(prefix)
-if os.path.exists(fname):
-    df = pd.read_pickle(fname)
-    print(f'df loaded from {fname}')
-    processed_sess = df.index.tolist()
-else:
-    processed_sess = []
-    sess = {
-        'speed_times': [],
-        'speed_distances': [],
-        'lick_times': [],
-        'lick_distances': [],
-        'lick_maps': [],
-        'start_cue_times': [],
-        'start_cue_frames': [],
-        'reward_times': [],
-        'reward_distances': [],
-        'reward_frames': [],
-        'run_onsets': [],
-        'run_onset_frames': [],
-        'lick_selectivities': [],
-        'trial_statements': [],
-        'full_stops': [],
-        'bad_trials': [],
-        'frame_times': []
-        }
-    df = pd.DataFrame(sess)
+paths = rec_list.pathLCHPCGCaMPImmobile
+prefix = 'LCHPCGCaMPImmobile'
 
 
 #%% main
+output_folder = os.path.join(
+    r'Z:\Dinghao\code_dinghao\behaviour\all_experiments', prefix
+    )
+os.makedirs(output_folder, exist_ok=True)
+
 for pathname in paths:    
-    txt_path = pathname 
-    behavioural_data = bf.process_behavioural_data_imaging(txt_path)
-    df.loc[recname] = np.array([behavioural_data['speed_times'],
-                                behavioural_data['speed_distances'],
-                                behavioural_data['lick_times'],
-                                behavioural_data['lick_distances'],
-                                behavioural_data['lick_maps'],
-                                behavioural_data['start_cue_times'],
-                                behavioural_data['start_cue_frames'],
-                                behavioural_data['reward_times'],
-                                behavioural_data['reward_distances'],
-                                behavioural_data['reward_frames'],
-                                behavioural_data['run_onsets'],
-                                behavioural_data['run_onset_frames'],
-                                behavioural_data['lick_selectivities'],
-                                behavioural_data['trial_statements'],
-                                behavioural_data['full_stops'],
-                                behavioural_data['bad_trials'],
-                                behavioural_data['frame_times']
-                                    ],
-                                dtype='object')
+    recname = pathname[-17:]
+    print(f'\nprocessing {recname}...')
 
-    print('session finished ({})\n'.format(str(timedelta(seconds=int(time()-start)))))
+    start = time()
+    
+    txt_path = (rf'Z:\Dinghao\MiceExp\ANMD{recname[1:4]}'
+                rf'\{recname[:4]}{recname[5:]}T.txt')
+    behavioural_data = bf.process_behavioural_data_immobile_imaging(txt_path)
+    
+    print(f'session finished ({str(timedelta(seconds=int(time()-start)))})')
+    start = time()
 
+    # ... and save
+    with open(os.path.join(output_folder, f'{recname}.pkl'), 'wb') as f:
+        pickle.dump(behavioural_data, f)
 
-#%% save dataframe 
-df.to_pickle(r'Z:\Dinghao\code_dinghao\behaviour\all_{}_sessions.pkl'.format(prefix))
+    print(f'session saved ({str(timedelta(seconds=int(time()-start)))})')

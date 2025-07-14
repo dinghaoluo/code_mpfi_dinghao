@@ -1,23 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Mar 31 13:02:49 2025
-Modified on Tue 24 June 16:24:15 2025
 
 extract opto-LC stimulation + dLight imaging data 
-modification notes:
-    - 24 June 2025: removed pixel-wise dFF calculation and replaced it with a 
-        simplified dFF (stim. / baseline for raw F) that is easy to compute 
-        and produces the exact same desideratum (the release map)
 
 @author: Dinghao Luo
 """
 
 #%% imports 
-import sys 
-import os 
 import numpy as np 
 import matplotlib.pyplot as plt 
-from matplotlib.colors import TwoSlopeNorm
+import sys 
+import os 
+from time import time 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -26,9 +21,6 @@ mpl_formatting()
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_pipeline_functions as ipf
-
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code\utils')
-import behaviour_functions as bf 
 
 sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
@@ -76,9 +68,9 @@ def main(path):
     # switch
     BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
     if path in rec_list.pathdLightLCOptoInh:
-        STIM_IDX = (TAXIS >= 2.5) & (TAXIS < 3.5)
+        STIM_IDX = (TAXIS >= 5.15) & (TAXIS < 6.0)
     else:
-        STIM_IDX = (TAXIS >= 0.65) & (TAXIS < 1.5)
+        STIM_IDX = (TAXIS >= 1.15) & (TAXIS < 2.0)
     
     binpath = os.path.join(path, 'suite2p/plane0/data.bin')
     bin2path = os.path.join(path, 'suite2p/plane0/data_chan2.bin')
@@ -95,8 +87,7 @@ def main(path):
     os.makedirs(savepath, exist_ok=True)
     
     # check for repeated processing 
-    if (os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy') and
-        os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy')):
+    if os.path.exists(rf'{savepath}\processed_data\{recname}_pixelwise_dFF.npy'):
         print(f'processed... skipping {recname}')
         return
     
@@ -111,8 +102,8 @@ def main(path):
     
     tot_frames = mov.shape[0]  # once loaded, update tot_frames to be the max frame number, 16 June 2025
     
-    ref = ipf.plot_reference(mov, recname=recname, outpath=savepath, channel=1)
-    ref2 = ipf.plot_reference(mov2, recname=recname, outpath=savepath, channel=2)
+    ipf.plot_reference(mov, recname=recname, outpath=savepath, channel=1)
+    ipf.plot_reference(mov2, recname=recname, outpath=savepath, channel=2)
     
     trace = np.sum(mov, axis=(1,2))
     trace2 = np.sum(mov2, axis=(1,2))
@@ -136,7 +127,7 @@ def main(path):
     pulse_width = float(pulse_parameters[-1][3])/1000000  # in s
     pulse_number = int(pulse_parameters[-1][4])
     duty_cycle = f'{int(round(100 * pulse_width_ON/pulse_width, 0))}%'
-    
+        
     tot_pulses = int(len(pulse_times) / pulse_number)
     
     pulse_frames = [ipf.find_nearest(p, frame_times) for p in pulse_times]
@@ -157,7 +148,7 @@ def main(path):
     pulse_period_frames = np.concatenate(
         [np.arange(
             max(0, pulse_train[0]-3),
-            min(pulse_train[-1]+int(pulse_width)*SAMP_FREQ+15, tot_frames)  # +15 as a buffer, half a second 
+            min(pulse_train[-1]+15, tot_frames)  # +15 as a buffer
             )
         for pulse_train in pulse_frames_split]
         )
@@ -264,8 +255,7 @@ def main(path):
         savepath=rf'{savepath}\{recname}_baseline_stim_ch2_violinplot'
         )
     
-    ## pixel-wise extraction 
-    # spatial smoothing
+    # pixel-wise extraction 
     print('performing spatial filtering...')
     mov = ipf.spatial_gaussian_filter(mov, sigma_spatial=1,
                                       GPU_AVAILABLE=GPU_AVAILABLE,
@@ -274,156 +264,46 @@ def main(path):
                                        GPU_AVAILABLE=GPU_AVAILABLE,
                                        CHUNK=True)
     
-    # compute dF/F per pixel (stim. / baseline for raw F), 24 June 2025
-    pixel_dFF = np.zeros((shape[1], shape[2], len(valid_pulse_start_frames)))
-    pixel_dFF2 = np.zeros_like(pixel_dFF)
+    # compute dF/F per pixel within the stim window 
+    start_frame = max(0, valid_pulse_start_frames[0] - BEF * SAMP_FREQ - 300)  # 300 because of the dFF rolling window width (sigma)
+    end_frame = min(tot_frames, valid_pulse_start_frames[-1] + AFT * SAMP_FREQ + 330)  # 330 for a 1-second margin 
+    print(f'computing single-pixel dF/F from {start_frame} to {end_frame}...')
+    
+    t0 = time()
+    dFF_pix = ipf.calculate_dFF(mov[start_frame:end_frame], 
+                                sigma=300, 
+                                t_axis=0, 
+                                GPU_AVAILABLE=GPU_AVAILABLE,
+                                CHUNK=True)
+    dFF_pix2 = ipf.calculate_dFF(mov2[start_frame:end_frame], 
+                                 sigma=300, 
+                                 t_axis=0, 
+                                 GPU_AVAILABLE=GPU_AVAILABLE,
+                                 CHUNK=True)
+    print(f'dF/F done in {time() - t0:.2f} s')
+    
+    # mask artefact frames:
+    pulse_period_frames_adj = pulse_period_frames - start_frame
+    pulse_period_frames_adj = pulse_period_frames_adj[
+        (pulse_period_frames_adj >= 0) & (pulse_period_frames_adj < dFF_pix.shape[0])
+    ]
+    
+    dFF_pix[pulse_period_frames_adj, :, :] = np.nan
+    dFF_pix2[pulse_period_frames_adj, :, :] = np.nan
+    
+    # alignment:
+    aligned_dFF_pix = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
+    aligned_dFF_pix2 = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ, shape[1], shape[2]))
+    
     for i, p in enumerate(valid_pulse_start_frames):
-        temp_F = mov[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ, :, :]  # do it for all pixels simultaneously
-        temp_F2 = mov2[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ, :, :]
+        p_adj = p - start_frame
+        aligned_dFF_pix[i] = dFF_pix[p_adj - BEF*SAMP_FREQ : p_adj + AFT*SAMP_FREQ]
+        aligned_dFF_pix2[i] = dFF_pix2[p_adj - BEF*SAMP_FREQ : p_adj + AFT*SAMP_FREQ]
         
-        stim_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
-        baseline_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
-        pixel_dFF[:, :, i] = stim_mean / baseline_mean
-        
-        stim_mean2 = np.mean(temp_F2[STIM_IDX, :, :], axis=0)
-        baseline_mean2 = np.mean(temp_F2[BASELINE_IDX, :, :], axis=0)
-        pixel_dFF2[:, :, i] = stim_mean2 / baseline_mean2
-        
-    np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy',
-            pixel_dFF)
-    np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy',
-            pixel_dFF2)
-    
-    # generate mean dFF release map as proxy for t-map, 24 June 2025 
-    print('computing mean release map...')
-    release_map = np.mean(pixel_dFF, axis=2)  # shape: (y, x)
-    release_map2 = np.mean(pixel_dFF2, axis=2)
-    
-    # save map matrices 
-    np.save(rf'{savepath}\processed_data\{recname}_release_map.npy', release_map)
-    np.save(rf'{savepath}\processed_data\{recname}_release_map_ch2.npy', release_map2)
-
-    # plotting 
-    vmin = np.nanpercentile(release_map, 1)
-    vmax = np.nanpercentile(release_map, 99)
-    norm = TwoSlopeNorm(vcenter=1, vmin=vmin, vmax=vmax)
-    
-    fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-    
-    # panel 1: channel 1 reference
-    axs[0].imshow(ref, cmap='gray', interpolation='none')
-    axs[0].set_title('channel 1', fontsize=10)
-    axs[0].axis('off')
-    
-    # panel 2: channel 2 reference
-    axs[1].imshow(ref2, cmap='gray', interpolation='none')
-    axs[1].set_title('channel 2', fontsize=10)
-    axs[1].axis('off')
-    
-    # panel 3: release map heatmap
-    im = axs[2].imshow(release_map, cmap='RdBu_r', norm=norm, interpolation='none')
-    axs[2].set_title('stim / baseline (mean)', fontsize=10)
-    axs[2].axis('off')
-    
-    # colourbar for panel 3
-    cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
-    cbar.set_label('ΔF/F ratio', fontsize=10)
-    cbar.set_ticks([vmin, 1, vmax])
-    
-    fig.tight_layout()
-    
-    for ext in ['.png', '.pdf']:
-        fig.savefig(
-            rf'{savepath}\{recname}_release_map{ext}',
-            dpi=300,
-            bbox_inches='tight'
-        )
-    
-    plt.close(fig)
-    
-    
-    # compute dF/F per pixel IF BEHAVIOUR (run-onset / baseline), 24 June 2025 
-    if txt['behaviour']:
-        print('behaviour session; compiling run-onset dFF dict...')
-        txt = bf.process_behavioural_data_imaging(txtpath)
-        run_onsets = txt['run_onset_frames']
-        stim_conds = [t[15] for t in txt['trial_statements']][1:]
-        stim_idx = [trial for trial, cond in enumerate(stim_conds)
-                    if cond!='0']
-        
-        run_onsets = [f for trial, f in enumerate(run_onsets)
-                      if not np.isnan(f) 
-                      and trial not in stim_idx
-                      and f > BEF*SAMP_FREQ
-                      and f < tot_frames - AFT*SAMP_FREQ]
-        
-        pixel_dFF_run = np.zeros((shape[1], shape[2], len(run_onsets)))
-        pixel_dFF_run2 = np.zeros_like(pixel_dFF_run)
-        for i, f in enumerate(run_onsets):
-            temp_F = mov[f-BEF*SAMP_FREQ : f+AFT*SAMP_FREQ, :, :]  # do it for all pixels simultaneously
-            temp_F2 = mov2[f-BEF*SAMP_FREQ : f+AFT*SAMP_FREQ, :, :]
-            
-            run_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
-            prerun_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
-            pixel_dFF_run[:, :, i] = run_mean / prerun_mean
-            
-            run_mean2 = np.mean(temp_F2[STIM_IDX, :, :], axis=0)
-            prerun_mean2 = np.mean(temp_F2[BASELINE_IDX, :, :], axis=0)
-            pixel_dFF_run2[:, :, i] = run_mean2 / prerun_mean2
-            
-        np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_run.npy',
-                pixel_dFF)
-        np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_run.npy',
-                pixel_dFF2)
-        
-        # compute mean run-onset aligned release maps
-        print('computing mean run-onset release map...')
-        release_map_run = np.mean(pixel_dFF_run, axis=2)
-        release_map_run2 = np.mean(pixel_dFF_run2, axis=2)
-
-        # save map matrices
-        np.save(rf'{savepath}\processed_data\{recname}_release_map_run.npy', release_map_run)
-        np.save(rf'{savepath}\processed_data\{recname}_release_map_run_ch2.npy', release_map_run2)
-
-        # norm 
-        vmin = np.nanpercentile(release_map_run, 1)
-        vmax = np.nanpercentile(release_map_run, 99)
-        norm = TwoSlopeNorm(vcenter=1, vmin=vmin, vmax=vmax)
-        
-        # plotting
-        fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-
-        # panel 1: channel 1 reference
-        axs[0].imshow(ref, cmap='gray', interpolation='none')
-        axs[0].set_title('channel 1', fontsize=10)
-        axs[0].axis('off')
-
-        # panel 2: channel 2 reference
-        axs[1].imshow(ref2, cmap='gray', interpolation='none')
-        axs[1].set_title('channel 2', fontsize=10)
-        axs[1].axis('off')
-
-        # panel 3: run-aligned release map heatmap
-        im = axs[2].imshow(release_map_run, cmap='RdBu_r', norm=norm, interpolation='none')
-        axs[2].set_title('run-onset / baseline (mean)', fontsize=10)
-        axs[2].axis('off')
-
-        cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
-        cbar.set_label('ΔF/F ratio', fontsize=10)
-
-        fig.tight_layout()
-
-        for ext in ['.png', '.pdf']:
-            fig.savefig(
-                rf'{savepath}\{recname}_release_map_run{ext}',
-                dpi=300,
-                bbox_inches='tight'
-            )
-
-        plt.close(fig)
-        
-    else:
-        print('session with no behaviour; finishing...')
+    np.save(rf'{savepath}\processed_data\{recname}_pixelwise_dFF.npy',
+            aligned_dFF_pix)
+    np.save(rf'{savepath}\processed_data\{recname}_pixelwise_dFF_ch2.npy',
+            aligned_dFF_pix2)
     
     # axon-only imaging session check and processing 
     axon_only_folder = path + '_1100'

@@ -16,7 +16,6 @@ import scipy.io as sio
 import sys
 import mat73
 import os 
-from tqdm import tqdm
 
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
@@ -33,6 +32,7 @@ gaus_speed = gaussian_kernel_unity(sigma=SAMP_FREQ*0.1)  # same as spike
 
 
 #%% load cell profiles
+print('loading cell profiles...')
 cell_profiles = pd.read_pickle(r'Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profiles.pkl')
 
 
@@ -119,79 +119,71 @@ for path in paths:
     endLfpInd = aligned['endLfpInd'][0]
     
     
+    # identify cells of interest
+    selected_indices = []
+    selected_names = []
+    
+    for i, clu in enumerate(unique_clus):
+        cluname = f'{recname} clu{clu}'
+        if cluname in cell_profiles.index:
+            profile = cell_profiles.loc[cluname]
+            if profile['identity'] in ['tagged', 'putative'] and profile['run_onset_peak'] is True:
+                selected_indices.append(i)
+                selected_names.append(cluname)
+    
+    if not selected_indices:
+        print(f'no tagged/putative run-onset peak cells found for {recname}')
+        continue
+    
+    print(f'{len(selected_indices)} tagged/putative run-onset peak cells selected for {recname}')
+    
+    
     ## plotting 
     save_path_sess = os.path.join(save_path_base, recname)
-
-    # make a separate figure per cluster
-    for i, clu in tqdm(enumerate(unique_clus),
-                       total=len(unique_clus),
-                       desc='plotting'):
-        cluname = f'{recname} clu{clu}'
-        clu_identity = cell_profiles.loc[cluname]['identity']
+    
+    # plot mean firing rate of selected cells across trial windows
+    for t in np.arange(2, len(endLfpInd)-2, 3):
+        lfp_indices_t = np.arange(startLfpInd[t]-1250, min(endLfpInd[t+2]+1250, len(speed_MMsec)))
+        lap_start = lfp_indices_t[0]
+        xaxis = np.arange(0, len(lfp_indices_t)) / SAMP_FREQ
+    
+        fig, ax = plt.subplots(figsize=(len(lfp_indices_t)/3000, 2.2))
+        ax.set(xlabel='time (s)', ylabel='speed (cm/s)',
+               ylim=(0, 1.2 * max(speed_MMsec[lfp_indices_t])),
+               xlim=(0, len(lfp_indices_t) / SAMP_FREQ),
+               title=f'{recname} | mean tagged/putative | trials {t-1} to {t+1}')
+    
+        ax.plot(xaxis, speed_MMsec[lfp_indices_t], color='black', label='speed')
         
-        for t in np.arange(2, len(endLfpInd)-2, 3):
-            lfp_indices_t = np.arange(startLfpInd[t]-1250, min(endLfpInd[t+2]+1250, len(speed_MMsec)))
-            lap_start = lfp_indices_t[0]
-            
-            fig, ax = plt.subplots(figsize=(len(lfp_indices_t)/3000, 2.2))  # smaller and more compact
-            ax.set(xlabel='time (s)', ylabel='speed (cm/s)',
-                   ylim=(0, 1.2 * max(speed_MMsec[lfp_indices_t])),  # raised slightly
-                   xlim=(0, len(lfp_indices_t) / SAMP_FREQ),
-                   title=f'{recname} | clu {clu} | trials {t-1} to {t+1}')
-            
-            xaxis = np.arange(0, len(lfp_indices_t)) / SAMP_FREQ
-            ylim = 1.2 * max(speed_MMsec[lfp_indices_t])  # match ylim to ax limit
+        startLfpInd_t = startLfpInd[np.in1d(startLfpInd, lfp_indices_t)]
+        ax.vlines((startLfpInd_t - lap_start)/SAMP_FREQ, 0, ax.get_ylim()[1], 'r', linestyle='dashed')
     
-            # plot velocity
-            ax.plot(xaxis, speed_MMsec[lfp_indices_t], color='black', label='speed')
-            
-            # lap starts
-            startLfpInd_t = startLfpInd[np.in1d(startLfpInd, lfp_indices_t)]
-            ax.vlines((startLfpInd_t - lap_start)/SAMP_FREQ, 0, ylim, 'r', linestyle='dashed', label='lap start')
+        run_bout_t = run_bout_table.iloc[:,1][np.in1d(run_bout_table.iloc[:,1], lfp_indices_t)]
+        ax.vlines((run_bout_t - lap_start)/SAMP_FREQ, 0, ax.get_ylim()[1], 'g', linestyle='dashed')
     
-            # run bout starts
-            run_bout_t = run_bout_table.iloc[:,1][np.in1d(run_bout_table.iloc[:,1], lfp_indices_t)]
-            ax.vlines((run_bout_t - lap_start)/SAMP_FREQ, 0, ylim, 'g', linestyle='dashed', label='run bout')
+        ax_spk = ax.twinx()
+        ax_spk.set_ylabel('firing rate (Hz)', color='orange')
+        ax_spk.spines['right'].set_color('orange')
+        ax_spk.tick_params(axis='y', colors='orange', labelcolor='orange')
     
-            # secondary axis for spike rate (Hz)
-            ax_spk = ax.twinx()
-            ax_spk.set_ylabel('firing rate (Hz)', color='orange')
-            ax_spk.spines['right'].set_color('orange')
-            ax_spk.tick_params(axis='y', colors='orange')
-            ax_spk.tick_params(axis='y', labelcolor='orange')
-            
-            # spike trace for this cluster
-            spike_t = spike_array[i, lfp_indices_t]
-            spike_rate_hz = spike_t * SAMP_FREQ  # convert from spikes/bin to Hz
-            
-            # clip extreme peaks for visibility
-            spike_rate_hz = np.clip(spike_rate_hz, 0, np.percentile(spike_rate_hz, 99.5))
-            
-            # plot on secondary axis
-            ax_spk.plot(xaxis, spike_rate_hz, color='orange', linewidth=1.2, label=f'spike {clu}')
-            
-            # optionally match y-lim for visual balance
-            ax_spk.set_ylim(0, np.max(spike_rate_hz) * 1.1)
-            
-            # licks
-            licks_t = lickLfp_flat[np.in1d(lickLfp_flat, lfp_indices_t)]
-            ax.vlines((licks_t - lap_start)/SAMP_FREQ, ylim, ylim * 0.96, 'magenta', label='licks')
-            
-            # spines 
-            ax.spines['top'].set_visible(False)
-            ax_spk.spines['top'].set_visible(False)
-            
-            # ax.legend(loc='upper right', fontsize=6)
-            
-            # make sure directory exists
-            save_path_sess_clu = os.path.join(save_path_sess, f'{recname} clu{clu} {clu_identity}')
-            os.makedirs(save_path_sess_clu, exist_ok=True)
-            
-            # add ' rb' if run bouts exist in view
-            has_rb = len(run_bout_t) > 0
-            rb_tag = ' rb' if has_rb else ''
-            save_path = os.path.join(save_path_sess_clu, f'trials_{t-1}_to_{t+1}{rb_tag}')
-            
-            for ext in ['.pdf', '.png']:
-                fig.savefig(save_path+ext, dpi=300, bbox_inches='tight')
-            plt.close(fig)
+        # compute mean trace
+        spike_subset = spike_array[selected_indices, :][:, lfp_indices_t] * SAMP_FREQ
+        mean_trace = np.mean(spike_subset, axis=0)
+        mean_trace = np.clip(mean_trace, 0, np.percentile(mean_trace, 99.5))
+    
+        ax_spk.plot(xaxis, mean_trace, color='orange', linewidth=1.5, label='mean spike')
+        ax_spk.set_ylim(0, np.max(mean_trace) * 1.1)
+    
+        licks_t = lickLfp_flat[np.in1d(lickLfp_flat, lfp_indices_t)]
+        ax.vlines((licks_t - lap_start)/SAMP_FREQ, ax.get_ylim()[1], ax.get_ylim()[1] * 0.96, 'magenta')
+    
+        ax.spines['top'].set_visible(False)
+        ax_spk.spines['top'].set_visible(False)
+    
+        os.makedirs(save_path_sess, exist_ok=True)
+        rb_tag = ' rb' if len(run_bout_t) > 0 else ''
+        save_path = os.path.join(save_path_sess, f'trials_{t-1}_to_{t+1}{rb_tag}')
+    
+        for ext in ['.pdf', '.png']:
+            fig.savefig(save_path+ext, dpi=300, bbox_inches='tight')
+        plt.close(fig)

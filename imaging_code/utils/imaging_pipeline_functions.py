@@ -572,12 +572,15 @@ def load_or_generate_reference_images(
         shape = (tot_frames, ops['Ly'], ops['Lx'])
         print('generating reference images...')
         
+        recname = proc_path.split('\\')[-1]
+        
         # generate reference image for channel 1
         start = time()
         try:
             mov = np.memmap(bin_path, mode='r', dtype='int16', shape=shape)
             ref_im = plot_reference(
                 mov, 
+                recname=recname,
                 channel=1, 
                 outpath=proc_path, 
                 GPU_AVAILABLE=GPU_AVAILABLE
@@ -597,6 +600,7 @@ def load_or_generate_reference_images(
             mov2 = np.memmap(bin2_path, mode='r', dtype='int16', shape=shape)
             ref_ch2_im = plot_reference(
                 mov2, 
+                recname=recname,
                 channel=2,
                 outpath=proc_path, 
                 GPU_AVAILABLE=GPU_AVAILABLE
@@ -757,7 +761,6 @@ def process_txt_nobeh(txtfile):
     
     returns:
     - logfile: dict
-        dictionary with 'pulse_times', 'pulse_parameters', and 'frame_times'.
     """
     curr_logfile = {} 
     file = open(txtfile, 'r')
@@ -767,8 +770,11 @@ def process_txt_nobeh(txtfile):
     pulse_times = []
     pulse_parameters = []
     frame_times = []
+    wheel_dummy = 0
     
     while line[0].find('$') == 0:
+        if line[0] == '$WE':
+            wheel_dummy += 1
         if line[0] == '$PC':
             pulse_times.append(float(line[1]))
         if line[0] == '$PP':
@@ -780,6 +786,11 @@ def process_txt_nobeh(txtfile):
     curr_logfile['pulse_times'] = pulse_times
     curr_logfile['pulse_parameters'] = pulse_parameters
     curr_logfile['frame_times'] = frame_times
+    
+    # flag for 'well, actually this one HAS behaviour', 24 June 2025
+    curr_logfile['behaviour'] = False
+    if wheel_dummy > 5:
+        curr_logfile['behaviour'] = True
     
     return curr_logfile
 

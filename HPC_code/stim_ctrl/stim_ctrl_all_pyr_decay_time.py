@@ -437,13 +437,13 @@ def main(paths, exp='HPCLC'):
     # plot
     fig, ax = plt.subplots(figsize=(2.6,2))
     
-    # ax.plot(xaxis, mean_ctrl_ON, label='mean_ctrl_ON', color='lightcoral')
-    # ax.fill_between(xaxis, mean_ctrl_ON + sem_ctrl_ON, mean_ctrl_ON - sem_ctrl_ON,
-    #                 color='lightcoral', edgecolor='none', alpha=.15)
+    ax.plot(xaxis, mean_ctrl_ON, label='mean_ctrl_ON', color='lightcoral')
+    ax.fill_between(xaxis, mean_ctrl_ON + sem_ctrl_ON, mean_ctrl_ON - sem_ctrl_ON,
+                    color='lightcoral', edgecolor='none', alpha=.15)
     
-    # ax.plot(xaxis, mean_stim_ON, label='mean_stim_ON', color='firebrick')
-    # ax.fill_between(xaxis, mean_stim_ON + sem_stim_ON, mean_stim_ON - sem_stim_ON,
-    #                 color='firebrick', edgecolor='none', alpha=.15)
+    ax.plot(xaxis, mean_stim_ON, label='mean_stim_ON', color='firebrick')
+    ax.fill_between(xaxis, mean_stim_ON + sem_stim_ON, mean_stim_ON - sem_stim_ON,
+                    color='firebrick', edgecolor='none', alpha=.15)
     
     ax.plot(xaxis, mean_ctrl_new_ON, label='mean_ctrl_new_ON', color='moccasin')
     ax.fill_between(xaxis, mean_ctrl_new_ON + sem_ctrl_new_ON, mean_ctrl_new_ON - sem_ctrl_new_ON,
@@ -453,21 +453,21 @@ def main(paths, exp='HPCLC'):
     ax.fill_between(xaxis, mean_stim_new_ON + sem_stim_new_ON, mean_stim_new_ON - sem_stim_new_ON,
                     color='darkorange', edgecolor='none', alpha=.15)
     
-    # ax.plot(xaxis, mean_ctrl_OFF, label='mean_ctrl_OFF', color='violet')
-    # ax.fill_between(xaxis, mean_ctrl_OFF + sem_ctrl_OFF, mean_ctrl_OFF - sem_ctrl_OFF,
-    #                 color='violet', edgecolor='none', alpha=.15)
+    ax.plot(xaxis, mean_ctrl_OFF, label='mean_ctrl_OFF', color='violet')
+    ax.fill_between(xaxis, mean_ctrl_OFF + sem_ctrl_OFF, mean_ctrl_OFF - sem_ctrl_OFF,
+                    color='violet', edgecolor='none', alpha=.15)
     
-    # ax.plot(xaxis, mean_stim_OFF, label='mean_stim_OFF', color='purple')
-    # ax.fill_between(xaxis, mean_stim_OFF + sem_stim_OFF, mean_stim_OFF - sem_stim_OFF,
-    #                 color='purple', edgecolor='none', alpha=.15)
+    ax.plot(xaxis, mean_stim_OFF, label='mean_stim_OFF', color='purple')
+    ax.fill_between(xaxis, mean_stim_OFF + sem_stim_OFF, mean_stim_OFF - sem_stim_OFF,
+                    color='purple', edgecolor='none', alpha=.15)
     
-    # ax.plot(xaxis, mean_ctrl_new_OFF, label='mean_ctrl_new_OFF', color='lightcyan')
-    # ax.fill_between(xaxis, mean_ctrl_new_OFF + sem_ctrl_new_OFF, mean_ctrl_new_OFF - sem_ctrl_new_OFF,
-    #                 color='lightcyan', edgecolor='none', alpha=.15)
+    ax.plot(xaxis, mean_ctrl_new_OFF, label='mean_ctrl_new_OFF', color='lightcyan')
+    ax.fill_between(xaxis, mean_ctrl_new_OFF + sem_ctrl_new_OFF, mean_ctrl_new_OFF - sem_ctrl_new_OFF,
+                    color='lightcyan', edgecolor='none', alpha=.15)
     
-    # ax.plot(xaxis, mean_stim_new_OFF, label='mean_stim_new_OFF', color='darkblue')
-    # ax.fill_between(xaxis, mean_stim_new_OFF + sem_stim_new_OFF, mean_stim_new_OFF - sem_stim_new_OFF,
-    #                 color='darkblue', edgecolor='none', alpha=.15)
+    ax.plot(xaxis, mean_stim_new_OFF, label='mean_stim_new_OFF', color='darkblue')
+    ax.fill_between(xaxis, mean_stim_new_OFF + sem_stim_new_OFF, mean_stim_new_OFF - sem_stim_new_OFF,
+                    color='darkblue', edgecolor='none', alpha=.15)
     
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)
@@ -478,7 +478,7 @@ def main(paths, exp='HPCLC'):
     ax.legend(fontsize=4, frameon=False)
     
     for ext in ['.png', '.pdf']:
-        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_stim_new_curves{ext}',
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_stim_all_curves{ext}',
                     dpi=300, bbox_inches='tight')
     
     

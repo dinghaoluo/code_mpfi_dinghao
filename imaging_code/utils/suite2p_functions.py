@@ -34,20 +34,22 @@ def register(path):
     ops['roidetect'] = False
     ops['reg_tif'] = True
     ops['reg_tif_chan2'] = True
+    ops['nonrigid'] = False
     # ops['anatomical_only'] = False
     # ops['spatial_scale'] = True
     # ops['save_roi_iterations'] = True
     # ops['do_extraction'] = False
     
-    outdir = path + r'\processed'
+    outdir = os.path.join(path)
     os.makedirs(outdir, exist_ok=True)
     ops['save_path0'] = outdir
     
-    print(r'registration starts (check \processed for progress)')
+    print(r'registration starts')
     t0 = time()
 
     # save text output
-    pathlog = outdir+r'/run_suite2p-wang-lab.log'
+    pathlog = os.path.join(outdir, 'suite2p', 'run_suite2p.log')
+    os.makedirs(os.path.join(outdir, 'suite2p'), exist_ok=True)
 
     # run suite2p
     db = {

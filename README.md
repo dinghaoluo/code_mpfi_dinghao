@@ -263,7 +263,7 @@ Behaviour analysis of the running VR task is handled by scripts under `/behaviou
 
 Behaviour analysis of the immobile VR task is handled, alternatively, by `process_behaviour_immobile.py`. 
 
-`off_target_run_bouts.py` is a Python implementation of the run-bout detection algorithm in the MATLAB pipeline.
+`off_target_run_bouts.py` is a Python implementation of the run-bout detection algorithm in the MATLAB pipeline and `plot_run_bouts.py` in `~/figure_code` plots the spike-rate profiles of (currently only) locus coeruleus cells on top of velocity curves of animals, with licks, run-onsets and run bout-onsets identified.
 
 ### 2-photon imaging
 
