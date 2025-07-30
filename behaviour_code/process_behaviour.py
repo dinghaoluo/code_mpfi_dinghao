@@ -36,8 +36,9 @@ list_to_process = input(
     3. LC, 
     4. HPCGRABNE, 
     5. HPCLCGCaMP, 
-    6. HPCdLightLCOpto, 
-    7. PROCESS ALL\n
+    6. HPCdLightLCOpto,
+    7. HPCdLightLCOptoInhm
+    8. PROCESS ALL\n
     '''
     )
 
@@ -59,6 +60,9 @@ elif list_to_process == '5':
 elif list_to_process == '6':
     paths = rec_list.pathdLightLCOpto
     prefix = 'HPCdLightLCOpto'
+elif list_to_process == '7':
+    paths = rec_list.pathdLightLCOptoInh
+    prefix = 'HPCdLightLCOptoInh'
 
 
 #%% main 
@@ -96,10 +100,10 @@ def process_all(prefix, list_to_process, paths):
 
 
 if __name__ == '__main__':
-    if list_to_process in ['1', '2', '3', '4', '5', '6']:
+    if list_to_process in ['1', '2', '3', '4', '5', '6', '7']:
         process_all(prefix, list_to_process, paths)
-    elif list_to_process == '7':
-        lists = ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP', 'HPCdLightLCOpto']
+    elif list_to_process == '8':
+        lists = ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP', 'HPCdLightLCOpto', 'HPCdLightLCOptoInh']
         paths_list = [
             rec_list.pathHPCLCopt,
             rec_list.pathHPCLCtermopt,
@@ -108,8 +112,8 @@ if __name__ == '__main__':
             rec_list.pathLCHPCGCaMP,
             rec_list.pathdLightLCOpto
             ]
-        for i in range(6):
+        for i in range(7):
             print(f'processing {lists[i]}...\n')
             process_all(lists[i], str(i+1), paths_list[i])
     else:
-        raise Exception('not a valid input; only 1, 2, 3, 4, 5, 6 and 7 are supported')
+        raise Exception('not a valid input; only 1, 2, 3, 4, 5, 6, 7 and 8 are supported')

@@ -23,6 +23,51 @@ def add_scale_bar(ax, x_start, y_start, x_len, y_len, color='k', lw=2):
     # vertical scale bar (dF/F)
     ax.plot([x_start, x_start], [y_start, y_start + y_len], color=color, lw=lw, solid_capstyle='butt')
 
+
+def plot_box_with_scatter(ctrl_data, stim_data, xlabel, savepath, 
+                          title='', show_scatter=True,
+                          ctrl_color='grey', stim_color='royalblue'):
+    fig, ax = plt.subplots(figsize=(2.6, 1.4))
+
+    boxplots = ax.boxplot(
+        [stim_data, ctrl_data],  # stim first to match colour order
+        vert=False,
+        positions=[2, 1],
+        widths=0.25,
+        patch_artist=True,
+        medianprops={'color': 'black'},
+        capprops={'color': 'black'},
+        whiskerprops={'color': 'black'},
+        flierprops={'marker': 'o', 'color': 'black', 'markersize': 3}
+    )
+
+    for patch, color in zip(boxplots['boxes'], (stim_color, ctrl_color)):
+        patch.set_facecolor(color)
+        patch.set_alpha(1)
+    
+    if show_scatter:
+        ax.scatter(stim_data, np.full_like(stim_data, 1.7),
+                   s=20, c=stim_color, alpha=0.75, ec='none')
+        ax.scatter(ctrl_data, np.full_like(ctrl_data, 1.3),
+                   s=20, c=ctrl_color, alpha=0.75, ec='none')
+
+    for s in ('top', 'right', 'left'):
+        ax.spines[s].set_visible(False)
+
+    ax.set(
+        title=title,
+        xlabel=xlabel,
+        yticks=(1, 2),
+        yticklabels=('ctrl.', 'stim.'),
+        ylim=(0.6, 2.4)
+    )
+
+    for ext in ('.png', '.pdf'):
+        fig.savefig(f'{savepath}{ext}', dpi=300, bbox_inches='tight')
+
+    plt.close(fig)
+
+
 def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              paired=True, alpha=.25,
                              xlabel=' ', xticks=[1,2], xticklabels=['data0', 'data1'],
@@ -33,7 +78,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              showmeans=False, showmedians=True, showextrema=False,
                              print_statistics=False, plot_statistics=True,
                              save=False, savepath=' ', dpi=300,
-                             figsize=(1.8,2.4)):
+                             figsize=(1.8,2.2)):
     """
     plot half-violins with optional scatter and statistical comparisons
 
@@ -106,7 +151,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     fig, ax = plt.subplots(figsize=figsize)
     
     vp = ax.violinplot([data0, data1],
-                       positions=[1,2],
+                       positions=[1.1,1.9],
                        showmeans=showmeans, showmedians=showmedians, 
                        showextrema=False)
 
@@ -115,30 +160,30 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     if showmeans:
         vp['cmeans'].set_color('k')
         vp['cmeans'].set_linewidth(2)
-        ax.scatter(1.1, np.mean(data0), 
+        ax.scatter(1.25, np.mean(data0), 
                    s=30, c=colour0, ec='none', lw=.5, zorder=3)
-        ax.scatter(1.9, np.mean(data1), 
+        ax.scatter(1.75, np.mean(data1), 
                    s=30, c=colour1, ec='none', lw=.5, zorder=3)
         if paired and showline:
-            ax.plot([1.1, 1.9], 
+            ax.plot([1.25, 1.75], 
                     [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)
         if showmainline:
-            ax.plot([1.1, 1.9], [np.mean(data0), np.mean(data1)],
+            ax.plot([1.25, 1.75], [np.mean(data0), np.mean(data1)],
                     color='k', linewidth=2, zorder=2)
     if showmedians:
         vp['cmedians'].set_color('k')
         vp['cmedians'].set_linewidth(2)
-        ax.scatter(1.1, np.median(data0), 
+        ax.scatter(1.25, np.median(data0), 
                    s=30, c=colour0, ec='none', lw=.5, zorder=2)
-        ax.scatter(1.9, np.median(data1), 
+        ax.scatter(1.75, np.median(data1), 
                    s=30, c=colour1, ec='none', lw=.5, zorder=2)
         if paired and showline:
-            ax.plot([1.1, 1.9], 
+            ax.plot([1.25, 1.75], 
                     [data0, data1], 
                     color='grey', alpha=alpha, linewidth=1, zorder=1)
         if showmainline:
-            ax.plot([1.1, 1.9], [np.median(data0), np.median(data1)],
+            ax.plot([1.25, 1.75], [np.median(data0), np.median(data1)],
                     color='k', linewidth=2, zorder=1)
     for i in [0,1]:
         vp['bodies'][i].set_edgecolor('none')
@@ -153,10 +198,10 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
             b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
     if showscatter:
-        ax.scatter([1.1]*len(data0), 
+        ax.scatter([1.25]*len(data0), 
                    data0, 
                    s=10, c=colour0, ec='none', lw=.5, alpha=alpha)
-        ax.scatter([1.9]*len(data1), 
+        ax.scatter([1.75]*len(data1), 
                    data1, 
                    s=10, c=colour1, ec='none', lw=.5, alpha=alpha)
     
@@ -181,7 +226,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
             print(f'wilc: {wilc_stat}, p={wilc_p_str}')
             print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
-            ax.plot([1, 2], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
+            ax.plot([1.1, 1.9], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
             ax.text(1.5, y_range[0]+y_range_tot*.05, 
                     f'wilc_p={wilc_p_str}\nttest_p={ttest_p_str}', 
                     ha='center', va='bottom', color='k', fontsize=8)
@@ -194,12 +239,12 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
             print(f'ranksums: {rank_stat}, p={rank_p_str}')
             print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
-            ax.plot([1, 2], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
+            ax.plot([1.1, 1.9], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
             ax.text(1.5, y_range[0]+y_range_tot*.05, 
                     f'ranksums_p={rank_p_str}\nttest_p={ttest_p_str}', 
                     ha='center', va='bottom', color='k', fontsize=8)
         
-    ax.set(xticks=[1,2], xticklabels=xticklabels,
+    ax.set(xticks=[1.1,1.9], xticklabels=xticklabels,
            ylabel=ylabel,
            title=title)
     

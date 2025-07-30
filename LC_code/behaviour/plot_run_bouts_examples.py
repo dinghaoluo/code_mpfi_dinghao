@@ -22,7 +22,7 @@ mpl_formatting()
 
 #%% parameters
 SAMP_FREQ = 1250
-gaus_speed = gaussian_kernel_unity(sigma=SAMP_FREQ*0.1)
+gaus_speed = gaussian_kernel_unity(sigma=SAMP_FREQ*0.03)
 
 
 #%% recname 
@@ -32,11 +32,11 @@ gaus_speed = gaussian_kernel_unity(sigma=SAMP_FREQ*0.1)
 # t = 30
 # t = 157
 
-# recname = 'A045r-20221207-02'
-# t = 182  
+recname = 'A045r-20221207-02'
+t = 181  
 
-recname = 'A032r-20220802-02'
-t = 75
+# recname = 'A032r-20220802-02'
+# t = 75
 
 
 #%% paths
@@ -71,7 +71,7 @@ for time, clu in zip(spike_times, clusters):
         continue
     spike_map[clu_to_row[clu], time] = 1
 
-spike_array = np.array([smooth_convolve(spike_map[i], sigma=int(SAMP_FREQ*0.1))
+spike_array = np.array([smooth_convolve(spike_map[i], sigma=int(SAMP_FREQ*.08))
                         for i in range(len(unique_clus))])
 
 lickLfp = laps['lickLfpInd']
@@ -106,7 +106,7 @@ if not selected_indices:
 print(f'{len(selected_indices)} tagged/putative run-onset peak cells selected.')
 
 
-#%% plot trials 29-31
+#%% plot trials
 lfp_indices_t = np.arange(startLfpInd[t]-1250, min(endLfpInd[t+2]+1250, len(speed_MMsec)))
 lap_start = lfp_indices_t[0]
 xaxis = np.arange(0, len(lfp_indices_t)) / SAMP_FREQ

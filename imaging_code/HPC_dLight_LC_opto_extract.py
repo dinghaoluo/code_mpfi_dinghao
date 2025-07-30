@@ -44,6 +44,7 @@ AFT = 10
 TAXIS = np.arange(-BEF*SAMP_FREQ, AFT*SAMP_FREQ) / SAMP_FREQ
 
 BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
+PMT_BUFFER = 10 / SAMP_FREQ
 
 
 #%% GPU acceleration
@@ -72,13 +73,6 @@ except Exception as e:
 def main(path):
     recname = path.split('\\')[-1]
     print(f'\n{recname}')
-    
-    # switch
-    BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
-    if path in rec_list.pathdLightLCOptoInh:
-        STIM_IDX = (TAXIS >= 2.5) & (TAXIS < 3.5)
-    else:
-        STIM_IDX = (TAXIS >= 0.65) & (TAXIS < 1.5)
     
     binpath = os.path.join(path, 'suite2p/plane0/data.bin')
     bin2path = os.path.join(path, 'suite2p/plane0/data_chan2.bin')
@@ -129,9 +123,7 @@ def main(path):
     pulse_times = txt['pulse_times']
     pulse_parameters = txt['pulse_parameters']
     
-    # pulse parameters 
-    print('extracting data...')
-    
+    # extract pulse parameters 
     pulse_width_ON = float(pulse_parameters[-1][2])/1000000  # in s
     pulse_width = float(pulse_parameters[-1][3])/1000000  # in s
     pulse_number = int(pulse_parameters[-1][4])
@@ -139,15 +131,38 @@ def main(path):
     
     tot_pulses = int(len(pulse_times) / pulse_number)
     
-    pulse_frames = [ipf.find_nearest(p, frame_times) for p in pulse_times]
-    pulse_frame_diffs = np.diff(pulse_frames)
-    pulse_split_idxs = np.where(pulse_frame_diffs > 30)[0]+1  # > 1 second difference
-    pulse_frames_split = np.split(pulse_frames, pulse_split_idxs)
-    pulse_start_frames = [p[0] for p in pulse_frames_split]
+    pulse_times = np.array(pulse_times)
+    diffs = np.diff(pulse_times)
+    split_idx = np.where(diffs >= 1000)[0] + 1
+    pulse_trains = np.split(pulse_times, split_idx)
+    
+    # pulse format printout
+    eg_train = pulse_trains[0]
+    t0 = eg_train[0]
+    train_rel = eg_train - t0  # align first pulse to 0
+    last_time = round(train_rel[-1] + pulse_width*1000)
+    print(f'pulse count: {len(eg_train)}')
+    print(f'total train duration: {last_time} ms')
+    print(f'predicted PMT shut-off at {last_time + 100} ms')
+    
+    pulse_frames = [
+        [ipf.find_nearest(p, frame_times) for p in train]
+        for train in pulse_trains
+    ]
+    pulse_start_frames = [p[0] for p in pulse_frames]
     valid_pulse_start_frames = [
         p for p in pulse_start_frames
-        if (p - BEF * SAMP_FREQ >= 0) and (p + AFT * SAMP_FREQ <= len(trace_dFF))
+        if (p - BEF * SAMP_FREQ >= 0) and (p + AFT * SAMP_FREQ <= tot_frames)
         ]
+    
+    # determine time bin mask
+    last_time_s = last_time / 1_000  # convert to seconds
+    stim_start = last_time_s + PMT_BUFFER
+    stim_end = stim_start + 1.00
+    STIM_IDX = (TAXIS >= stim_start) & (TAXIS < stim_end)
+    
+    # pulse processing 
+    print('extracting data...')
 
     # checks $FM against tot_frame
     if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
@@ -157,9 +172,9 @@ def main(path):
     pulse_period_frames = np.concatenate(
         [np.arange(
             max(0, pulse_train[0]-3),
-            min(pulse_train[-1]+int(pulse_width)*SAMP_FREQ+15, tot_frames)  # +15 as a buffer, half a second 
+            min(pulse_train[-1]+int(pulse_width)*SAMP_FREQ+30, tot_frames)  # +15 as a buffer, half a second 
             )
-        for pulse_train in pulse_frames_split]
+        for pulse_train in pulse_frames]
         )
     trace_dFF[pulse_period_frames] = np.nan
     trace2_dFF[pulse_period_frames] = np.nan
@@ -278,16 +293,20 @@ def main(path):
     pixel_dFF = np.zeros((shape[1], shape[2], len(valid_pulse_start_frames)))
     pixel_dFF2 = np.zeros_like(pixel_dFF)
     for i, p in enumerate(valid_pulse_start_frames):
-        temp_F = mov[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ, :, :]  # do it for all pixels simultaneously
-        temp_F2 = mov2[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ, :, :]
-        
+        temp_F = mov[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        temp_F2 = mov2[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+    
         stim_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
         baseline_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
-        pixel_dFF[:, :, i] = stim_mean / baseline_mean
-        
+        dFF = (stim_mean - baseline_mean) / np.abs(baseline_mean)
+        dFF[np.abs(dFF) > 10] = np.nan  # hard cap to ±2
+        pixel_dFF[:, :, i] = dFF
+    
         stim_mean2 = np.mean(temp_F2[STIM_IDX, :, :], axis=0)
         baseline_mean2 = np.mean(temp_F2[BASELINE_IDX, :, :], axis=0)
-        pixel_dFF2[:, :, i] = stim_mean2 / baseline_mean2
+        dFF2 = (stim_mean2 - baseline_mean2) / np.abs(baseline_mean2)
+        dFF2[np.abs(dFF2) > 10] = np.nan
+        pixel_dFF2[:, :, i] = dFF2
         
     np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy',
             pixel_dFF)
@@ -296,8 +315,8 @@ def main(path):
     
     # generate mean dFF release map as proxy for t-map, 24 June 2025 
     print('computing mean release map...')
-    release_map = np.mean(pixel_dFF, axis=2)  # shape: (y, x)
-    release_map2 = np.mean(pixel_dFF2, axis=2)
+    release_map = np.nanmean(pixel_dFF, axis=2)  # shape: (y, x)
+    release_map2 = np.nanmean(pixel_dFF2, axis=2)
     
     # save map matrices 
     np.save(rf'{savepath}\processed_data\{recname}_release_map.npy', release_map)
@@ -306,8 +325,14 @@ def main(path):
     # plotting 
     vmin = np.nanpercentile(release_map, 1)
     vmax = np.nanpercentile(release_map, 99)
-    norm = TwoSlopeNorm(vcenter=1, vmin=vmin, vmax=vmax)
     
+    # edge case check
+    if vmin >= 0:
+        # no negatives: force vmin = 0, keep vmax
+        vmin = -.01
+        
+    norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
+        
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     
     # panel 1: channel 1 reference
@@ -328,7 +353,7 @@ def main(path):
     # colourbar for panel 3
     cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
     cbar.set_label('ΔF/F ratio', fontsize=10)
-    cbar.set_ticks([vmin, 1, vmax])
+    cbar.set_ticks([vmin, 0, vmax])
     
     fig.tight_layout()
     
@@ -338,16 +363,14 @@ def main(path):
             dpi=300,
             bbox_inches='tight'
         )
-    
-    plt.close(fig)
-    
+        
     
     # compute dF/F per pixel IF BEHAVIOUR (run-onset / baseline), 24 June 2025 
     if txt['behaviour']:
         print('behaviour session; compiling run-onset dFF dict...')
         txt = bf.process_behavioural_data_imaging(txtpath)
         run_onsets = txt['run_onset_frames']
-        stim_conds = [t[15] for t in txt['trial_statements']][1:]
+        stim_conds = [t[15] for t in txt['trial_statements']]
         stim_idx = [trial for trial, cond in enumerate(stim_conds)
                     if cond!='0']
         
@@ -365,11 +388,15 @@ def main(path):
             
             run_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
             prerun_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
-            pixel_dFF_run[:, :, i] = run_mean / prerun_mean
+            dFF_run = (run_mean - prerun_mean) / np.abs(prerun_mean)
+            dFF_run[np.abs(dFF_run) > 10] = np.nan
+            pixel_dFF_run[:, :, i] = dFF_run
             
             run_mean2 = np.mean(temp_F2[STIM_IDX, :, :], axis=0)
             prerun_mean2 = np.mean(temp_F2[BASELINE_IDX, :, :], axis=0)
-            pixel_dFF_run2[:, :, i] = run_mean2 / prerun_mean2
+            dFF_run2 = (run_mean2 - prerun_mean2) / np.abs(prerun_mean2)
+            dFF_run2[np.abs(dFF_run2) > 10] = np.nan
+            pixel_dFF_run2[:, :, i] = dFF_run2
             
         np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_run.npy',
                 pixel_dFF)
@@ -378,8 +405,8 @@ def main(path):
         
         # compute mean run-onset aligned release maps
         print('computing mean run-onset release map...')
-        release_map_run = np.mean(pixel_dFF_run, axis=2)
-        release_map_run2 = np.mean(pixel_dFF_run2, axis=2)
+        release_map_run = np.nanmean(pixel_dFF_run, axis=2)
+        release_map_run2 = np.nanmean(pixel_dFF_run2, axis=2)
 
         # save map matrices
         np.save(rf'{savepath}\processed_data\{recname}_release_map_run.npy', release_map_run)
@@ -388,7 +415,13 @@ def main(path):
         # norm 
         vmin = np.nanpercentile(release_map_run, 1)
         vmax = np.nanpercentile(release_map_run, 99)
-        norm = TwoSlopeNorm(vcenter=1, vmin=vmin, vmax=vmax)
+        
+        # edge case check
+        if vmin >= 0:
+            # no negatives: force vmin = 0, keep vmax
+            vmin = -.01
+        
+        norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
         
         # plotting
         fig, axs = plt.subplots(1, 3, figsize=(12, 4))
@@ -410,6 +443,7 @@ def main(path):
 
         cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
         cbar.set_label('ΔF/F ratio', fontsize=10)
+        cbar.set_ticks([vmin, 0, vmax])
 
         fig.tight_layout()
 
@@ -419,8 +453,6 @@ def main(path):
                 dpi=300,
                 bbox_inches='tight'
             )
-
-        plt.close(fig)
         
     else:
         print('session with no behaviour; finishing...')

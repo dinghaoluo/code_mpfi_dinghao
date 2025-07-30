@@ -94,12 +94,24 @@ def process_all(path):
     # folder to put processed data and single-session plots 
     proc_path = (r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP_immobile'
                  rf'\all_sessions\{recname}')
-    os.makedirs(proc_path, exist_ok=True)
-    
     proc_data_path = (r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP_immobile'
                       rf'\all_sessions\{recname}\processed_data')
-    os.makedirs(proc_data_path, exist_ok=True)
     
+    # check if fully processed: e.g. existence of main processed npy files
+    checks = [
+        rf'{proc_data_path}\RO_aligned_mean_dict.npy',
+        rf'{proc_data_path}\rew_aligned_mean_dict.npy',
+        rf'{proc_data_path}\valid_ROIs_coord_dict.npy'
+    ]
+    
+    if all(os.path.exists(f) for f in checks):
+        print(f'skipping {recname}: already processed.')
+        return
+    
+    # if not fully processed, make sure dirs exist
+    os.makedirs(proc_path, exist_ok=True)
+    os.makedirs(proc_data_path, exist_ok=True)
+
     with open(
             rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCHPCGCaMPImmobile\{recname}.pkl',
             'rb'

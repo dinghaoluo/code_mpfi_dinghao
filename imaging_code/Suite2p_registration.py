@@ -60,7 +60,8 @@ for path in paths:
     print('\n{}'.format(sessname))
     
     reg_path = os.path.join(path, 'suite2p')
-    if os.path.exists(reg_path):  # if registed
+    reg_path_alt = os.path.join(path, 'processed')  # in some older recordings
+    if os.path.exists(reg_path) or os.path.exists(reg_path_alt):  # if registed
         print('session already registered; skip')
         continue
     else:

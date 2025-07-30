@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 import sys 
 import scipy.io as sio
-from scipy.stats import ranksums, sem
+from scipy.stats import sem, ranksums
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -225,41 +225,45 @@ for cluname in RO_keys:
     
     trains = all_trains[cluname]
     
-    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-        trains, early_trials, RO_WINDOW
-        )
-    early_profiles.extend(temp_profiles)
-    early_spike_rates.extend(temp_spike_rates)
-    early_peak_std.append(
-        get_peak_std(trains, early_trials, RO_WINDOW)
-        )
+    if len(early_trials) > 10:
+        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+            trains, early_trials, RO_WINDOW
+            )
+        early_profiles.extend(temp_profiles)
+        early_spike_rates.extend(temp_spike_rates)
+        early_peak_std.append(
+            get_peak_std(trains, early_trials, RO_WINDOW)
+            )
     
-    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-        trains, earlymid_trials, RO_WINDOW
-        )
-    earlymid_profiles.extend(temp_profiles)
-    earlymid_spike_rates.extend(temp_spike_rates)
-    earlymid_peak_std.append(
-        get_peak_std(trains, earlymid_trials, RO_WINDOW)
-        )
+    if len(earlymid_trials) > 10:
+        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+            trains, earlymid_trials, RO_WINDOW
+            )
+        earlymid_profiles.extend(temp_profiles)
+        earlymid_spike_rates.extend(temp_spike_rates)
+        earlymid_peak_std.append(
+            get_peak_std(trains, earlymid_trials, RO_WINDOW)
+            )
     
-    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-        trains, midlate_trials, RO_WINDOW
-        )
-    midlate_profiles.extend(temp_profiles)
-    midlate_spike_rates.extend(temp_spike_rates)
-    midlate_peak_std.append(
-        get_peak_std(trains, midlate_trials, RO_WINDOW)
-        )
+    if len(midlate_trials) > 10:
+        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+            trains, midlate_trials, RO_WINDOW
+            )
+        midlate_profiles.extend(temp_profiles)
+        midlate_spike_rates.extend(temp_spike_rates)
+        midlate_peak_std.append(
+            get_peak_std(trains, midlate_trials, RO_WINDOW)
+            )
     
-    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-        trains, late_trials, RO_WINDOW
-        )
-    late_profiles.extend(temp_profiles)
-    late_spike_rates.extend(temp_spike_rates)
-    late_peak_std.append(
-        get_peak_std(trains, late_trials, RO_WINDOW)
-        )
+    if len(late_trials) > 10:
+        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+            trains, late_trials, RO_WINDOW
+            )
+        late_profiles.extend(temp_profiles)
+        late_spike_rates.extend(temp_spike_rates)
+        late_peak_std.append(
+            get_peak_std(trains, late_trials, RO_WINDOW)
+            )
 
 
 #%% plotting 
@@ -283,7 +287,7 @@ midlate_c   = (0.20, 0.35, 0.65)  # darker royal blue
 late_c      = (0.10, 0.25, 0.40)  # deep navy-toned blue
 
 
-fig, ax = plt.subplots(figsize=(2.2, 1.8))
+fig, ax = plt.subplots(figsize=(2.2, 2.5))
 
 ax.plot(XAXIS, early_mean, c='grey', label='early')
 ax.fill_between(XAXIS, early_mean+early_sem,
@@ -322,30 +326,31 @@ comparison_pairs = [
     ('earlymid', earlymid_spike_rates, 'late', late_spike_rates)
 ]
 
-# title_lines = []
-# for name1, a, name2, b in comparison_pairs:
-#     a = [x for x in a if not np.isnan(x)]
-#     b = [x for x in b if not np.isnan(x)]
-#     stat, p = ranksums(a, b)
-#     if p < 0.0001:
-#         p_str = 'p<0.0001'
-#     else:
-#         p_str = f'p={p:.3g}'
-#     title_lines.append(f'{name1} vs {name2}: {p_str}')
+title_lines = []
+for name1, a, name2, b in comparison_pairs:
+    a = [x for x in a if not np.isnan(x)]
+    b = [x for x in b if not np.isnan(x)]
+    stat, p = ranksums(a, b)
+    if p < 0.0001:
+        p_str = 'p<0.0001'
+    else:
+        p_str = f'p={p:.3g}'
+    title_lines.append(f'{name1} vs {name2}: {p_str}')
 
-# ax.set_title('\n' + '\n'.join(title_lines), fontsize=6)
+ax.set_title('\n' + '\n'.join(title_lines), fontsize=6)
     
 fig.tight_layout()
 plt.show()
 
-for ext in ['.png', '.pdf']:
-    fig.savefig(
-        r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
-        rf'\all_run_onset_mean_profiles{ext}',
-        dpi=300,
-        bbox_inches='tight'
-        )
-    
+# for ext in ['.png', '.pdf']:
+#     fig.savefig(
+#         r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
+#         rf'\all_run_onset_mean_profiles{ext}',
+#         dpi=300,
+#         bbox_inches='tight'
+#         )
+
+
 #%% std comparison 
 # clean NaNs
 early_std = [x for x in early_peak_std if not np.isnan(x)]

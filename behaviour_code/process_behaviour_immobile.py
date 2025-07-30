@@ -42,6 +42,11 @@ os.makedirs(output_folder, exist_ok=True)
 for pathname in paths:    
     recname = pathname[-17:]
     print(f'\nprocessing {recname}...')
+    
+    output_path = os.path.join(output_folder, f'{recname}.pkl')
+    if os.path.exists(output_path):
+        print('already processed; skipped')
+        continue 
 
     start = time()
     
@@ -53,7 +58,7 @@ for pathname in paths:
     start = time()
 
     # ... and save
-    with open(os.path.join(output_folder, f'{recname}.pkl'), 'wb') as f:
+    with open(output_path, 'wb') as f:
         pickle.dump(behavioural_data, f)
 
     print(f'session saved ({str(timedelta(seconds=int(time()-start)))})')

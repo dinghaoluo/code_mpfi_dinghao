@@ -9,8 +9,8 @@ simple script to quickly check immobile training progress
 
 
 #%% what to process 
-animal_id = 134
-date = 20250714
+animal_id = 132
+date = 20250716
 sess = 1
 
 

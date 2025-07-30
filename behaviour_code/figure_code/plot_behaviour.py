@@ -18,7 +18,7 @@ import os
 import sys 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import replace_outlier, mpl_formatting
+from common import replace_outlier, mpl_formatting, smooth_convolve
 mpl_formatting()
 
 
@@ -53,7 +53,7 @@ for exp_name in ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP']:
         exist_ok=True
         )
     
-    for path in paths:
+    for path in paths[:1]:
         recname = path[-17:]
         print(f'\n{recname}')
         
@@ -70,8 +70,9 @@ for exp_name in ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP']:
             )
         os.makedirs(output_dir, exist_ok=True)
         
+        start_cues = [r for r in data['start_cue_times'] if not np.isnan(r)]
         times_ms = data['upsampled_timestamps_ms']
-        speeds = data['upsampled_speed_cm_s']
+        speeds = smooth_convolve(data['upsampled_speed_cm_s'], sigma=20)  # 20 ms-smoothed speeds 
         licks = [t for trial in data['lick_times'] for (t, _) in trial]
         rewards = [r[0] if isinstance(r, list) and r else r 
                    for r in data['reward_times'] if not np.isnan(r)]
@@ -106,7 +107,7 @@ for exp_name in ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP']:
             # mark run onsets
             for r in run_onsets:
                 if start_time <= r < end_time:
-                    ax.axvline(x=r / 1000, color='red', linewidth=1)
+                    ax.axvline(x=r / 1000, color='red', linestyle='dashed', linewidth=1)
 
             # mark licks
             for l in licks:
@@ -114,6 +115,13 @@ for exp_name in ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP']:
                     ax.vlines(x=l / 1000, ymin=speed_max + speed_max * .01, 
                               ymax=speed_max + speed_max * .1, 
                               color='orchid', linewidth=0.3)
+            
+            # mark start cues 
+            for r in start_cues:
+                if start_time <= r < end_time:
+                    ax.vlines(x=r / 1000, ymin=speed_max, 
+                              ymax=speed_max + speed_max * .11,
+                              color='grey', linewidth=1)
 
             # mark rewards
             for r in rewards:
@@ -122,12 +130,12 @@ for exp_name in ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP']:
                               ymax=speed_max + speed_max * .11,
                               color='darkgreen', linewidth=1)
                     
-            # mark trial_ends for debugging 
-            for e in trial_ends:
-                if start_time <= e < end_time:
-                    ax.vlines(x=e / 1000, ymin=speed_max, 
-                              ymax=speed_max + speed_max * .11,
-                              color='royalblue', linewidth=1)
+            # # mark trial_ends for debugging 
+            # for e in trial_ends:
+            #     if start_time <= e < end_time:
+            #         ax.vlines(x=e / 1000, ymin=speed_max, 
+            #                   ymax=speed_max + speed_max * .11,
+            #                   color='royalblue', linewidth=1)
 
             ax.set(
                 xlabel='time (s)',

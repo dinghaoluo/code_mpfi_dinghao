@@ -28,7 +28,7 @@ mpl_formatting()
 
 #%% gaussian kernel for speed smoothing 
 SAMP_FREQ = 1250  # Hz
-gaus_speed = gaussian_kernel_unity(sigma=SAMP_FREQ*0.1)  # same as spike 
+gaus_speed = gaussian_kernel_unity(sigma=SAMP_FREQ*0.03)  # same as spike 
 
 
 #%% load cell profiles
@@ -40,7 +40,7 @@ cell_profiles = pd.read_pickle(r'Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_pr
 run_bout_dir = r'Z:\Dinghao\code_dinghao\run_bouts'
 save_path_base = r'Z:\Dinghao\code_dinghao\run_bouts\fsa_run_bouts_plots_python'
 
-for path in paths:
+for path in paths[2:3]:
     recname = path[-17:]
     
     run_bout_path = os.path.join(run_bout_dir, 
@@ -171,7 +171,7 @@ for path in paths:
         mean_trace = np.mean(spike_subset, axis=0)
         mean_trace = np.clip(mean_trace, 0, np.percentile(mean_trace, 99.5))
     
-        ax_spk.plot(xaxis, mean_trace, color='orange', linewidth=1.5, label='mean spike')
+        ax_spk.plot(xaxis, mean_trace, color='orange', linewidth=1.2, label='mean spike')
         ax_spk.set_ylim(0, np.max(mean_trace) * 1.1)
     
         licks_t = lickLfp_flat[np.in1d(lickLfp_flat, lfp_indices_t)]

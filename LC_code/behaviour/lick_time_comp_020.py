@@ -51,6 +51,7 @@ all_pspeeds_non_stim = []; all_pspeeds_stim = []  # control
 all_initacc_non_stim = []; all_initacc_stim = []  # control 
 all_lickbr_non_stim = []; all_lickbr_stim = []  # control 
 all_length_non_stim = []; all_length_stim = []  # control, 19 Sept 2024 Dinghao 
+all_rew_perc_non_stim = []; all_rew_perc_stim = []  # control, 18 July 2025 
 
 for sessname in sess_list:
     print(sessname)
@@ -82,7 +83,7 @@ for sessname in sess_list:
         if len(pumps[trial])>0:
             pumps[trial] = pumps[trial][0] - starts[trial]
         else:  # trials where no rewards were delivered or rewards were delivered after 16 s
-            pumps[trial] = 20000
+            pumps[trial] = [np.nan]
     
     first_licks = []
     licks_bef_rew = []
@@ -132,6 +133,7 @@ for sessname in sess_list:
     curr_initacc_non_stim = []; curr_initacc_stim = []
     curr_lickbr_non_stim = []; curr_lickbr_stim = []
     curr_length_non_stim = []; curr_length_stim = []
+    curr_rew_perc_non_stim = []; curr_rew_perc_stim = []
     
     
     for i in range(n_bst):
@@ -169,6 +171,8 @@ for sessname in sess_list:
         curr_lickbr_stim.append(lickbr_stim)
         curr_length_non_stim.append(lengths_non_stim)
         curr_length_stim.append(lengths_stim)
+        curr_rew_perc_non_stim.append(np.sum([~np.isnan(pumps[i]) for i in selected_non_stim]) / len(selected_non_stim))
+        curr_rew_perc_stim.append(np.sum([~np.isnan(pumps[i]) for i in stim]) / len(selected_non_stim))
         
         pval.append(ranksums(licks_non_stim, licks_stim)[1])
         pval_mspeeds.append(ranksums(mspeeds_non_stim, mspeeds_stim)[1])
@@ -190,6 +194,8 @@ for sessname in sess_list:
         all_lickbr_stim.append(np.median(curr_lickbr_stim))
         all_length_non_stim.append(np.median(curr_length_non_stim))
         all_length_stim.append(np.median(lengths_stim))
+        all_rew_perc_non_stim.append(np.median(curr_rew_perc_non_stim))
+        all_rew_perc_stim.append(np.median(curr_rew_perc_stim))
     
     
     # licks plot 
@@ -197,107 +203,60 @@ for sessname in sess_list:
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0\{}'.format(stim_cond, sessname)
     elif comp_method == 'stim_cont':
         savepath = 'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0_stim_cont\{}'.format(stim_cond, sessname)
-    # pf.plot_violin_with_scatter(licks_non_stim, licks_stim, 'grey', 'royalblue',
-    #                             title=sessname, paired=False,
-    #                             xticklabels=['ctrl.', 'stim.'],
-    #                             ylabel='time to 1st-licks',
-    #                             save=True, savepath=savepath)
-    
-    # boxplot 
-    fig, ax = plt.subplots(figsize=(2.6, 1.4))
-    
-    boxplots = ax.boxplot(
-        [licks_stim, licks_non_stim], vert=False, 
-        positions=[2, 1], widths=.25,
-        patch_artist=True,
-        medianprops={'color': 'black'},
-        capprops={'color': 'black'}, whiskerprops={'color': 'black'},
-        flierprops={'marker': 'o', 'color': 'black', 'markersize': 3})
-    
-    for patch, color in zip(boxplots['boxes'], ('royalblue', 'grey')):
-        patch.set_facecolor(color)
-        patch.set_alpha(1)
-    
-    ax.scatter(licks_stim, np.full_like(licks_stim, 1.7), 
-               s=20, c='royalblue', alpha=.75, ec='none')
-    ax.scatter(licks_non_stim, np.full_like(licks_non_stim, 1.3), 
-               s=20, c='grey', alpha=.75, ec='none')
-    
-    for s in ('top', 'right', 'left'):
-        ax.spines[s].set_visible(False)
-    
-    ax.set(
-        title=sessname,
-        xlabel='time from run-onset (s)',
-        yticks=(1,2), yticklabels=('ctrl.', 'stim.'), ylim=(.6, 2.4)
-        )
-    
-    for ext in ('.png', '.pdf'):
-        fig.savefig(f'{savepath}{ext}',
-                    dpi=300,
-                    bbox_inches='tight')
-
-    plt.close(fig)
+    pf.plot_box_with_scatter(licks_non_stim, licks_stim, 
+                             xlabel='1st lick (s)', 
+                             savepath=savepath)
     
     # mspeeds plot 
     if comp_method == 'baseline':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0\{}_control_velocity'.format(stim_cond, sessname)
     elif comp_method == 'stim_cont':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0_stim_cont\{}_control_velocity'.format(stim_cond, sessname)
-    pf.plot_violin_with_scatter(mspeeds_non_stim, mspeeds_stim, 'grey', 'royalblue',
-                                title=sessname, paired=False,
-                                xticklabels=['ctrl.', 'stim.'],
-                                ylabel='mean velocity',
-                                save=True, savepath=savepath)
+    pf.plot_box_with_scatter(mspeeds_non_stim, mspeeds_stim, 
+                             xlabel='mean speed (cm/s)', 
+                             savepath=savepath,
+                             show_scatter=False)
         
     # pspeeds plot 
     if comp_method == 'baseline':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0\{}_control_peak_velocity'.format(stim_cond, sessname)
     elif comp_method == 'stim_cont':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0_stim_cont\{}_control_peak_velocity'.format(stim_cond, sessname)
-    pf.plot_violin_with_scatter(pspeeds_non_stim, pspeeds_stim, 'grey', 'royalblue',
-                                title=sessname, paired=False,
-                                xticklabels=['ctrl.', 'stim.'],
-                                ylabel='peak velocity',
-                                save=True, savepath=savepath)
+    pf.plot_box_with_scatter(pspeeds_non_stim, pspeeds_stim, 
+                             xlabel='peak speed (cm/s)', 
+                             savepath=savepath,
+                             show_scatter=False)
         
     # init acc plot 
     if comp_method == 'baseline':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0\{}_control_init_accel'.format(stim_cond, sessname)
     elif comp_method == 'stim_cont':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0_stim_cont\{}_control_init_accel'.format(stim_cond, sessname)
-    pf.plot_violin_with_scatter(initaccs_non_stim, initaccs_stim, 'grey', 'royalblue',
-                                title=sessname, paired=False,
-                                xticklabels=['ctrl.', 'stim.'],
-                                ylabel='init. acceleration',
-                                save=True, savepath=savepath)
+    pf.plot_box_with_scatter(initaccs_non_stim, initaccs_stim, 
+                             xlabel='init. acceleration (cm/s2)', 
+                             savepath=savepath,
+                             show_scatter=False)
     
     # lick-bef-rew plot 
     if comp_method == 'baseline':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0\{}_control_licks_bef_rew'.format(stim_cond, sessname)
     elif comp_method == 'stim_cont':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0_stim_cont\{}_control_licks_bef_rew'.format(stim_cond, sessname)
-    pf.plot_violin_with_scatter(lickbr_non_stim, lickbr_stim, 'grey', 'royalblue',
-                                title=sessname, paired=False,
-                                xticklabels=['ctrl.', 'stim.'],
-                                ylabel='licks bef. rew.',
-                                save=True, savepath=savepath)
+    pf.plot_box_with_scatter(lickbr_non_stim, lickbr_stim, 
+                             xlabel='licks bef. rew.', 
+                             savepath=savepath,
+                             show_scatter=False)
     
     # trial-length plot 
     if comp_method == 'baseline':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0\{}_control_trial_length'.format(stim_cond, sessname)
     elif comp_method == 'stim_cont':
         savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_0{}0_stim_cont\{}_control_trial_length'.format(stim_cond, sessname)
-    pf.plot_violin_with_scatter(lengths_non_stim, lengths_stim, 'grey', 'royalblue',
-                                title=sessname, paired=False,
-                                xticklabels=['ctrl.', 'stim.'],
-                                ylabel='trial lengths',
-                                save=True, savepath=savepath)
-
-
-#%% close all figures 
-plt.close('all')
-
+    pf.plot_box_with_scatter(lengths_non_stim, lengths_stim, 
+                             xlabel='trial lengths (s)', 
+                             savepath=savepath,
+                             show_scatter=False)
+    
 
 #%% licks summary
 if comp_method == 'baseline':
@@ -374,4 +333,24 @@ pf.plot_violin_with_scatter(all_length_non_stim, all_length_stim, 'grey', 'royal
                             title='trial lengths ctrl. v stim.', 
                             xticklabels=['ctrl.', 'stim.'],
                             ylabel='trial length',
+                            save=True, savepath=savepath, dpi=300)
+
+
+#%% reward percentage summary
+# for i in range(len(all_rew_perc_non_stim)):
+#     if all_rew_perc_non_stim[i] > 1 or all_rew_perc_stim[i] > 1:
+#         del all_rew_perc_non_stim[i]
+#         del all_rew_perc_stim[i]
+#         break
+
+if comp_method == 'baseline':
+    savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020\summary_control_rew_perc'
+elif comp_method == 'stim_cont':
+    savepath = r'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_licktime_020_stim_cont\summary_control_rew_perc'
+pf.plot_violin_with_scatter(all_rew_perc_non_stim, all_rew_perc_stim, 'grey', 'royalblue',
+                            paired=True,
+                            title='rewarded trial % ctrl. v stim.', 
+                            xticklabels=['ctrl.', 'stim.'],
+                            ylabel='% rewarded trials',
+                            ylim=(0.85,1.01),
                             save=True, savepath=savepath, dpi=300)
