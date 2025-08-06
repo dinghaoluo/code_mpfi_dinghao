@@ -34,19 +34,27 @@ prefix = 'LCHPCGCaMPImmobile'
 
 
 #%% main
-output_folder = os.path.join(
-    r'Z:\Dinghao\code_dinghao\behaviour\all_experiments', prefix
-    )
-os.makedirs(output_folder, exist_ok=True)
-
-for pathname in paths:    
+def process_behaviour_immobile(
+        pathname, 
+        output_folder = r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCHPCGCaMPImmobile'
+        ):
+    """
+    process behavioural data from immobile imaging sessions and save to pickle file.
+    
+    parameters:
+    - pathname: full path to the recording session (used to derive recname)
+    - output_folder: directory to save the processed behavioural data; defaults to immobile experiments folder
+    
+    returns:
+    - behavioural_data: dictionary of processed behavioural variables for the session
+    """
     recname = pathname[-17:]
     print(f'\nprocessing {recname}...')
     
     output_path = os.path.join(output_folder, f'{recname}.pkl')
     if os.path.exists(output_path):
         print('already processed; skipped')
-        continue 
+        return 
 
     start = time()
     
@@ -62,3 +70,10 @@ for pathname in paths:
         pickle.dump(behavioural_data, f)
 
     print(f'session saved ({str(timedelta(seconds=int(time()-start)))})')
+    
+    return behavioural_data
+    
+
+if __name__ == '__main__':
+    for pathname in paths:
+        process_behaviour_immobile(pathname)

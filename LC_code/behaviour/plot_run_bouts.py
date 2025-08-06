@@ -40,15 +40,23 @@ cell_profiles = pd.read_pickle(r'Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_pr
 run_bout_dir = r'Z:\Dinghao\code_dinghao\run_bouts'
 save_path_base = r'Z:\Dinghao\code_dinghao\run_bouts\fsa_run_bouts_plots_python'
 
-for path in paths[2:3]:
+for path in paths:
     recname = path[-17:]
     
     run_bout_path = os.path.join(run_bout_dir, 
                                  f'{recname}_run_bouts_py.csv')
-    aligned_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
-                                recname[:14],  # till end of date
-                                recname,
-                                f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat')
+    alignedRun_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
+                                    recname[:14],  # till end of date
+                                    recname,
+                                    f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat')
+    alignedCue_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
+                                    recname[:14],  # till end of date
+                                    recname,
+                                    f'{recname}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat')
+    alignedRew_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
+                                    recname[:14],  # till end of date
+                                    recname,
+                                    f'{recname}_DataStructure_mazeSection1_TrialType1_alignRew_msess1.mat')
     behave_lfp_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}', 
                                    recname[:14],  # till end of date
                                    recname,
@@ -62,7 +70,7 @@ for path in paths[2:3]:
                             recname,
                             f'{recname}.res.1')
     if (not os.path.exists(run_bout_path) 
-        or not os.path.exists(aligned_path)
+        or not os.path.exists(alignedRun_path)
         or not os.path.exists(behave_lfp_path)
         or not os.path.exists(clu_path)
         or not os.path.exists(res_path)):
@@ -77,7 +85,15 @@ for path in paths[2:3]:
     tracks = beh_lfp['Track']
     laps = beh_lfp['Laps']
     
-    aligned = sio.loadmat(aligned_path)['trialsRun'][0][0]
+    aligned = sio.loadmat(alignedRun_path)['trialsRun'][0][0]
+    alignedCue = sio.loadmat(alignedCue_path)['trialsCue'][0][0]  # for cue marking 
+    alignedRew = sio.loadmat(alignedRew_path)['trialsRew'][0][0]  # for cue marking 
+    
+    # read cues 
+    cueLfpInd = alignedCue['startLfpInd'].flatten()
+    
+    # read rewards 
+    rewLfpInd = alignedRew['startLfpInd'].flatten()
     
     # spike reading
     clusters = np.loadtxt(clu_path, dtype=int, skiprows=1)  # first line = number of clusters
@@ -147,32 +163,38 @@ for path in paths[2:3]:
         lap_start = lfp_indices_t[0]
         xaxis = np.arange(0, len(lfp_indices_t)) / SAMP_FREQ
     
-        fig, ax = plt.subplots(figsize=(len(lfp_indices_t)/3000, 2.2))
+        fig, ax = plt.subplots(figsize=(len(lfp_indices_t)/5000, 1.2))
         ax.set(xlabel='time (s)', ylabel='speed (cm/s)',
                ylim=(0, 1.2 * max(speed_MMsec[lfp_indices_t])),
                xlim=(0, len(lfp_indices_t) / SAMP_FREQ),
-               title=f'{recname} | mean tagged/putative | trials {t-1} to {t+1}')
+               title=f'{recname} trials {t-1} to {t+1}')
     
-        ax.plot(xaxis, speed_MMsec[lfp_indices_t], color='black', label='speed')
+        ax.plot(xaxis, speed_MMsec[lfp_indices_t], color='royalblue', label='speed')
         
-        startLfpInd_t = startLfpInd[np.in1d(startLfpInd, lfp_indices_t)]
-        ax.vlines((startLfpInd_t - lap_start)/SAMP_FREQ, 0, ax.get_ylim()[1], 'r', linestyle='dashed')
-    
-        run_bout_t = run_bout_table.iloc[:,1][np.in1d(run_bout_table.iloc[:,1], lfp_indices_t)]
-        ax.vlines((run_bout_t - lap_start)/SAMP_FREQ, 0, ax.get_ylim()[1], 'g', linestyle='dashed')
-    
         ax_spk = ax.twinx()
-        ax_spk.set_ylabel('firing rate (Hz)', color='orange')
-        ax_spk.spines['right'].set_color('orange')
-        ax_spk.tick_params(axis='y', colors='orange', labelcolor='orange')
+        ax_spk.set_ylabel('firing rate (Hz)', color='black')
+        ax_spk.spines['right'].set_color('black')
+        ax_spk.tick_params(axis='y', colors='black', labelcolor='black')
     
         # compute mean trace
         spike_subset = spike_array[selected_indices, :][:, lfp_indices_t] * SAMP_FREQ
         mean_trace = np.mean(spike_subset, axis=0)
         mean_trace = np.clip(mean_trace, 0, np.percentile(mean_trace, 99.5))
     
-        ax_spk.plot(xaxis, mean_trace, color='orange', linewidth=1.2, label='mean spike')
+        ax_spk.plot(xaxis, mean_trace, color='black', linewidth=1.2, label='mean spike')
         ax_spk.set_ylim(0, np.max(mean_trace) * 1.1)
+    
+        cueLfpInd_t = cueLfpInd[np.in1d(cueLfpInd, lfp_indices_t)]
+        ax.vlines((cueLfpInd_t - lap_start)/SAMP_FREQ, 0, ax.get_ylim()[1], 'darkgrey', zorder=10)
+        
+        rewLfpInd_t = rewLfpInd[np.in1d(rewLfpInd, lfp_indices_t)]
+        ax.vlines((rewLfpInd_t - lap_start)/SAMP_FREQ, ax.get_ylim()[1], ax.get_ylim()[1]*.95, 'forestgreen', linewidth=1.5, zorder=10)
+        
+        startLfpInd_t = startLfpInd[np.in1d(startLfpInd, lfp_indices_t)]
+        ax.vlines((startLfpInd_t - lap_start)/SAMP_FREQ, 0, ax.get_ylim()[1], 'red', linestyle='dashed', zorder=10)
+    
+        run_bout_t = run_bout_table.iloc[:,1][np.in1d(run_bout_table.iloc[:,1], lfp_indices_t)]
+        ax.vlines((run_bout_t - lap_start)/SAMP_FREQ, 0, ax.get_ylim()[1], 'green', linestyle='dashed', zorder=10)
     
         licks_t = lickLfp_flat[np.in1d(lickLfp_flat, lfp_indices_t)]
         ax.vlines((licks_t - lap_start)/SAMP_FREQ, ax.get_ylim()[1], ax.get_ylim()[1] * 0.96, 'magenta')

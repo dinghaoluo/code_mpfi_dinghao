@@ -132,21 +132,21 @@ def get_profiles_and_spike_rates(
 ## container lists 
 # profile containers 
 early_profiles = []
-earlymid_profiles = [] 
-midlate_profiles = []
+mid_profiles = [] 
 late_profiles = []
+verylate_profiles = []
 
 # spike rate containers 
 early_spike_rates = []
-earlymid_spike_rates = []
-midlate_spike_rates = []
-late_spike_rates = [] 
+mid_spike_rates = []
+late_spike_rates = []
+verylate_spike_rates = [] 
 
 # new containers for peak timings
 early_peak_std = []
-earlymid_peak_std = []
-midlate_peak_std = []
+mid_peak_std = []
 late_peak_std = []
+verylate_peak_std = []
 
 recname = ''  # for keeping track of current/next session states to load new files 
 
@@ -191,28 +191,28 @@ for cluname in RO_keys:
         
         # initialise trial groups
         early_trials = []
-        earlymid_trials = []
-        midlate_trials = []
+        mid_trials = []
         late_trials = []
+        verylate_trials = []
         
         for trial, t in enumerate(first_licks_sec):
             if trial in bad_idx:  # break if bad trial 
                 continue
             
-            if .5 < t < 2.5:
+            if t < 2.5:
                 early_trials.append(trial)
-            elif .5 < t < 2.8:
-                earlymid_trials.append(trial)
-            elif t > 3.1 and t <= 3.4:
-                midlate_trials.append(trial)
-            elif t > 3.4:
+            if 2.5 < t < 3.5:
+                mid_trials.append(trial)
+            if 3.5 < t < 4.5:
                 late_trials.append(trial)
+            if t > 4.5:
+                verylate_trials.append(trial)
         
         print(
             f'found {len(early_trials)} early trials, '
-            f'{len(earlymid_trials)} earlymid trials, '
-            f'{len(midlate_trials)} midlate trials and '
-            f'{len(late_trials)} ultra-midlate trials'
+            f'{len(mid_trials)} mid trials, '
+            f'{len(late_trials)} late trials and '
+            f'{len(verylate_trials)} ultra-late trials'
             )
         
         all_trains = np.load(
@@ -225,45 +225,85 @@ for cluname in RO_keys:
     
     trains = all_trains[cluname]
     
-    if len(early_trials) > 10:
-        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-            trains, early_trials, RO_WINDOW
-            )
-        early_profiles.extend(temp_profiles)
-        early_spike_rates.extend(temp_spike_rates)
-        early_peak_std.append(
-            get_peak_std(trains, early_trials, RO_WINDOW)
-            )
+    # if len(early_trials) > 10:
+    #     temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+    #         trains, early_trials, RO_WINDOW
+    #         )
+    #     early_profiles.extend(temp_profiles)
+    #     early_spike_rates.extend(temp_spike_rates)
+    #     early_peak_std.append(
+    #         get_peak_std(trains, early_trials, RO_WINDOW)
+    #         )
     
-    if len(earlymid_trials) > 10:
-        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-            trains, earlymid_trials, RO_WINDOW
-            )
-        earlymid_profiles.extend(temp_profiles)
-        earlymid_spike_rates.extend(temp_spike_rates)
-        earlymid_peak_std.append(
-            get_peak_std(trains, earlymid_trials, RO_WINDOW)
-            )
+    # if len(mid_trials) > 10:
+    #     temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+    #         trains, mid_trials, RO_WINDOW
+    #         )
+    #     mid_profiles.extend(temp_profiles)
+    #     mid_spike_rates.extend(temp_spike_rates)
+    #     mid_peak_std.append(
+    #         get_peak_std(trains, mid_trials, RO_WINDOW)
+    #         )
     
-    if len(midlate_trials) > 10:
-        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-            trains, midlate_trials, RO_WINDOW
-            )
-        midlate_profiles.extend(temp_profiles)
-        midlate_spike_rates.extend(temp_spike_rates)
-        midlate_peak_std.append(
-            get_peak_std(trains, midlate_trials, RO_WINDOW)
-            )
+    # if len(late_trials) > 10:
+    #     temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+    #         trains, late_trials, RO_WINDOW
+    #         )
+    #     late_profiles.extend(temp_profiles)
+    #     late_spike_rates.extend(temp_spike_rates)
+    #     late_peak_std.append(
+    #         get_peak_std(trains, late_trials, RO_WINDOW)
+    #         )
     
-    if len(late_trials) > 10:
-        temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
-            trains, late_trials, RO_WINDOW
-            )
-        late_profiles.extend(temp_profiles)
-        late_spike_rates.extend(temp_spike_rates)
-        late_peak_std.append(
-            get_peak_std(trains, late_trials, RO_WINDOW)
-            )
+    # if len(verylate_trials) > 10:
+    #     temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+    #         trains, verylate_trials, RO_WINDOW
+    #         )
+    #     verylate_profiles.extend(temp_profiles)
+    #     verylate_spike_rates.extend(temp_spike_rates)
+    #     verylate_peak_std.append(
+    #         get_peak_std(trains, verylate_trials, RO_WINDOW)
+    #         )
+    
+    
+    # if (len(early_trials) > 5 and len(mid_trials) > 5 and
+    #     len(late_trials) > 5 and len(verylate_trials) > 5):
+    
+    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+        trains, early_trials, RO_WINDOW
+    )
+    early_profiles.extend(temp_profiles)
+    early_spike_rates.extend(temp_spike_rates)
+    early_peak_std.append(
+        get_peak_std(trains, early_trials, RO_WINDOW)
+    )
+
+    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+        trains, mid_trials, RO_WINDOW
+    )
+    mid_profiles.extend(temp_profiles)
+    mid_spike_rates.extend(temp_spike_rates)
+    mid_peak_std.append(
+        get_peak_std(trains, mid_trials, RO_WINDOW)
+    )
+
+    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+        trains, late_trials, RO_WINDOW
+    )
+    late_profiles.extend(temp_profiles)
+    late_spike_rates.extend(temp_spike_rates)
+    late_peak_std.append(
+        get_peak_std(trains, late_trials, RO_WINDOW)
+    )
+
+    temp_profiles, temp_spike_rates = get_profiles_and_spike_rates(
+        trains, verylate_trials, RO_WINDOW
+    )
+    verylate_profiles.extend(temp_profiles)
+    verylate_spike_rates.extend(temp_spike_rates)
+    verylate_peak_std.append(
+        get_peak_std(trains, verylate_trials, RO_WINDOW)
+    )
 
 
 #%% plotting 
@@ -272,19 +312,19 @@ XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 early_mean = np.mean(early_profiles, axis=0)
 early_sem = sem(early_profiles, axis=0)
 
-earlymid_mean = np.mean(earlymid_profiles, axis=0)
-earlymid_sem = sem(earlymid_profiles, axis=0)
-
-midlate_mean = np.mean(midlate_profiles, axis=0)
-midlate_sem = sem(midlate_profiles, axis=0)
+mid_mean = np.mean(mid_profiles, axis=0)
+mid_sem = sem(mid_profiles, axis=0)
 
 late_mean = np.mean(late_profiles, axis=0)
 late_sem = sem(late_profiles, axis=0)
 
+verylate_mean = np.mean(verylate_profiles, axis=0)
+verylate_sem = sem(verylate_profiles, axis=0)
+
 early_c     = (0.55, 0.65, 0.95)  # soft light royal blue
-earlymid_c  = (0.35, 0.50, 0.85)  # medium royal blue
-midlate_c   = (0.20, 0.35, 0.65)  # darker royal blue
-late_c      = (0.10, 0.25, 0.40)  # deep navy-toned blue
+mid_c       = (0.35, 0.50, 0.85)  # medium royal blue
+late_c      = (0.20, 0.35, 0.65)  # darker royal blue
+verylate_c  = (0.10, 0.25, 0.40)  # deep navy-toned blue
 
 
 fig, ax = plt.subplots(figsize=(2.2, 2.5))
@@ -294,20 +334,20 @@ ax.fill_between(XAXIS, early_mean+early_sem,
                        early_mean-early_sem,
                        color='grey', edgecolor='none', alpha=.25)
 
-ax.plot(XAXIS, earlymid_mean, color='royalblue', label='late')
-ax.fill_between(XAXIS, earlymid_mean+earlymid_sem,
-                       earlymid_mean-earlymid_sem,
+ax.plot(XAXIS, mid_mean, color='royalblue', label='verylate')
+ax.fill_between(XAXIS, mid_mean+mid_sem,
+                       mid_mean-mid_sem,
                        color='royalblue', edgecolor='none', alpha=.25)
 
-ax.plot(XAXIS, midlate_mean, c=midlate_c, label='midlate')
-ax.fill_between(XAXIS, midlate_mean+midlate_sem,
-                       midlate_mean-midlate_sem,
-                       color=midlate_c, edgecolor='none', alpha=.25)
-
-ax.plot(XAXIS, late_mean, color=late_c, label='late')
+ax.plot(XAXIS, late_mean, c=late_c, label='late')
 ax.fill_between(XAXIS, late_mean+late_sem,
                        late_mean-late_sem,
                        color=late_c, edgecolor='none', alpha=.25)
+
+ax.plot(XAXIS, verylate_mean, color=verylate_c, label='verylate')
+ax.fill_between(XAXIS, verylate_mean+verylate_sem,
+                       verylate_mean-verylate_sem,
+                       color=verylate_c, edgecolor='none', alpha=.25)
 
 plt.legend(fontsize=5, frameon=False)
 
@@ -318,12 +358,12 @@ for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
     
 comparison_pairs = [
-    ('early', early_spike_rates, 'earlymid', earlymid_spike_rates),
-    ('earlymid', earlymid_spike_rates, 'midlate', midlate_spike_rates),
-    ('midlate', midlate_spike_rates, 'late', late_spike_rates),
-    ('early', early_spike_rates, 'midlate', midlate_spike_rates),
+    ('early', early_spike_rates, 'mid', mid_spike_rates),
+    ('mid', mid_spike_rates, 'late', late_spike_rates),
+    ('late', late_spike_rates, 'verylate', verylate_spike_rates),
     ('early', early_spike_rates, 'late', late_spike_rates),
-    ('earlymid', earlymid_spike_rates, 'late', late_spike_rates)
+    ('early', early_spike_rates, 'verylate', verylate_spike_rates),
+    ('mid', mid_spike_rates, 'verylate', verylate_spike_rates)
 ]
 
 title_lines = []
@@ -334,7 +374,7 @@ for name1, a, name2, b in comparison_pairs:
     if p < 0.0001:
         p_str = 'p<0.0001'
     else:
-        p_str = f'p={p:.3g}'
+        p_str = f'p={p:.5g}'
     title_lines.append(f'{name1} vs {name2}: {p_str}')
 
 ax.set_title('\n' + '\n'.join(title_lines), fontsize=6)
@@ -342,24 +382,24 @@ ax.set_title('\n' + '\n'.join(title_lines), fontsize=6)
 fig.tight_layout()
 plt.show()
 
-# for ext in ['.png', '.pdf']:
-#     fig.savefig(
-#         r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
-#         rf'\all_run_onset_mean_profiles{ext}',
-#         dpi=300,
-#         bbox_inches='tight'
-#         )
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis'
+        rf'\all_run_onset_mean_profiles{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )
 
 
 #%% std comparison 
 # clean NaNs
 early_std = [x for x in early_peak_std if not np.isnan(x)]
-late_std = [x for x in late_peak_std if not np.isnan(x)]
+mid_std = [x for x in mid_peak_std if not np.isnan(x)]
 
 # plot 
 plot_violin_with_scatter(
-    early_std, late_std,
-    early_c, late_c,
+    early_std, mid_std,
+    early_c, mid_c,
     paired=False,
     showscatter=True,
     xticklabels=['early', 'late'],

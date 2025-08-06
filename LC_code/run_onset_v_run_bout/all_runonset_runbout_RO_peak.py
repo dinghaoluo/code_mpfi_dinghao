@@ -13,7 +13,6 @@ LC: visual and statistical comparison between run-onset and run-bout-onset LC
 
 #%% imports
 import sys
-
 import mat73
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,17 +43,20 @@ AFT = 4  # same as above
 
 XAXIS_SPEED = np.arange(-1*SAMP_FREQ, 1*SAMP_FREQ) / SAMP_FREQ
 
+run_onset_xaxis = np.arange(
+    -BEF*SAMP_FREQ, AFT*SAMP_FREQ
+    ) / SAMP_FREQ
+run_bout_xaxis = np.arange(
+    -BEF*SAMP_FREQ_RUNBOUT, AFT*SAMP_FREQ_RUNBOUT
+    ) / SAMP_FREQ_RUNBOUT
+
 
 #%% load data 
-all_trains = np.load(
-    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_trains.npy',
-    allow_pickle=True
-    ).item()
 cell_profiles = pd.read_pickle(
     r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
     )
 behaviour = pd.read_pickle(
-    r'Z:/Dinghao/code_dinghao/behaviour/all_LC_sessions.pkl'
+    r'Z:\Dinghao\code_dinghao\behaviour\all_LC_sessions.pkl'
     )
 
 
@@ -76,41 +78,42 @@ def main(keys, list_identity):
     run_bout_speeds = []  # same as above 
     run_bout_speeds_matched = []  # same as above, but speed-matched 
     
+    # mean curve
     mean_run_onset = []
     mean_run_bout = []
     
+    # signal to noise defined as -.25 ~ .25 divided by -1~-.5 & .5~1
     s2n_run_onset = []
     s2n_run_bout = []
     
+    # peak rate 
     peak_run_onset = []
     peak_run_bout = []
     
     RO_run_onset = []
     RO_run_bout = []
     
-    run_onset_xaxis = np.arange(
-        -BEF*SAMP_FREQ, AFT*SAMP_FREQ
-        ) / SAMP_FREQ
-    run_bout_xaxis = np.arange(
-        -BEF*SAMP_FREQ_RUNBOUT, AFT*SAMP_FREQ_RUNBOUT
-        ) / SAMP_FREQ_RUNBOUT
-    
+    # holder, so that we don't have to reprocess beh when changing cell
     recname = ''
     
     for cluname in keys:
         
         temp_recname = cluname[:cluname.find(' ')]
         
-        # assumes cluname is 'A123i-20250101-01 x', where x starts at 2
         clunum = int(cluname.split('clu')[1])-2  # index for retrieving fsa
         
         if temp_recname not in recs:
             continue
         
-        if temp_recname != recname:            
+        # if new recording session, load new trains file + process beh
+        if temp_recname != recname:
             recname = cluname[:cluname.find(' ')]
             
             print(f'\nprocessing {recname}...')
+            
+            all_trains = np.load(
+                rf'Z:/Dinghao/code_dinghao/LC_ephys/all_sessions/{recname}/{recname}_all_trains_run.npy',
+                allow_pickle=True).item()
             
             pathname = (
                 rf'Z:\Dinghao\MiceExp\ANMD{cluname[1:5]}'
@@ -319,11 +322,11 @@ def main(keys, list_identity):
                 trial[:run_onset_length], 
                 (0, max(0, run_onset_length - len(trial))), 
                 constant_values=0
-                ) * SAMP_FREQ 
+                ) 
             for trial in curr_trains_good
             ]
         run_onset_mean = np.mean(run_onset_all, axis=0)
-        run_onset_sem = sem(run_onset_all, axis=0)
+        # run_onset_sem = sem(run_onset_all, axis=0)
         
         # signal to noise calculation
         run_onset_peak = max(
@@ -349,13 +352,13 @@ def main(keys, list_identity):
         
         #### if enough matched bouts, append data #### 
         # if fsa.shape[0]==9201 or len(matched_bouts)<3:  # to prevent contamination
-        if fsa.shape[0]==9201 or len(matched_bouts)<1:
+        if fsa.shape[0]==9201 or len(matched_bouts)<3:
             continue
         else:
             fsa_mean = np.nanmean(fsa[matched_bouts, : 7 * SAMP_FREQ_RUNBOUT], 
                                   axis=0)
-            fsa_sem = sem(fsa[matched_bouts, : 7 * SAMP_FREQ_RUNBOUT], 
-                          axis=0)
+            # fsa_sem = sem(fsa[matched_bouts, : 7 * SAMP_FREQ_RUNBOUT], 
+            #               axis=0)
             mean_run_onset.append(run_onset_mean)
             mean_run_bout.append(fsa_mean)
         
@@ -483,14 +486,14 @@ def main(keys, list_identity):
                     mean_run_onset_plot+sem_run_onset_plot,
                     mean_run_onset_plot-sem_run_onset_plot,
                     color='royalblue',
-                    alpha=.1, edgecolor='none', zorder=10)
+                    alpha=.25, edgecolor='none', zorder=10)
     ax.fill_between(run_bout_xaxis,
                     mean_run_bout_plot+sem_run_bout_plot,
                     mean_run_bout_plot-sem_run_bout_plot,
                     color='gainsboro',
-                    alpha=.1, edgecolor='none')
+                    alpha=.25, edgecolor='none')
     ax.set(xlim=(-1,4), xticks=[0,2,4],
-           ylim=(1.8,4.9), yticks=[2,4], 
+           ylim=(1.7,5.1), yticks=[2,4], 
            title=f'run-onset v run-bout-onset\n({list_identity} Dbh+)',
            xlabel='time (s)',
            ylabel='spike rate (Hz)')
@@ -498,8 +501,8 @@ def main(keys, list_identity):
               ['trial run onset', 'run-bout onset'], 
               frameon=False, fontsize=6)
     
-    plt.plot([-.5,.5], [4.75,4.75], c='k', lw=.5)
-    plt.text(0, 4.75, f'wilc={round(wilc_res, 8)}', 
+    plt.plot([-.5,.5], [4.95,4.95], c='k', lw=.5)
+    plt.text(0, 4.95, f'wilc={round(wilc_res, 8)}', 
              ha='center', va='bottom', color='k', fontsize=5)
     
     for ext in ['.png', '.pdf']:

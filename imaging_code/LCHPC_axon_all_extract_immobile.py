@@ -39,6 +39,9 @@ sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import normalise, smooth_convolve, mpl_formatting
 mpl_formatting()
 
+sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code')
+from process_behaviour_immobile import process_behaviour_immobile
+
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathLCHPCGCaMPImmobile
@@ -112,11 +115,14 @@ def process_all(path):
     os.makedirs(proc_path, exist_ok=True)
     os.makedirs(proc_data_path, exist_ok=True)
 
-    with open(
-            rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCHPCGCaMPImmobile\{recname}.pkl',
-            'rb'
-            ) as f:
-        beh = pickle.load(f)
+    try:
+        with open(
+                rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCHPCGCaMPImmobile\{recname}.pkl',
+                'rb'
+                ) as f:
+            beh = pickle.load(f)
+    except FileNotFoundError:
+        beh = process_behaviour_immobile(path)
     
     # load files 
     stat = np.load(stat_path, allow_pickle=True)

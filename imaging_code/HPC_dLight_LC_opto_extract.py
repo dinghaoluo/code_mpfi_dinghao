@@ -88,11 +88,11 @@ def main(path):
         )
     os.makedirs(savepath, exist_ok=True)
     
-    # check for repeated processing 
-    if (os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy') and
-        os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy')):
-        print(f'processed... skipping {recname}')
-        return
+    # # check for repeated processing 
+    # if (os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy') and
+    #     os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy')):
+    #     print(f'processed... skipping {recname}')
+    #     return
     
     # load data 
     ops = np.load(opspath, allow_pickle=True).item()
@@ -108,13 +108,17 @@ def main(path):
     ref = ipf.plot_reference(mov, recname=recname, outpath=savepath, channel=1)
     ref2 = ipf.plot_reference(mov2, recname=recname, outpath=savepath, channel=2)
     
-    trace = np.sum(mov, axis=(1,2))
-    trace2 = np.sum(mov2, axis=(1,2))
+    # raw traces, which now replace the trace_dFF we used before
+    # due to concerns of dFF baselines covering the stim (PMT-off) period
+    # 5 Aug 2025
+    raw_trace = np.sum(mov, axis=(1,2))
+    raw_trace2 = np.sum(mov2, axis=(1,2))
     
+    # dFF traces are ONLY used for plotting figure 1 now
     print('computing dFF traces...')
-    trace_dFF = ipf.calculate_dFF(trace, sigma=300, t_axis=0,
+    trace_dFF = ipf.calculate_dFF(raw_trace, sigma=300, t_axis=0,
                                   GPU_AVAILABLE=GPU_AVAILABLE)
-    trace2_dFF = ipf.calculate_dFF(trace2, sigma=300, t_axis=0,
+    trace2_dFF = ipf.calculate_dFF(raw_trace2, sigma=300, t_axis=0,
                                    GPU_AVAILABLE=GPU_AVAILABLE)
     
     print('processing .txt file...')
@@ -154,6 +158,7 @@ def main(path):
         p for p in pulse_start_frames
         if (p - BEF * SAMP_FREQ >= 0) and (p + AFT * SAMP_FREQ <= tot_frames)
         ]
+    tot_valid_pulses = len(valid_pulse_start_frames)
     
     # determine time bin mask
     last_time_s = last_time / 1_000  # convert to seconds
@@ -179,21 +184,42 @@ def main(path):
     trace_dFF[pulse_period_frames] = np.nan
     trace2_dFF[pulse_period_frames] = np.nan
     
-    # extract aligned traces
-    trace_dFF_aligned = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ))
-    trace2_dFF_aligned = np.zeros((tot_pulses, (BEF+AFT)*SAMP_FREQ))
+    # raw traces aligned
+    raw_aligned  = np.zeros((tot_valid_pulses, (BEF+AFT)*SAMP_FREQ), dtype=np.float32)
+    raw2_aligned = np.zeros((tot_valid_pulses, (BEF+AFT)*SAMP_FREQ), dtype=np.float32)
     for i, p in enumerate(valid_pulse_start_frames):
-        # load traces 
-        trace_dFF_aligned[i, :] = trace_dFF[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ]
-        trace2_dFF_aligned[i, :] = trace2_dFF[p-BEF*SAMP_FREQ : p+AFT*SAMP_FREQ]
-        
-    baseline_mean = np.nanmean(trace_dFF_aligned[:, BASELINE_IDX], axis=1)
-    stim_mean = np.nanmean(trace_dFF_aligned[:, STIM_IDX], axis=1)
-    baseline2_mean = np.nanmean(trace2_dFF_aligned[:, BASELINE_IDX], axis=1)
-    stim2_mean = np.nanmean(trace2_dFF_aligned[:, STIM_IDX], axis=1)
+        start = p - BEF * SAMP_FREQ
+        end   = p + AFT * SAMP_FREQ
+        raw_aligned[i, :]  = raw_trace[start:end]
+        raw2_aligned[i, :] = raw_trace2[start:end]
     
+    # dFF traces aligned 
+    trace_dFF_aligned = np.zeros((tot_valid_pulses, (BEF+AFT)*SAMP_FREQ), dtype=np.float32)
+    trace2_dFF_aligned = np.zeros((tot_valid_pulses, (BEF+AFT)*SAMP_FREQ), dtype=np.float32)
+    for i, p in enumerate(valid_pulse_start_frames):
+        start = p - BEF * SAMP_FREQ
+        end   = p + AFT * SAMP_FREQ
+        trace_dFF_aligned[i, :] = trace_dFF[start:end]
+        trace2_dFF_aligned[i, :] = trace2_dFF[start:end]
     trace_dFF_aligned_mean = np.mean(trace_dFF_aligned, axis=0)
     trace2_dFF_aligned_mean = np.mean(trace2_dFF_aligned, axis=0)
+    
+    # calculate ratios
+    # per‐trial raw means
+    baseline_raw = np.nanmean(raw_aligned[:,  BASELINE_IDX], axis=1)
+    stim_raw = np.nanmean(raw_aligned[:,  STIM_IDX], axis=1)
+    baseline2_raw = np.nanmean(raw2_aligned[:, BASELINE_IDX], axis=1)
+    stim2_raw = np.nanmean(raw2_aligned[:, STIM_IDX], axis=1)
+    
+    # per‐trial ΔF/F exactly like pixel dFF (stim − base) / |base|
+    dFF = (stim_raw - baseline_raw) / np.abs(baseline_raw)
+    dFF2 = (stim2_raw - baseline2_raw) / np.abs(baseline2_raw)
+    
+    # dFF comp
+    baseline_dFF = np.nanmean(trace_dFF_aligned[:,  BASELINE_IDX], axis=1)
+    stim_dFF = np.nanmean(trace_dFF_aligned[:,  STIM_IDX], axis=1)
+    baseline2_dFF = np.nanmean(trace2_dFF_aligned[:, BASELINE_IDX], axis=1)
+    stim2_dFF = np.nanmean(trace2_dFF_aligned[:, STIM_IDX], axis=1)
     
     # for plotting 
     ymin = np.nanmin(trace_dFF_aligned.T)
@@ -251,17 +277,26 @@ def main(path):
             )
         
     # statistics and plotting 
-    baseline_mean, stim_mean = map(list, zip(*[
-        (b, s) for b, s in zip(baseline_mean, stim_mean)
-        if not np.isnan(b) and not np.isnan(s)
-    ]))
-    baseline2_mean, stim2_mean = map(list, zip(*[
-        (b, s) for b, s in zip(baseline2_mean, stim2_mean)
-        if not np.isnan(b) and not np.isnan(s)
-    ]))
-    
     plot_violin_with_scatter(
-        baseline_mean, stim_mean, 
+        dFF2, dFF, 
+        'darkred', 'green',
+        xticklabels=['ref.', 'dLight'],
+        ylabel='ΔF/F',
+        title=recname,
+        save=True,
+        savepath=rf'{savepath}\{recname}_dFF_dFF2_violinplot'
+        )
+    
+    baseline_dFF, stim_dFF = map(list, zip(*[
+        (b, s) for b, s in zip(baseline_dFF, stim_dFF)
+        if not np.isnan(b) and not np.isnan(s)
+    ]))
+    baseline2_dFF, stim2_dFF = map(list, zip(*[
+        (b, s) for b, s in zip(baseline2_dFF, stim2_dFF)
+        if not np.isnan(b) and not np.isnan(s)
+    ]))
+    plot_violin_with_scatter(
+        baseline_dFF, stim_dFF, 
         '#8CA082', 'green',
         xticklabels=['baseline', 'stim.'],
         ylabel='ΔF/F',
@@ -270,7 +305,7 @@ def main(path):
         savepath=rf'{savepath}\{recname}_baseline_stim_violinplot'
         )
     plot_violin_with_scatter(
-        baseline2_mean, stim2_mean, 
+        baseline2_dFF, stim2_dFF, 
         '#8C6464', 'darkred',
         xticklabels=['baseline\nch2', 'stim.\nch2'],
         ylabel='ΔF/F',
@@ -322,14 +357,16 @@ def main(path):
     np.save(rf'{savepath}\processed_data\{recname}_release_map.npy', release_map)
     np.save(rf'{savepath}\processed_data\{recname}_release_map_ch2.npy', release_map2)
 
-    # plotting 
+
+    ## plotting - release map ch 1 
     vmin = np.nanpercentile(release_map, 1)
     vmax = np.nanpercentile(release_map, 99)
     
     # edge case check
     if vmin >= 0:
-        # no negatives: force vmin = 0, keep vmax
-        vmin = -.01
+        vmin = -.001
+    if vmax <= 0:
+        vmax = .001
         
     norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
         
@@ -360,6 +397,49 @@ def main(path):
     for ext in ['.png', '.pdf']:
         fig.savefig(
             rf'{savepath}\{recname}_release_map{ext}',
+            dpi=300,
+            bbox_inches='tight'
+        )
+    
+    ## plotting - release map ch 2
+    vmin = np.nanpercentile(release_map2, 1)
+    vmax = np.nanpercentile(release_map2, 99)
+    
+    # edge case check
+    if vmin >= 0:
+        vmin = -.001
+    if vmax <= 0:
+        vmax = .001
+        
+    norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
+        
+    fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+    
+    # panel 1: channel 1 reference
+    axs[0].imshow(ref, cmap='gray', interpolation='none')
+    axs[0].set_title('channel 1', fontsize=10)
+    axs[0].axis('off')
+    
+    # panel 2: channel 2 reference
+    axs[1].imshow(ref2, cmap='gray', interpolation='none')
+    axs[1].set_title('channel 2', fontsize=10)
+    axs[1].axis('off')
+    
+    # panel 3: release map heatmap
+    im = axs[2].imshow(release_map2, cmap='RdBu_r', norm=norm, interpolation='none')
+    axs[2].set_title('stim / baseline (mean)', fontsize=10)
+    axs[2].axis('off')
+    
+    # colourbar for panel 3
+    cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
+    cbar.set_label('ΔF/F ratio', fontsize=10)
+    cbar.set_ticks([vmin, 0, vmax])
+    
+    fig.tight_layout()
+    
+    for ext in ['.png', '.pdf']:
+        fig.savefig(
+            rf'{savepath}\{recname}_release_map_ch2{ext}',
             dpi=300,
             bbox_inches='tight'
         )
@@ -412,7 +492,8 @@ def main(path):
         np.save(rf'{savepath}\processed_data\{recname}_release_map_run.npy', release_map_run)
         np.save(rf'{savepath}\processed_data\{recname}_release_map_run_ch2.npy', release_map_run2)
 
-        # norm 
+
+        ## plotting - run release map ch 2
         vmin = np.nanpercentile(release_map_run, 1)
         vmax = np.nanpercentile(release_map_run, 99)
         
@@ -420,6 +501,8 @@ def main(path):
         if vmin >= 0:
             # no negatives: force vmin = 0, keep vmax
             vmin = -.01
+        if vmax <= 0:
+            vmax = .01
         
         norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
         
@@ -450,6 +533,49 @@ def main(path):
         for ext in ['.png', '.pdf']:
             fig.savefig(
                 rf'{savepath}\{recname}_release_map_run{ext}',
+                dpi=300,
+                bbox_inches='tight'
+            )
+            
+        ## plotting - run release map ch 2
+        vmin = np.nanpercentile(release_map_run2, 1)
+        vmax = np.nanpercentile(release_map_run2, 99)
+        
+        # edge case check
+        if vmin >= 0:
+            vmin = -.001
+        if vmax <= 0:
+            vmax = .001
+            
+        norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
+            
+        fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+        
+        # panel 1: channel 1 reference
+        axs[0].imshow(ref, cmap='gray', interpolation='none')
+        axs[0].set_title('channel 1', fontsize=10)
+        axs[0].axis('off')
+        
+        # panel 2: channel 2 reference
+        axs[1].imshow(ref2, cmap='gray', interpolation='none')
+        axs[1].set_title('channel 2', fontsize=10)
+        axs[1].axis('off')
+        
+        # panel 3: release map heatmap
+        im = axs[2].imshow(release_map_run2, cmap='RdBu_r', norm=norm, interpolation='none')
+        axs[2].set_title('stim / baseline (mean)', fontsize=10)
+        axs[2].axis('off')
+        
+        # colourbar for panel 3
+        cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
+        cbar.set_label('ΔF/F ratio', fontsize=10)
+        cbar.set_ticks([vmin, 0, vmax])
+        
+        fig.tight_layout()
+        
+        for ext in ['.png', '.pdf']:
+            fig.savefig(
+                rf'{savepath}\{recname}_release_map_run_ch2{ext}',
                 dpi=300,
                 bbox_inches='tight'
             )

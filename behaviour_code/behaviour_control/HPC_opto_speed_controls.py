@@ -2,7 +2,7 @@
 """
 Created on Thu Jun 12 15:51:52 2025
 
-controls for LC run-onset peaks for opto 
+controls for LC-HPC opto
 
 @author: Dinghao Luo
 """
@@ -29,6 +29,14 @@ XAXIS_TIME = np.arange(4000) / 1000  # in s
 
 
 #%% main 
+# containers 
+all_mean_ctrl_speeds = []
+all_mean_stim_speeds = []
+
+all_mean_ctrl_speeds_time = []
+all_mean_stim_speeds_time = []
+
+
 for path in paths:
     recname = path[-17:]
     print(f'\n{recname}')
@@ -155,3 +163,70 @@ for path in paths:
             dpi=300,
             bbox_inches='tight'
             )
+        
+    # accumulate for across-session average (distance)
+    all_mean_ctrl_speeds.append(mean_ctrl_speeds)
+    all_mean_stim_speeds.append(mean_stim_speeds)
+    
+    # accumulate for across-session average (time)
+    all_mean_ctrl_speeds_time.append(mean_ctrl_speeds_time)
+    all_mean_stim_speeds_time.append(mean_stim_speeds_time)
+        
+        
+#%% summary 
+mean_ctrl = np.mean(all_mean_ctrl_speeds, axis=0)
+sem_ctrl = sem(all_mean_ctrl_speeds, axis=0)
+mean_stim = np.mean(all_mean_stim_speeds, axis=0)
+sem_stim = sem(all_mean_stim_speeds, axis=0)
+
+mean_ctrl_time = np.mean(all_mean_ctrl_speeds_time, axis=0)
+sem_ctrl_time = sem(all_mean_ctrl_speeds_time, axis=0)
+mean_stim_time = np.mean(all_mean_stim_speeds_time, axis=0)
+sem_stim_time = sem(all_mean_stim_speeds_time, axis=0)
+
+
+#%% plotting 
+fig, ax = plt.subplots(figsize=(1.65,1.4))
+
+ax.plot(XAXIS_DIST, mean_ctrl, c='grey', label='control')
+ax.fill_between(XAXIS_DIST, mean_ctrl+sem_ctrl, mean_ctrl-sem_ctrl,
+                color='grey', edgecolor='none', alpha=.25)
+ax.plot(XAXIS_DIST, mean_stim, c='royalblue', label='stim')
+ax.fill_between(XAXIS_DIST, mean_stim+sem_stim, mean_stim-sem_stim,
+                color='royalblue', edgecolor='none', alpha=.25)
+
+ax.set(xlabel='distance (cm)', ylabel='speed (cm·s$^{-1}$)',
+       xlim=(0, 200),
+       ylim=(0, max(np.max(mean_ctrl + sem_ctrl), np.max(mean_stim + sem_stim)) + 5),
+       title='mean across sessions')
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+ax.legend(frameon=False)
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(rf'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_controls\mean_speed_curve_dist{ext}',
+                dpi=300, bbox_inches='tight')
+    
+    
+fig, ax = plt.subplots(figsize=(1.65,1.4))
+
+ax.plot(XAXIS_TIME, mean_ctrl_time, c='grey', label='control')
+ax.fill_between(XAXIS_TIME, mean_ctrl_time+sem_ctrl_time, mean_ctrl_time-sem_ctrl_time,
+                color='grey', edgecolor='none', alpha=.25)
+ax.plot(XAXIS_TIME, mean_stim_time, c='royalblue', label='stim')
+ax.fill_between(XAXIS_TIME, mean_stim_time+sem_stim_time, mean_stim_time-sem_stim_time,
+                color='royalblue', edgecolor='none', alpha=.25)
+
+ax.set(xlabel='time from run onset (s)', ylabel='speed (cm·s$^{-1}$)',
+       xlim=(0, 4),
+       ylim=(0, max(np.max(mean_ctrl_time + sem_ctrl_time), np.max(mean_stim_time + sem_stim_time)) + 5),
+       title='mean across sessions')
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+ax.legend(frameon=False)
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(rf'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_controls\mean_speed_curve_time{ext}',
+                dpi=300, bbox_inches='tight')
