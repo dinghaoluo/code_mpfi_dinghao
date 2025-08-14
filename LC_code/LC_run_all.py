@@ -16,7 +16,7 @@ LC recording processing pipeline
 import sys 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\LC_code')
-import LC_all_spikes_ISIs, LC_all_waveforms_acgs, LC_all_extract, LC_all_identity_UMAP, LC_all_profiles
+import LC_all_spikes_ISIs, LC_all_waveforms_acgs, LC_all_extract_all, LC_all_identity_UMAP, LC_all_profiles
 
 
 #%% pipeline proper 
@@ -38,7 +38,7 @@ LC_all_waveforms_acgs.main()
     and place them into recording folders 
     i.e. ..._all_rasters.npy; ..._all_trains.npy
 '''
-LC_all_extract.main()
+LC_all_extract_all.main()
 
 '''
 4) apply UMAP-k-means clustering onto spike ACGs of recorded units, and then 

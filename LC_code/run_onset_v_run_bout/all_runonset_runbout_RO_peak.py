@@ -493,7 +493,7 @@ def main(keys, list_identity):
                     color='gainsboro',
                     alpha=.25, edgecolor='none')
     ax.set(xlim=(-1,4), xticks=[0,2,4],
-           ylim=(1.7,5.1), yticks=[2,4], 
+           ylim=(1.8,5.3), yticks=[2,4], 
            title=f'run-onset v run-bout-onset\n({list_identity} Dbh+)',
            xlabel='time (s)',
            ylabel='spike rate (Hz)')
@@ -501,8 +501,8 @@ def main(keys, list_identity):
               ['trial run onset', 'run-bout onset'], 
               frameon=False, fontsize=6)
     
-    plt.plot([-.5,.5], [4.95,4.95], c='k', lw=.5)
-    plt.text(0, 4.95, f'wilc={round(wilc_res, 8)}', 
+    plt.plot([-.5,.5], [5.1,5.1], c='k', lw=.5)
+    plt.text(0, 5.1, f'wilc={round(wilc_res, 8)}', 
              ha='center', va='bottom', color='k', fontsize=5)
     
     for ext in ['.png', '.pdf']:

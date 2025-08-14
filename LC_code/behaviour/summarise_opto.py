@@ -12,6 +12,7 @@ summarise optogenetic experiments
 #%% imports 
 import numpy as np
 import sys
+import matplotlib.pyplot as plt 
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -118,6 +119,7 @@ for i, pathname in enumerate(pathLCBehopt):
             [l for l in licks if l > 30]
             )
     
+    # get first licks
     ctrl_first_lick_time = np.median([licks[0] for licks in ctrl_lick_times if licks])
     stim_first_lick_time = np.median([licks[0] for licks in stim_lick_times if licks])
     ctrl_first_lick_distance = np.median([licks[0] for licks in ctrl_lick_distances if licks])
@@ -131,6 +133,12 @@ for i, pathname in enumerate(pathLCBehopt):
         ctrl_lick_distances_020.append(ctrl_first_lick_distance)
         stim_lick_distances_020.append(stim_first_lick_distance)
         
+    # get combined lists
+    ctrl_lick_dist_time = [t for trial in ctrl_lick_times for t in trial if 2<t<4]
+    stim_lick_dist_time = [t for trial in stim_lick_times for t in trial if 2<t<4]
+    ctrl_lick_dist_distance = [t for trial in ctrl_lick_distances for t in trial if 100<t<220]
+    stim_lick_dist_distance = [t for trial in stim_lick_distances for t in trial if 100<t<220]
+    
     # mean speed     
     speed_times_aligned = curr_txt['speed_times_aligned']
     ctrl_mean_speeds = []
@@ -198,11 +206,11 @@ for i, pathname in enumerate(pathLCopt):
         opto_ctrl_trials = [i+2 for i in opto_stim_trials]
     
     baseline_dict = {key: [value[i] for i in baseline_trials if len(value)>1]
-                     for key, value in curr_txt.items()}
+                     for key, value in curr_txt.items() if key != 'pulse_times'}
     opto_stim_dict = {key: [value[i] for i in opto_stim_trials if len(value)>1] 
-                      for key, value in curr_txt.items()}
+                      for key, value in curr_txt.items() if key != 'pulse_times'}
     opto_ctrl_dict = {key: [value[i] for i in opto_ctrl_trials if len(value)>1] 
-                      for key, value in curr_txt.items()}
+                      for key, value in curr_txt.items() if key != 'pulse_times'}
     
     # extract datapoints 
     ctrl_lick_times = []
@@ -309,11 +317,11 @@ for i, pathname in enumerate(pathHPCopt):
         opto_ctrl_trials = [i+2 for i in opto_stim_trials]
     
     baseline_dict = {key: [value[i] for i in baseline_trials if len(value)>1]
-                     for key, value in curr_txt.items()}
+                     for key, value in curr_txt.items() if key != 'pulse_times'}
     opto_stim_dict = {key: [value[i] for i in opto_stim_trials if len(value)>1] 
-                      for key, value in curr_txt.items()}
+                      for key, value in curr_txt.items() if key != 'pulse_times'}
     opto_ctrl_dict = {key: [value[i] for i in opto_ctrl_trials if len(value)>1] 
-                      for key, value in curr_txt.items()}
+                      for key, value in curr_txt.items() if key != 'pulse_times'}
     
     # extract datapoints 
     ctrl_lick_times = []

@@ -13,7 +13,7 @@ plotting functions to save us from the chaos of having to code out the plotting
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
-from scipy.stats import wilcoxon, ranksums, ttest_rel, ttest_ind
+from scipy.stats import wilcoxon, ranksums, ttest_rel, ttest_ind, sem
 
 
 #%% functions 
@@ -22,6 +22,76 @@ def add_scale_bar(ax, x_start, y_start, x_len, y_len, color='k', lw=2):
     ax.plot([x_start, x_start + x_len], [y_start, y_start], color=color, lw=lw, solid_capstyle='butt')
     # vertical scale bar (dF/F)
     ax.plot([x_start, x_start], [y_start, y_start + y_len], color=color, lw=lw, solid_capstyle='butt')
+
+
+def plot_bar_with_paired_scatter(
+        ax, ctrl_vals, stim_vals, colors=('grey', 'firebrick'),
+        title='', ylabel='% cells', xticklabels=('ctrl.', 'stim.'),
+        ylim=None
+        ):
+    
+    def sigstars(p):
+        return 'ns' if p >= 0.05 else ('*' if p < 0.05 and p >= 0.01 else ('**' if p < 0.01 and p >= 0.001 else ('***' if p < 0.001 and p >= 1e-4 else '****')))
+    def annotate(ax, x1, x2, y, text, yrange):
+        bump = 0.01 * yrange
+        ax.plot([x1, x1, x2, x2], [y-0.5*bump, y, y, y-0.5*bump], lw=0.8, color='k')
+        ax.text((x1+x2)/2, y + 0.5*bump, text, ha='center', va='bottom', fontsize=6)
+    
+    ctrl_vals = np.asarray(ctrl_vals, dtype=float)
+    stim_vals = np.asarray(stim_vals, dtype=float)
+    mask = np.isfinite(ctrl_vals) & np.isfinite(stim_vals)
+    ctrl = ctrl_vals[mask]
+    stim = stim_vals[mask]
+    assert len(ctrl) == len(stim) and len(ctrl) > 0, 'need ≥1 paired finite values'
+
+    # bars: mean ± sem
+    means = [np.nanmean(ctrl), np.nanmean(stim)]
+    errs  = [sem(ctrl, nan_policy='omit'), sem(stim, nan_policy='omit')]
+
+    barc = ax.bar(
+        [0, 1], means, yerr=errs, capsize=2, width=0.6, edgecolor='none',
+        alpha=.6, zorder=2,
+        error_kw={'elinewidth': 0.6, 'capthick': 0.6, 'ecolor': 'k'}
+    )
+    barc.patches[0].set_facecolor(colors[0])
+    barc.patches[1].set_facecolor(colors[1])
+
+    # paired points + connecting lines (no jitter)
+    x0 = np.zeros(len(ctrl))
+    x1 = np.ones(len(stim))
+    for y0, y1 in zip(ctrl, stim):
+        ax.plot([0, 1], [y0, y1], lw=0.6, color='k', alpha=.3, zorder=3)
+    ax.scatter(x0, ctrl, s=8, color=colors[0], edgecolor='none', alpha=.5, zorder=4)
+    ax.scatter(x1, stim, s=8, color=colors[1], edgecolor='none', alpha=.5, zorder=4)
+
+    # axes + limits
+    ylims = (0, 100) if ylim is None else ylim
+    ax.set(xticks=[0,1], xticklabels=xticklabels, ylabel=ylabel, title=title, ylim=ylims)
+    for s in ['top','right']:
+        ax.spines[s].set_visible(False)
+
+    # stats (paired)
+    try:
+        w_stat, w_p = wilcoxon(ctrl, stim, alternative='two-sided', zero_method='wilcox', mode='auto')
+    except ValueError:
+        w_stat, w_p = np.nan, 1.0
+    t_stat, t_p = ttest_rel(ctrl, stim)
+
+    # annotations
+    yrange = ylims[1] - ylims[0]
+    top_data_val = max(np.nanmax(ctrl), np.nanmax(stim))
+    top_bar_val = max(means[0] + (errs[0] if np.isfinite(errs[0]) else 0),
+                      means[1] + (errs[1] if np.isfinite(errs[1]) else 0))
+    top_y = max(top_data_val, top_bar_val)
+
+    y1 = top_y
+    y2 = y1
+    annotate(ax, 0, 1, y1, f"Wilcoxon p={w_p:.3g} ({sigstars(w_p)})", yrange)
+    annotate(ax, 0, 1, y2, f"t-test p={t_p:.3g} ({sigstars(t_p)})", yrange)
+    ax.set_ylim(ylims[0], max(ylims[1], y2 + 0.08 * yrange))
+
+    return {'wilcoxon': {'stat': w_stat, 'p': w_p, 'n': int(len(ctrl))},
+            'ttest_rel': {'stat': t_stat, 'p': t_p, 'n': int(len(ctrl))}}
 
 
 def plot_box_with_scatter(ctrl_data, stim_data, xlabel, savepath, 
@@ -231,17 +301,17 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                     f'wilc_p={wilc_p_str}\nttest_p={ttest_p_str}', 
                     ha='center', va='bottom', color='k', fontsize=8)
     else:
-        rank_stat, rank_p = ranksums(data0, data1)
+        wilc_stat, wilc_p = ranksums(data0, data1)
         ttest_stat, ttest_p = ttest_ind(data0, data1)
-        rank_p_str = '{:.2e}'.format(rank_p)
+        wilc_p_str = '{:.2e}'.format(wilc_p)
         ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
-            print(f'ranksums: {rank_stat}, p={rank_p_str}')
+            print(f'ranksums: {wilc_stat}, p={wilc_p_str}')
             print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
             ax.plot([1.1, 1.9], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
             ax.text(1.5, y_range[0]+y_range_tot*.05, 
-                    f'ranksums_p={rank_p_str}\nttest_p={ttest_p_str}', 
+                    f'ranksums_p={wilc_p_str}\nttest_p={ttest_p_str}', 
                     ha='center', va='bottom', color='k', fontsize=8)
         
     ax.set(xticks=[1.1,1.9], xticklabels=xticklabels,
@@ -257,6 +327,12 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     fig.tight_layout()
     plt.grid(False)
     plt.show()
+    
+    print(
+        f'data0 mean = {np.mean(data0)}, sem = {sem(data0)}\n'
+        f'data1 mean = {np.mean(data1)}, sem = {sem(data1)}\n'
+        f'ttest p = {ttest_p_str}\n'
+        f'wilc p = {wilc_p_str}\n')
     
     if save:
         for ext in ['.png', '.pdf']:

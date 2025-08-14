@@ -58,9 +58,9 @@ OFF_all = [cell.prof_ctrl_mean[2500:3750+4*1250] for cell in
 OFF_all_mean = np.mean(OFF_all, axis=0)
 OFF_all_sem = sem(OFF_all, axis=0)
 
-fig, ax = plt.subplots(figsize=(2.6,2))
+fig, ax = plt.subplots(figsize=(2.3,2))
 
-ON_ln, = ax.plot(xaxis, ON_all_mean, lw=0.8, c='firebrick')
+ON_ln, = ax.plot(xaxis, ON_all_mean, lw=1, c='firebrick')
 ax.fill_between(xaxis,
                 ON_all_mean + ON_all_sem, 
                 ON_all_mean - ON_all_sem,
@@ -68,8 +68,8 @@ ax.fill_between(xaxis,
 for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
     
-ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
-       ylabel='spike rate (Hz)', yticks=[1, 2, 3, 4], ylim=(.9, 4.1))
+ax.set(xlabel='time from run-onset (s)', xticks=[0,2,4], xlim=(-1,4),
+       ylabel='spike rate (Hz)', yticks=[1,2,3,4], ylim=(1.2, 3.5))
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
@@ -79,9 +79,9 @@ for ext in ['.png', '.pdf']:
         )
     
     
-fig, ax = plt.subplots(figsize=(2.6,2))
+fig, ax = plt.subplots(figsize=(2.3,2))
 
-ON_ln, = ax.plot(xaxis, OFF_all_mean, lw=.8, c='purple')
+ON_ln, = ax.plot(xaxis, OFF_all_mean, lw=1, c='purple')
 ax.fill_between(xaxis,
                 OFF_all_mean + OFF_all_sem, 
                 OFF_all_mean - OFF_all_sem,
@@ -89,8 +89,8 @@ ax.fill_between(xaxis,
 for p in ['top', 'right']:
     ax.spines[p].set_visible(False)
     
-ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
-       ylabel='spike rate (Hz)', yticks=[1, 2, 3, 4], ylim=(.9, 4.1))
+ax.set(xlabel='time from run-onset (s)', xticks=[0,2,4], xlim=(-1,4),
+       ylabel='spike rate (Hz)', yticks=[1,2,3,4], ylim=(1.2, 3.5))
 
 for ext in ['.png', '.pdf']:
     fig.savefig(

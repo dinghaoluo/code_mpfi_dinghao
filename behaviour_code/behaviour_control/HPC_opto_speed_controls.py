@@ -42,7 +42,7 @@ for path in paths:
     print(f'\n{recname}')
     
     with open(
-            rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LC\{recname}.pkl',
+            rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPC\{recname}.pkl',
             'rb'
             ) as f:
         beh = pickle.load(f)

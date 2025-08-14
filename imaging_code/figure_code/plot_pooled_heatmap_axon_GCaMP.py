@@ -36,6 +36,8 @@ df = pd.read_pickle(
     )
 
 proc_path = r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
+
+# initialise with the first session
 temp_dict = np.load(
     rf'{proc_path}\{paths[0][-17:]}\processed_data\RO_aligned_mean_dict.npy',
     allow_pickle=True
@@ -45,12 +47,12 @@ temp_coord_dict = np.load(
     allow_pickle=True
     ).item()
 pooled_ROIs = np.row_stack(
-    [temp_dict[key] 
+    [temp_dict[key][60:60+30*5]  # -1 ~ 4 s
      for key in temp_dict
      if len(temp_coord_dict[key][0]) > ROI_size_threshold]
     )
 
-for rec_path in tqdm(paths, desc='loading sessions'):
+for rec_path in tqdm(paths[1:], desc='loading sessions'):
     temp_dict = np.load(
         rf'{proc_path}\{rec_path[-17:]}\processed_data\RO_aligned_mean_dict.npy',
         allow_pickle=True
@@ -60,10 +62,12 @@ for rec_path in tqdm(paths, desc='loading sessions'):
         allow_pickle=True
         ).item()
     temp_array = np.row_stack(
-        [temp_dict[key] 
+        [temp_dict[key][60:60+30*5]  # -1 ~ 4 s 
          for key in temp_dict
          if len(temp_coord_dict[key][0]) > ROI_size_threshold]
         )
+    
+    # stack to previously saved array
     pooled_ROIs = np.vstack((pooled_ROIs, temp_array))
                             
 tot_rois = pooled_ROIs.shape[0]

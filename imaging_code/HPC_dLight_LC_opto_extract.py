@@ -44,7 +44,6 @@ AFT = 10
 TAXIS = np.arange(-BEF*SAMP_FREQ, AFT*SAMP_FREQ) / SAMP_FREQ
 
 BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
-PMT_BUFFER = 10 / SAMP_FREQ
 
 
 #%% GPU acceleration
@@ -121,6 +120,7 @@ def main(path):
     trace2_dFF = ipf.calculate_dFF(raw_trace2, sigma=300, t_axis=0,
                                    GPU_AVAILABLE=GPU_AVAILABLE)
     
+    # behaviour
     print('processing .txt file...')
     txt = ipf.process_txt_nobeh(txtpath)
     frame_times = txt['frame_times']
@@ -131,7 +131,19 @@ def main(path):
     pulse_width_ON = float(pulse_parameters[-1][2])/1000000  # in s
     pulse_width = float(pulse_parameters[-1][3])/1000000  # in s
     pulse_number = int(pulse_parameters[-1][4])
+    taper_enabled = int(pulse_parameters[-1][7])
+    
+    taper_dur_dummy = int(pulse_parameters[-1][8])
+    taper_duration = taper_dur_dummy if taper_dur_dummy > 1000 else 0  # real duration 
+    
     duty_cycle = f'{int(round(100 * pulse_width_ON/pulse_width, 0))}%'
+    
+    print(f'\npulse ON time: {pulse_width_ON}')
+    print(f'pulse width: {pulse_width}')
+    print(f'pulse number: {pulse_number}')
+    
+    if taper_enabled:
+        print(f'taper duration: {taper_duration}')
     
     tot_pulses = int(len(pulse_times) / pulse_number)
     
@@ -161,6 +173,8 @@ def main(path):
     tot_valid_pulses = len(valid_pulse_start_frames)
     
     # determine time bin mask
+    PMT_BUFFER_FRAMES = 15 # frames 
+    PMT_BUFFER = PMT_BUFFER_FRAMES / SAMP_FREQ
     last_time_s = last_time / 1_000  # convert to seconds
     stim_start = last_time_s + PMT_BUFFER
     stim_end = stim_start + 1.00
@@ -177,7 +191,7 @@ def main(path):
     pulse_period_frames = np.concatenate(
         [np.arange(
             max(0, pulse_train[0]-3),
-            min(pulse_train[-1]+int(pulse_width)*SAMP_FREQ+30, tot_frames)  # +15 as a buffer, half a second 
+            min(pulse_train[-1]+int(pulse_width)*SAMP_FREQ+PMT_BUFFER_FRAMES, tot_frames)  # +15 as a buffer, half a second 
             )
         for pulse_train in pulse_frames]
         )
@@ -249,7 +263,13 @@ def main(path):
         stim_onset_idx = int(stim_onset * SAMP_FREQ)
         stim_offset_idx = int(stim_offset * SAMP_FREQ)
         stim_trace[stim_onset_idx:stim_offset_idx] = 1
-    
+        
+    if taper_enabled and taper_duration > 0:
+        taper_start_idx = stim_offset_idx
+        taper_len = int((taper_duration / 1_000_000) * SAMP_FREQ)  # convert to seconds then to samples (to align to frames)
+        taper = np.linspace(1,0, taper_len, endpoint=True)
+        stim_trace[taper_start_idx : taper_start_idx+taper_len] = taper[:len(stim_trace) - taper_start_idx]
+        
     axs[2].plot(TAXIS, stim_trace, color='k', linewidth=1)
     
     axs[2].set_ylim(0, 2)
@@ -261,12 +281,26 @@ def main(path):
         ax.set_yticks([])
         for s in ['top', 'right', 'left', 'bottom']:
             ax.spines[s].set_visible(False)
-            
-    fig.suptitle(f'{recname}\n'
-                 f'duty cycle = {duty_cycle}\n'
-                 f'pulse width = {pulse_width} s\n'
-                 f'pulse(s) per pulse train = {pulse_number}\n'
-                 f'total pulse trains = {tot_pulses}')
+    
+    if taper_enabled:
+        title_str = (
+            f'{recname}\n'
+            f'duty cycle = {duty_cycle}\n'
+            f'pulse width = {pulse_width} s\n'
+            f'pulse(s) per pulse train = {pulse_number}\n'
+            f'total pulse trains = {tot_pulses}\n'
+            f'taper duration = {taper_duration}'
+            )
+    else:
+        title_str = (
+            f'{recname}\n'
+            f'duty cycle = {duty_cycle}\n'
+            f'pulse width = {pulse_width} s\n'
+            f'pulse(s) per pulse train = {pulse_number}\n'
+            f'total pulse trains = {tot_pulses}\n'
+            )
+    
+    fig.suptitle(title_str)
     fig.tight_layout()
 
     for ext in ['.png', '.pdf']:
@@ -384,7 +418,7 @@ def main(path):
     
     # panel 3: release map heatmap
     im = axs[2].imshow(release_map, cmap='RdBu_r', norm=norm, interpolation='none')
-    axs[2].set_title('stim / baseline (mean)', fontsize=10)
+    axs[2].set_title('CH1: stim / baseline (mean)', fontsize=10)
     axs[2].axis('off')
     
     # colourbar for panel 3
@@ -427,7 +461,7 @@ def main(path):
     
     # panel 3: release map heatmap
     im = axs[2].imshow(release_map2, cmap='RdBu_r', norm=norm, interpolation='none')
-    axs[2].set_title('stim / baseline (mean)', fontsize=10)
+    axs[2].set_title('CH2: stim / baseline (mean)', fontsize=10)
     axs[2].axis('off')
     
     # colourbar for panel 3
@@ -453,10 +487,15 @@ def main(path):
         stim_conds = [t[15] for t in txt['trial_statements']]
         stim_idx = [trial for trial, cond in enumerate(stim_conds)
                     if cond!='0']
+        stim_idx_et = [trial + 1 for trial in stim_idx if trial + 1 < len(run_onsets)]
+        
+        # new axes for run 
+        BASELINE_IDX_RUN = (TAXIS >= -1.0) & (TAXIS <= -0.15)
+        RUN_IDX = (TAXIS >= 0.15) & (TAXIS <= 1.0)
         
         run_onsets = [f for trial, f in enumerate(run_onsets)
                       if not np.isnan(f) 
-                      and trial not in stim_idx
+                      and trial not in stim_idx and trial not in stim_idx_et
                       and f > BEF*SAMP_FREQ
                       and f < tot_frames - AFT*SAMP_FREQ]
         
@@ -466,14 +505,14 @@ def main(path):
             temp_F = mov[f-BEF*SAMP_FREQ : f+AFT*SAMP_FREQ, :, :]  # do it for all pixels simultaneously
             temp_F2 = mov2[f-BEF*SAMP_FREQ : f+AFT*SAMP_FREQ, :, :]
             
-            run_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
-            prerun_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
+            run_mean = np.mean(temp_F[RUN_IDX, :, :], axis=0)
+            prerun_mean = np.mean(temp_F[BASELINE_IDX_RUN, :, :], axis=0)
             dFF_run = (run_mean - prerun_mean) / np.abs(prerun_mean)
             dFF_run[np.abs(dFF_run) > 10] = np.nan
             pixel_dFF_run[:, :, i] = dFF_run
             
-            run_mean2 = np.mean(temp_F2[STIM_IDX, :, :], axis=0)
-            prerun_mean2 = np.mean(temp_F2[BASELINE_IDX, :, :], axis=0)
+            run_mean2 = np.mean(temp_F2[RUN_IDX, :, :], axis=0)
+            prerun_mean2 = np.mean(temp_F2[BASELINE_IDX_RUN, :, :], axis=0)
             dFF_run2 = (run_mean2 - prerun_mean2) / np.abs(prerun_mean2)
             dFF_run2[np.abs(dFF_run2) > 10] = np.nan
             pixel_dFF_run2[:, :, i] = dFF_run2
@@ -491,7 +530,6 @@ def main(path):
         # save map matrices
         np.save(rf'{savepath}\processed_data\{recname}_release_map_run.npy', release_map_run)
         np.save(rf'{savepath}\processed_data\{recname}_release_map_run_ch2.npy', release_map_run2)
-
 
         ## plotting - run release map ch 2
         vmin = np.nanpercentile(release_map_run, 1)
@@ -633,5 +671,5 @@ def main(path):
 
 #%% execute 
 if __name__ == '__main__':
-    for path in paths:
+    for path in paths[57:]:
         main(path)

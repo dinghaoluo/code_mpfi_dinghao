@@ -42,7 +42,7 @@ samp_freq = 1250  # Hz
 
 
 #%% main 
-for path in paths:
+for path in paths[14:]:
     recname = path[-17:]
     print(f'\n{recname}')
     
@@ -107,16 +107,11 @@ for path in paths:
         for line in range(len(ctrl_idx)):
             axs[0].scatter(np.where(ctrl_matrix[line]==1)[0]/samp_freq-3,
                            [line+1]*int(sum(ctrl_matrix[line])),
-                           c='grey', ec='none', s=2)
+                           c='grey', ec='none', s=1)
             axs[1].scatter(np.where(stim_matrix[line]==1)[0]/samp_freq-3,
                            [line+1]*int(sum(stim_matrix[line])),
-                           c='royalblue', ec='none', s=2)
-            try:
-                axs[1].plot([pulse_times_aligned[line]/samp_freq, pulse_times_aligned[line]/samp_freq],
-                            [line, line+1], c='red', lw=1)
-            except IndexError:
-                continue 
-                        
+                           c='royalblue', ec='none', s=1)
+        
         for i in range(2):
             axs[i].set(xticks=[0,2,4], xlim=(-1, 4),
                        ylabel='trial #')
@@ -124,22 +119,38 @@ for path in paths:
                 axs[i].spines[p].set_visible(False)
             
         # only set xlabel for ax 1
-        axs[1].set(xlabel='time from run-onset (s)')
+        axs[1].set(xlabel='time from run onset (s)')
 
         fig.tight_layout()
         
-        # save figure
-        if path in pathHPCLC:
+        # save to rec folder
+        for ext in ['.png', '.pdf']:
             fig.savefig(
-                    rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_stim_ctrl_rasters\HPC_LC_pyr\{clustr}.png',
-                    dpi=300,
-                    bbox_inches='tight'
-                    )
-        if path in pathHPCLCterm:
-            fig.savefig(
-                    rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_stim_ctrl_rasters\HPC_LCterm_pyr\{clustr}.png',
-                    dpi=300,
-                    bbox_inches='tight'
-                    )
+                rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{recname}\rasters_ctrl_stim_pyr\{clustr}{ext}',
+                dpi=300,
+                bbox_inches='tight')
+        
+        # stim lines 
+        for line in range(len(ctrl_idx)):
+            try:
+                axs[1].plot([pulse_times_aligned[line]/samp_freq, pulse_times_aligned[line]/samp_freq],
+                            [line, line+1], c='red', lw=1)
+            except IndexError:
+                continue 
+        
+        # save figure to common folder
+        for ext in ['.png', '.pdf']:
+            if path in pathHPCLC:
+                fig.savefig(
+                        rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_ctrl_stim_rasters\HPC_LC_pyr\{clustr}{ext}',
+                        dpi=300,
+                        bbox_inches='tight'
+                        )
+            if path in pathHPCLCterm:
+                fig.savefig(
+                        rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_ctrl_stim_rasters\HPC_LCterm_pyr\{clustr}{ext}',
+                        dpi=300,
+                        bbox_inches='tight'
+                        )
 
         plt.close(fig)

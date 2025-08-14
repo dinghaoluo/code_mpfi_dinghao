@@ -56,7 +56,7 @@ for cluname in cell_profiles.index:
     cell = cell_profiles.loc[cluname]
     
     cell_identity = cell['cell_identity']  # 'pyr' or 'int'
-    ratiotype = cell['class']  # run-onset activated etc.
+    ratiotype = cell['class_ctrl']  # run-onset activated etc.
     if ratiotype=='run-onset ON':
         rt = 'RO-ON'
     elif ratiotype=='run-onset OFF':
@@ -101,19 +101,48 @@ for cluname in cell_profiles.index:
            xlim=(-time_bef, time_aft), xticks=(0,2,4))
     ax.title.set_fontsize(10)
     
-    # fig.tight_layout()
-    plt.show()
-    
     # pyr or int folder? 
-    pyr_or_int_folder = \
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\profiles_ctrl_stim_pyr'.format(recname) \
-            if cell_identity=='pyr' else \
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\profiles_ctrl_stim_int'.format(recname)
-    os.makedirs(pyr_or_int_folder, exist_ok=True)
+    pyr_dir = rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{recname}\profiles_ctrl_stim_pyr'
+    int_dir = rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{recname}\profiles_ctrl_stim_int'
+    os.makedirs(pyr_dir, exist_ok=True)
+    os.makedirs(int_dir, exist_ok=True)
+    
     for ext in ['.png', '.pdf']:
-        fig.savefig(
-            f'{pyr_or_int_folder}\{cluname}{ext}',
-            dpi=300,
-            bbox_inches='tight')
+        if cell_identity == 'pyr':
+            fig.savefig(
+                    rf'{pyr_dir}\{cluname}{ext}',
+                    dpi=300,
+                    bbox_inches='tight'
+                    )
+            if cell['rectype'] == 'HPCLC':
+                fig.savefig(
+                        rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_ctrl_stim_profiles\HPC_LC_pyr\{cluname}{ext}',
+                        dpi=300,
+                        bbox_inches='tight'
+                        )
+            if cell['rectype'] == 'HPCLCterm':
+                fig.savefig(
+                        rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_ctrl_stim_profiles\HPC_LCterm_pyr\{cluname}{ext}',
+                        dpi=300,
+                        bbox_inches='tight'
+                        )
+        else:
+            fig.savefig(
+                    rf'{int_dir}\{cluname}{ext}',
+                    dpi=300,
+                    bbox_inches='tight'
+                    )
+            if cell['rectype'] == 'HPCLC':
+                fig.savefig(
+                        rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_ctrl_stim_profiles\HPC_LC_int\{cluname}{ext}',
+                        dpi=300,
+                        bbox_inches='tight'
+                        )
+            if cell['rectype'] == 'HPCLCterm':
+                fig.savefig(
+                        rf'Z:\Dinghao\code_dinghao\HPC_ephys\single_cell_ctrl_stim_profiles\HPC_LCterm_int\{cluname}{ext}',
+                        dpi=300,
+                        bbox_inches='tight'
+                        )
 
     plt.close(fig)

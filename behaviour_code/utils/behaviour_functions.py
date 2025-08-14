@@ -522,7 +522,6 @@ def process_txt(txtfile):
     lt_trial = []
     pt_trial = []
     mv_trial = []
-    pc_trial = []
     current_pulse_command = []
     
     trial_statements = []  # start of trial 
@@ -544,10 +543,8 @@ def process_txt(txtfile):
             lt_trial.append([float(line[1]), float(line[2])]) 
         if line[0] == '$PE' and line[3] == '1':
             pt_trial.append(float(line[1]))
-        # if line[0] == '$MT':
-            # mt_trial.append([float(line[1]), float(line[2])])
         if line[0] == '$PC':
-            pc_trial.append(float(line[1]))
+            pulse_times.append(float(line[1]))
         if line[0] == '$PP':
             current_pulse_command = line
         if line[0] == '$NT':
@@ -557,7 +554,6 @@ def process_txt(txtfile):
             movie_times.append(mv_trial)
             pump_times.append(pt_trial)
             speed_times.append(wt_trial)
-            pulse_times.append(pc_trial)
             pulse_command_list.append(current_pulse_command)
             if len(line) == 5: # $NT line has reward omission label, Jingyu, 8/14/2024
                 reward_omissions.append(line[-1]) #Jingyu, 8/14/2024
@@ -565,7 +561,6 @@ def process_txt(txtfile):
             mv_trial = []
             pt_trial = []
             wt_trial = []
-            pc_trial = []
         if line[0] == '$FM' and line[2] == '0':
             frame_times.append(float(line[1]))
         line = get_next_line(file)
@@ -574,7 +569,6 @@ def process_txt(txtfile):
     curr_logfile['movie_times'] = movie_times
     curr_logfile['lick_times'] = lick_times
     curr_logfile['pump_times'] = pump_times
-    # curr_logfile['motor_times'] = motor_times
     curr_logfile['pulse_times'] = pulse_times
     curr_logfile['frame_times'] = frame_times
     curr_logfile['trial_statements'] = trial_statements
@@ -707,22 +701,15 @@ def correct_overflow(data, label, start_time):
     if label=='pulse':
         try:
             curr_time = start_time
-            for t in range(tot_trial):
-                if len(data[t])==0:  # if current trial has no pulse 
-                    new_data.append([])
-                elif data[t][-1]-curr_time>=0:
+            for t in range(len(data)):
+                if len(data)==0:  # if there is nothing
+                    return []
+                elif data[t]-curr_time>=0:
                     new_data.append(data[t])
-                    curr_time = data[t][-1]
+                    curr_time = data[t]
                 else:  # once overflow is detected, do not update curr_time
-                    new_trial = []
-                    curr_trial = data[t]
-                    curr_length = len(curr_trial)
-                    for s in range(curr_length):
-                        if curr_trial[s]-curr_time>0:
-                            new_trial.append(curr_trial[s])
-                        else:
-                            new_trial.append(curr_trial[s]+of_constant)
-                    new_data.append(new_trial)
+                    corrected = data[t] + of_constant
+                    new_data.append(corrected)
         except StopIteration:  # if no pulses in this session 
             new_data = data
     if label=='pump':

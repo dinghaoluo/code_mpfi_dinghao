@@ -83,12 +83,15 @@ for path in paths:
     )['Laps']['startLfpInd'][1:] / 1250  # convert to seconds 
     
     # get lick times
-    curr_beh_df = beh_df.loc[recname]
+    try:
+        curr_beh_df = beh_df.loc[recname]
+    except KeyError:
+        continue
     run_onsets = curr_beh_df['run_onsets'][1:]
 
     # get first licks
     licks = [
-        [(l - run_onset) / 1000 for l in trial]  # convert from ms to s
+        [(l[0] - run_onset) / 1000 for l in trial]  # convert from ms to s
         if len(trial) != 0 else np.nan
         for trial, run_onset in zip(curr_beh_df['lick_times'][1:], run_onsets)
     ]
@@ -150,8 +153,8 @@ for path in paths:
 from plotting_functions import plot_violin_with_scatter
 
 # define colours
-early_colour = (.804, .267, .267)  # early trials
-late_colour = (.545, 0, 0)  # late trials
+early_colour = 'grey'  # early trials
+late_colour = (0.20, 0.35, 0.65)  # late trials
 
 plot_violin_with_scatter(burst_prob_early, burst_prob_late, 
                          early_colour, late_colour,

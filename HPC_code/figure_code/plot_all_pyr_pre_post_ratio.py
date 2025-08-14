@@ -26,8 +26,8 @@ df_pyr = df[df['cell_identity']=='pyr']
 
 #%% functions
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from plotting_functions import plot_violin_with_scatter
-from common import normalise, normalise_to_all, mpl_formatting, smooth_convolve
+from plotting_functions import plot_violin_with_scatter, plot_bar_with_paired_scatter
+from common import normalise, normalise_to_all, mpl_formatting
 mpl_formatting()
 
 def compute_mean_and_sem(arr):
@@ -290,8 +290,8 @@ df_HPCLCterm = df_pyr[df_pyr['rectype']=='HPCLCterm']
 
 
 #%% plot HPCLC
-count_ctrl_ON = (df_HPCLC['pre_post_ctrl']<.8).sum()
-count_stim_ON = (df_HPCLC['pre_post_stim']<.8).sum()
+count_ctrl_ON = (df_HPCLC['pre_post_ctrl_MATLAB']<.8).sum()
+count_stim_ON = (df_HPCLC['pre_post_stim_MATLAB']<.8).sum()
 
 df_sorted_ctrl = df_HPCLC.sort_values(by='pre_post_ctrl')
 df_sorted_stim = df_HPCLC.sort_values(by='pre_post_stim')
@@ -326,44 +326,52 @@ for ext in ['.png', '.pdf']:
 
 
 #%% percentage of ON cells within sessions 
-perc_ON_ctrl_per_session = df_HPCLC.groupby('recname')['pre_post_ctrl'].apply(
+perc_ON_ctrl_per_session = df_HPCLC.groupby('recname')['pre_post_ctrl_MATLAB'].apply(
     lambda x: (x < 0.8).mean() * 100  # mean of booleans = percentage of True values
 ).to_numpy()
-perc_ON_stim_per_session = df_HPCLC.groupby('recname')['pre_post_stim'].apply(
+perc_ON_stim_per_session = df_HPCLC.groupby('recname')['pre_post_stim_MATLAB'].apply(
     lambda x: (x < 0.8).mean() * 100
 ).to_numpy()
 
-plot_violin_with_scatter(perc_ON_ctrl_per_session, perc_ON_stim_per_session,
-                         'grey', 'firebrick',
-                         paired=True,
-                         alpha=.25,
-                         dpi=300,
-                         xticklabels=('ctrl.', 'stim.'),
-                         title='ON',
-                         save=True,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLC_ON_perc_sess')
+# ON plot
+fig, ax = plt.subplots(figsize=(1.6, 2.0), dpi=300)
+plot_bar_with_paired_scatter(ax,
+                             perc_ON_ctrl_per_session,
+                             perc_ON_stim_per_session,
+                             colors=('gray','firebrick'),
+                             ylim=(15, 75),
+                             title='ON', ylabel='% ON cells', xticklabels=('ctrl.','stim.'))
+fig.tight_layout()
+for ext in ['.png', '.pdf']:
+    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLC_ON_perc_sess{ext}',
+                dpi=300,
+                bbox_inches='tight')
 
-perc_OFF_ctrl_per_session = df_HPCLC.groupby('recname')['pre_post_ctrl'].apply(
+perc_OFF_ctrl_per_session = df_HPCLC.groupby('recname')['pre_post_ctrl_MATLAB'].apply(
     lambda x: (x > 1.25).mean() * 100  # mean of booleans = percentage of True values
 ).to_numpy()
-perc_OFF_stim_per_session = df_HPCLC.groupby('recname')['pre_post_stim'].apply(
+perc_OFF_stim_per_session = df_HPCLC.groupby('recname')['pre_post_stim_MATLAB'].apply(
     lambda x: (x > 1.25).mean() * 100
 ).to_numpy()
 
-plot_violin_with_scatter(perc_OFF_ctrl_per_session, perc_OFF_stim_per_session,
-                         'grey', 'purple',
-                         paired=True,
-                         alpha=.25,
-                         dpi=300,
-                         xticklabels=('ctrl.', 'stim.'),
-                         title='OFF',
-                         save=True,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLC_OFF_perc_sess')
+# OFF plot
+fig, ax = plt.subplots(figsize=(1.6, 2.0), dpi=300)
+plot_bar_with_paired_scatter(ax,
+                             perc_OFF_ctrl_per_session,
+                             perc_OFF_stim_per_session,
+                             colors=('gray','purple'),
+                             ylim=(0, 50),
+                             title='ON', ylabel='% OFF cells', xticklabels=('ctrl.','stim.'))
+fig.tight_layout()
+for ext in ['.png', '.pdf']:
+    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLC_OFF_perc_sess{ext}',
+                dpi=300,
+                bbox_inches='tight')
 
 
 #%% plot HPCLCterm
-count_ctrl_term_ON = (df_HPCLCterm['pre_post_ctrl']<.8).sum()
-count_stim_term_ON = (df_HPCLCterm['pre_post_stim']<.8).sum()
+count_ctrl_term_ON = (df_HPCLCterm['pre_post_ctrl_MATLAB']<.8).sum()
+count_stim_term_ON = (df_HPCLCterm['pre_post_stim_MATLAB']<.8).sum()
 
 df_sorted_ctrl_term = df_HPCLCterm.sort_values(by='pre_post_ctrl')
 df_sorted_stim_term = df_HPCLCterm.sort_values(by='pre_post_stim')
@@ -398,36 +406,44 @@ for ext in ['.png', '.pdf']:
 
 
 #%% percentage of ON cells within sessions 
-perc_ON_ctrl_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_ctrl'].apply(
+perc_ON_ctrl_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_ctrl_MATLAB'].apply(
     lambda x: (x < 0.8).mean() * 100  # mean of booleans = percentage of True values
 ).to_numpy()
-perc_ON_stim_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_stim'].apply(
+perc_ON_stim_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_stim_MATLAB'].apply(
     lambda x: (x < 0.8).mean() * 100
 ).to_numpy()
 
-plot_violin_with_scatter(perc_ON_ctrl_term_per_session, perc_ON_stim_term_per_session,
-                         'grey', 'firebrick',
-                         paired=True,
-                         alpha=.25,
-                         dpi=300,
-                         xticklabels=('ctrl.', 'stim.'),
-                         title='ON',
-                         save=True,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLCterm_ON_perc_sess')
+# ON plot
+fig, ax = plt.subplots(figsize=(1.6, 2.0), dpi=300)
+plot_bar_with_paired_scatter(ax,
+                             perc_ON_ctrl_term_per_session,
+                             perc_ON_stim_term_per_session,
+                             colors=('gray','firebrick'),
+                             ylim=(4, 62),
+                             title='ON', ylabel='% ON cells', xticklabels=('ctrl.','stim.'))
+fig.tight_layout()
+for ext in ['.png', '.pdf']:
+    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLCterm_ON_perc_sess{ext}',
+                dpi=300,
+                bbox_inches='tight')
 
-perc_OFF_ctrl_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_ctrl'].apply(
+perc_OFF_ctrl_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_ctrl_MATLAB'].apply(
     lambda x: (x > 1.25).mean() * 100  # mean of booleans = percentage of True values
 ).to_numpy()
-perc_OFF_stim_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_stim'].apply(
+perc_OFF_stim_term_per_session = df_HPCLCterm.groupby('recname')['pre_post_stim_MATLAB'].apply(
     lambda x: (x > 1.25).mean() * 100
 ).to_numpy()
 
-plot_violin_with_scatter(perc_OFF_ctrl_term_per_session, perc_OFF_stim_term_per_session,
-                         'grey', 'purple',
-                         paired=True,
-                         alpha=.25,
-                         dpi=300,
-                         xticklabels=('ctrl.', 'stim.'),
-                         title='OFF',
-                         save=True,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLCterm_OFF_perc_sess')
+# OFF plot
+fig, ax = plt.subplots(figsize=(1.6, 2.0), dpi=300)
+plot_bar_with_paired_scatter(ax,
+                             perc_OFF_ctrl_term_per_session,
+                             perc_OFF_stim_term_per_session,
+                             colors=('gray','purple'),
+                             ylim=(0, 35),
+                             title='ON', ylabel='% OFF cells', xticklabels=('ctrl.','stim.'))
+fig.tight_layout()
+for ext in ['.png', '.pdf']:
+    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\HPCLCterm_OFF_perc_sess{ext}',
+                dpi=300,
+                bbox_inches='tight')
