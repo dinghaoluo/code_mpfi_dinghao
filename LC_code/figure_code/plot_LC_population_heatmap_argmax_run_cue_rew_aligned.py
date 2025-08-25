@@ -235,6 +235,128 @@ for ext in ['.png', '.pdf']:
         bbox_inches='tight')
     
     
+    
+#%% same but with viridis 
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from run-onset (s)',
+       ylabel='cell #')
+ax.set_aspect('equal')
+fig.suptitle('tagged Dbh+ cells')
+
+image = ax.imshow(all_tagged_run_sorted, 
+                  aspect='auto', cmap='viridis', interpolation='none',
+                  extent=[-1, 4, 1, len(all_tagged_run_sorted)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
+
+ax.set(yticks=[1, 80])
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\population_maps\tagged_run_aligned_viridis{ext}',
+        dpi=300,
+        bbox_inches='tight')
+    
+    
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from run-onset (s)',
+       ylabel='cell #')
+ax.set_aspect('equal')
+fig.suptitle('putative Dbh+ cells')
+
+image = ax.imshow(all_putative_run_sorted, 
+                  aspect='auto', cmap='viridis', interpolation='none',
+                  extent=[-1, 4, 1, len(all_putative_run_sorted)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
+
+ax.set(yticks=[1, 100, 200])
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\population_maps\putative_run_aligned_viridis{ext}',
+        dpi=300,
+        bbox_inches='tight')
+    
+    
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from cue (s)',
+       ylabel='cell #')
+ax.set_aspect('equal')
+fig.suptitle('tagged Dbh+ cells')
+
+image = ax.imshow(all_tagged_cue_sorted, 
+                  aspect='auto', cmap='viridis', interpolation='none',
+                  extent=[-1, 4, 1, len(all_tagged_run_sorted)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
+
+ax.set(yticks=[1, 80])
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\population_maps\tagged_cue_aligned_viridis{ext}',
+        dpi=300,
+        bbox_inches='tight')
+    
+    
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from cue (s)',
+       ylabel='cell #')
+ax.set_aspect('equal')
+fig.suptitle('putative Dbh+ cells')
+
+image = ax.imshow(all_putative_cue_sorted, 
+                  aspect='auto', cmap='viridis', interpolation='none',
+                  extent=[-1, 4, 1, len(all_putative_run_sorted)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
+
+ax.set(yticks=[1, 100, 200])
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\population_maps\putative_cue_aligned_viridis{ext}',
+        dpi=300,
+        bbox_inches='tight')
+    
+    
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from reward (s)',
+       ylabel='cell #')
+ax.set_aspect('equal')
+fig.suptitle('tagged Dbh+ cells')
+
+image = ax.imshow(all_tagged_rew_sorted, 
+                  aspect='auto', cmap='viridis', interpolation='none',
+                  extent=[-1, 4, 1, len(all_tagged_run_sorted)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
+
+ax.set(yticks=[1, 80])
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\population_maps\tagged_rew_aligned_viridis{ext}',
+        dpi=300,
+        bbox_inches='tight')
+    
+    
+fig, ax = plt.subplots(figsize=(2.6,2.1))
+ax.set(xlabel='time from reward (s)',
+       ylabel='cell #')
+ax.set_aspect('equal')
+fig.suptitle('putative Dbh+ cells')
+
+image = ax.imshow(all_putative_rew_sorted, 
+                  aspect='auto', cmap='viridis', interpolation='none',
+                  extent=[-1, 4, 1, len(all_putative_run_sorted)])
+plt.colorbar(image, shrink=.5, ticks=[0,1], label='norm. spike rate')
+
+ax.set(yticks=[1, 100, 200])
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\population_maps\putative_rew_aligned_viridis{ext}',
+        dpi=300,
+        bbox_inches='tight')
+    
+    
 #%% statistics 
 center = 1250
 window = 313

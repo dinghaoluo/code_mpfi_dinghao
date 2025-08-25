@@ -419,7 +419,9 @@ late_win_means  = np.mean(np.array(late_profiles_ON)[:, 1250+625:1250+1825], axi
 # paired t-test
 t_stat, p_val = ttest_ind(early_win_means, late_win_means, nan_policy='omit')
 
-print(f'Paired t-test (0.5–1.5 s window): t = {t_stat:.3f}, p = {p_val:.4f}')
+print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
+print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
+print(f'Paired t-test (0.5–1.5 s window): t = {t_stat:}, p = {p_val}')
 
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 
@@ -467,6 +469,8 @@ late_win_means  = np.mean(np.array(late_profiles_OFF)[:, 1250+625:1250+1825], ax
 # paired t-test
 t_stat, p_val = ttest_ind(early_win_means, late_win_means, nan_policy='omit')
 
+print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
+print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
 print(f'Paired t-test (0.5–1.5 s window): t = {t_stat:.3f}, p = {p_val:.4f}')
 
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
