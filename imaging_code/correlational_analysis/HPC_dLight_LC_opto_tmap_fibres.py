@@ -8,12 +8,14 @@ Analyse t-map signal inside vs. outside manually curated fibre ROIs.
 """
 
 #%% imports 
-import numpy as np
 import os
 import sys 
+
+import numpy as np
 import matplotlib.pyplot as plt 
 from scipy.stats import ttest_1samp
 from matplotlib.colors import TwoSlopeNorm
+import tifffile
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -30,7 +32,7 @@ paths = rec_list.pathdLightLCOpto
 roi_means = []
 bg_means = []
 
-for path in paths:
+for path in paths[41:42]:
     recname = os.path.basename(path)
     print(f'analysing {recname}...')
 
@@ -41,13 +43,17 @@ for path in paths:
     )
     tmap_path = os.path.join(proc_dir, f'{recname}_tmap.npy')
     roi_dict_path = os.path.join(proc_dir, f'{recname}_ROI_dict.npy')
+    ref2_path = os.path.join(proc_dir, f'{recname}_ref_mat_ch2.npy')
 
-    if not (os.path.exists(tmap_path) and os.path.exists(roi_dict_path)):
+    if not (os.path.exists(tmap_path) 
+            and os.path.exists(roi_dict_path)
+            and os.path.exists(ref2_path)):
         print(f'missing data for {recname} — skipped')
         continue
 
     tmap = np.load(tmap_path)
     roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
+    ref2 = np.load(ref2_path)
 
     releasing_rois = {}
 
@@ -117,12 +123,70 @@ for path in paths:
 
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\correlation_analysis\tmap_x_release\{recname}_maps{ext}',
+            rf'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\correlation_analysis\tmap_ROI\{recname}_maps{ext}',
             dpi=300,
             bbox_inches='tight'
         )
     plt.show()
     
+    # save tiff for ROI mask
+    fig, ax = plt.subplots(figsize=(3,3))
+    
+    ax.imshow(np.zeros_like(roi_mask), cmap='gray')
+    ax.imshow(roi_overlay, cmap='Greys', interpolation='none')
+    
+    ax.set(title=recname,
+           xticks=[], yticks=[])
+    
+    for ext in ['.png', '.pdf']:
+        fig.savefig(
+            rf'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\ROI_masks\{recname}_ROI_mask{ext}',
+            dpi=300,
+            bbox_inches='tight'
+        )
+    plt.show()
+    
+    tifffile.imwrite(rf'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\ROI_masks\{recname}_ROI_mask.tiff',
+                     roi_mask.astype(np.float32))
+    
+    # RGBA overlay: green with alpha where roi_mask is True
+    overlay_rgba = np.zeros((*roi_mask.shape, 4), dtype=float)
+    overlay_rgba[..., 1] = 1.0                     # green channel
+    overlay_rgba[..., 3] = roi_mask.astype(float) * 0.2  # alpha ~ 0.2
+
+    fig, ax = plt.subplots(figsize=(3, 3))
+    ax.imshow(ref2, cmap='gray', interpolation='none')
+    ax.imshow(overlay_rgba, interpolation='none')
+    ax.set(title=f'{recname} ROI on ref2', xticks=[], yticks=[])
+
+    for ext in ['.png', '.pdf']:
+        fig.savefig(
+            rf'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\ROI_masks\{recname}_ROI_on_ref2{ext}',
+            dpi=300,
+            bbox_inches='tight'
+        )
+    plt.show()
+    
+    # normalise ref2 to 0–1 range for blending
+    ref_norm = (ref2 - np.nanmin(ref2)) / (np.nanmax(ref2) - np.nanmin(ref2))
+    ref_rgb = np.stack([ref_norm, ref_norm, ref_norm], axis=-1)  # grayscale -> rgb
+    
+    # split overlay into rgb and alpha
+    overlay_rgb = overlay_rgba[..., :3]
+    overlay_alpha = overlay_rgba[..., 3:]
+    
+    # alpha blend: result = (1-alpha)*background + alpha*overlay
+    blended = (1 - overlay_alpha) * ref_rgb + overlay_alpha * overlay_rgb
+    
+    # convert to 8-bit and save
+    blended_uint8 = (blended * 255).astype(np.uint8)
+    tifffile.imwrite(
+        rf'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\ROI_masks\{recname}_ROI_on_ref2.tiff',
+        blended_uint8,
+        photometric='rgb'
+    )
+    
+    # save releasing roi dict 
     releasing_roi_dict_path = os.path.join(proc_dir, f'{recname}_releasing_ROI_dict.npy')
     np.save(releasing_roi_dict_path, releasing_rois)
         

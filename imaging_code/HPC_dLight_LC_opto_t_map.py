@@ -8,13 +8,15 @@ pixel-wise stim.-response map
 """
 
 #%% imports 
+import sys 
+import os 
+
 import numpy as np 
 import matplotlib.pyplot as plt 
 import tifffile
 from matplotlib.colors import TwoSlopeNorm
+from matplotlib import cm 
 from scipy.stats import ttest_rel
-import sys 
-import os 
 
 sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
@@ -34,7 +36,7 @@ STIM_IDX = (TAXIS >= 1.15) & (TAXIS < 2.0)
 
 
 #%% main 
-for path in paths:
+for path in paths[41:42]:
     recname = path.split('\\')[-1]
     print(f'\n{recname}')
     
@@ -103,8 +105,16 @@ for path in paths:
             dpi=300,
             bbox_inches='tight'
         )
+        
+    cmap = cm.get_cmap('RdBu_r')
+
+    rgba_tmap = cmap(norm(tmap))  # shape (y,x,4), floats in 0–1
+    
+    # convert to 8-bit RGB for TIFF
+    rgb_tmap = (rgba_tmap[..., :3] * 255).astype(np.uint8)
+            
     tifffile.imwrite(rf'{tmappath}\{recname}_tmap.tiff',
-                     tmap.astype(np.float32))
+                     rgb_tmap)
     
     # save the tmap 
     np.save(rf'{savepath}\processed_data\{recname}_tmap.npy',

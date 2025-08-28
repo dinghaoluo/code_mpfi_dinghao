@@ -9,12 +9,12 @@ with distance resetting at trial start (180 cm per trial max).
 """
 
 #%% imports 
+import sys 
+import os 
+
 import numpy as np 
 import matplotlib.pyplot as plt 
-import pandas as pd 
-import sys 
-import os
-from pathlib import Path
+import pickle
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, smooth_convolve
@@ -30,17 +30,12 @@ ROI_size_threshold = 500  # pixels
 smoothing_sigma = 100  # in ms
 
 
-#%% load data 
-beh_df = pd.read_pickle(
-    r'Z:/Dinghao/code_dinghao/behaviour/all_LCHPCGCaMP_sessions.pkl'
-)
-
-
 #%% main 
-for path in paths:
-    recname = Path(path).parts[-1]
+for path in paths[6:]:
+    recname = path.split('\\')[-1]
     print(recname)
-    
+
+    # load fluorescence data      
     F = np.load(
         rf'{path}/suite2p/plane0/F.npy'
     )
@@ -54,49 +49,52 @@ for path in paths:
             if len(value[0]) > ROI_size_threshold]
     ROI_idx = [int(roi.split(' ')[-1]) for roi in ROIs]
     
-    beh = beh_df.loc[recname]
+    
+    # load behaviour data 
+    with open(
+            rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCHPCGCaMP\{recname}.pkl',
+            'rb'
+            ) as f:
+        beh = pickle.load(f)
+    
     frame_times = beh['frame_times']
     first_frame_time = frame_times[0]
     last_frame_time = frame_times[-1]
     
-    # speed interpolation
-    times, speeds = zip(*[
-        (time, int(speed)) 
-        for time, speed in beh['speed_times_full'] 
-        if first_frame_time < time < last_frame_time
-    ])
-    times_ms = [times[0] + i for i in np.arange(int(times[-1]-times[0]))]
-    speeds_interp = np.interp(times_ms, times, speeds)
-   
+    times, speeds = zip(
+        *[(t, s) for t, s 
+          in zip(beh['upsampled_timestamps_ms'], beh['upsampled_speed_cm_s'])
+          if first_frame_time < t < last_frame_time]
+        )
+    
     # distance interpolation with resetting at trial starts
     run_onsets = beh['run_onsets']
-    run_onsets = [onset for onset in run_onsets if first_frame_time < onset < last_frame_time]
+    run_onsets = [onset for onset in run_onsets 
+                  if first_frame_time < onset < last_frame_time]
 
     # generate distance array following run_onsets
-    distance_interp = np.zeros_like(speeds_interp)
-    run_onsets_idx = [np.searchsorted(times_ms, onset) for onset in run_onsets]
+    distances = np.zeros_like(speeds)
+    run_onsets_idx = [np.searchsorted(times, onset) for onset in run_onsets]
     
+    # start generating accumulated distances
     trial_idx = 0
     accumulating = False
     distance = 0
-    
-    for idx in range(len(times_ms)):
+    for idx in range(len(times)):
         if trial_idx < len(run_onsets_idx) and idx == run_onsets_idx[trial_idx]:
             distance = 0
             accumulating = True
             trial_idx += 1
     
         if accumulating:
-            distance += speeds_interp[idx] / 1000  # speeds in cm/ms
+            distance += speeds[idx] / 1000  # speeds in cm/s but sampled at 1000 Hz
             if distance >= 180:  # 180 cm
                 distance = 0
                 accumulating = False
     
-        distance_interp[idx] = distance
+        distances[idx] = distance
         
-    speeds_interp_smoothed = smooth_convolve(
-        speeds_interp, sigma=smoothing_sigma
-        )
+    speeds_smoothed = smooth_convolve(speeds, 300)
     
     # output folder 
     save_dir = (r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
@@ -105,11 +103,11 @@ for path in paths:
     
     ## plotting 
     window_size = 200 * 1000  # 100 s
-    n_windows = (len(times_ms) + window_size - 1) // window_size
+    n_windows = (len(times) + window_size - 1) // window_size
     for roi in ROI_idx:
         F_ROI = F[roi, :]
         F_ROI_interp = smooth_convolve(
-            np.interp(times_ms, frame_times[:len(F_ROI)], F_ROI),
+            np.interp(times, frame_times[:len(F_ROI)], F_ROI),
             sigma=smoothing_sigma
         )
     
@@ -124,15 +122,15 @@ for path in paths:
                     break  # no more windows
             
                 start_idx = window_idx * window_size
-                end_idx = min((window_idx + 1) * window_size, len(times_ms))
+                end_idx = min((window_idx + 1) * window_size, len(times))
             
-                times_plot = np.array(times_ms[start_idx:end_idx]) / 1000  # ms to s
+                times_plot = np.array(times[start_idx:end_idx]) / 1000  # ms to s
             
                 base = i * 4  # shift every window block by 4 rows
             
                 # distance
                 axs[base + 0].plot(times_plot - times_plot[0], 
-                                   distance_interp[start_idx:end_idx] / 100, 
+                                   distances[start_idx:end_idx] / 100, 
                                    color='black')
                 axs[base + 0].set_ylabel('distance (m)')
                 axs[base + 0].set_title(f'ROI {roi} | Window {window_idx}')
@@ -145,8 +143,8 @@ for path in paths:
             
                 # speed
                 axs[base + 2].plot(times_plot - times_plot[0], 
-                                   speeds_interp_smoothed[start_idx:end_idx], 
-                                   color='blue')
+                                   speeds_smoothed[start_idx:end_idx], 
+                                   color=(0.4, 0.5, 0.0))
                 axs[base + 2].set_ylabel('speed (cm/s)')
                 axs[base + 2].set_xlabel('time (s)')
             
@@ -154,10 +152,9 @@ for path in paths:
                 axs[base + 3].axis('off')  # turn off the blank panel
     
             # save figure
-            for ext in ['.png', '.pdf']:
-                fig.savefig(
-                    rf'{save_dir}\roi_{roi}_{int(fig_idx/4)+1}{ext}',
-                    dpi=300,
-                    bbox_inches='tight'
-                    )
+            fig.savefig(
+                rf'{save_dir}\roi_{roi}_{int(fig_idx/4)+1}.png',
+                dpi=300,
+                bbox_inches='tight'
+                )
             plt.close(fig)

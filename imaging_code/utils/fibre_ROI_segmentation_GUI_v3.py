@@ -129,6 +129,34 @@ class ZoomableCanvas(FigureCanvas):
             self.draw()
 
 
+def enhance_contrast_u8(img, tophat_kernel=11, clahe_clip=2.0):
+    """
+    apply white top-hat (thin bright structures) and CLAHE.
+
+    parameters:
+    - tophat_kernel: odd int, structuring element size
+    - clahe_clip: float, higher = stronger equalisation
+
+    returns:
+    - uint8 image scaled to [0,255]
+    """
+    img = img.astype(np.float32)
+    # rescale to [0,1] robustly
+    lo, hi = np.percentile(img, 1), np.percentile(img, 99)
+    if hi <= lo:
+        hi = lo + 1.0
+    img01 = np.clip((img - lo) / (hi - lo), 0, 1)
+
+    k = int(tophat_kernel) if int(tophat_kernel) % 2 == 1 else int(tophat_kernel) + 1
+    se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    tophat = cv2.morphologyEx((img01 * 255).astype(np.uint8), cv2.MORPH_TOPHAT, se)
+
+    clahe = cv2.createCLAHE(clipLimit=float(clahe_clip), tileGridSize=(8, 8))
+    eq = clahe.apply(tophat)
+
+    return eq
+
+
 class ROIEditor(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -167,25 +195,35 @@ class ROIEditor(QMainWindow):
         self.param_inputs = {}
         grid = QGridLayout()
         param_names = [
-            'clip-percentile',
-            'MSER threshold', 
-            'MSER max variation',
-            'area', 
-            'aspect ratio', 
-            'solidity', 
-            'eccentricity', 
-            'thinness'
-            ]
+            'clip-percentile',         # 95–99
+            'MSER threshold',          # 10–30 (percentile)
+            'MSER max variation',      # 0.5–2.0
+            'MSER delta',              # 3–8
+            'MSER min area',           # 20–200
+            'MSER max area',           # 5000–20000
+            'area min',                # 50–300
+            'aspect ratio min',        # 1.2–1.8
+            'solidity min',            # lower for more promiscuous 
+            'eccentricity min',        # 0.65–0.9
+            'thinness max',            # 0.6–0.9  (circularity; higher = more lenient)
+            'tophat kernel',           # 3–17 (odd)
+            'clahe clip'               # 1.0–3.0
+        ]
         defaults = [
             99,
-            20, 
-            1.0,
-            100, 
-            1.5, 
-            0.7, 
-            0.75, 
-            0.5
-            ]
+            20,
+            1.2,
+            5,
+            30,
+            15000,
+            100,
+            1.4,
+            0.1,
+            0.75,
+            0.8,
+            11,
+            2.0
+        ]
         for i, (name, default) in enumerate(zip(param_names, defaults)):
             label = QLabel(name)
             inp = QLineEdit(str(default))
@@ -374,10 +412,12 @@ class ROIEditor(QMainWindow):
         if self.ref_image is None:
             self.canvas.draw()
             return
-    
+        
+        lo = np.percentile(self.ref_image, 1)
+        hi = np.percentile(self.ref_image, params['clip-percentile'])
         self.ax.imshow(self.ref_image, cmap='gray',
-                       vmin=np.percentile(self.ref_image, 0),
-                       vmax=np.percentile(self.ref_image, params['clip-percentile']))
+                       vmin=lo,
+                       vmax=hi)
     
         if self.labelled is not None and self.show_overlay:  # overlay switch, 18 Apr 2025
             overlay = np.zeros((*self.labelled.shape, 4))
@@ -403,54 +443,81 @@ class ROIEditor(QMainWindow):
         if self.ref_image is None:
             return
         try:
-            params = {k: float(v.text()) for k, v in self.param_inputs.items()}
+            p = {k: float(v.text()) for k, v in self.param_inputs.items()}
         except ValueError:
             print('invalid segmentation parameters')
             return
-
-        ref_filtered = median_filter(self.ref_image, size=(3, 3))
-        thresh_val = np.percentile(ref_filtered, params['MSER threshold'])
-        binary_mask = ref_filtered > thresh_val
-        ref_masked = ref_filtered.copy()
-        ref_masked[~binary_mask] = 0
-        ref_masked = np.clip(
-            ref_masked, 
-            np.percentile(ref_masked, 0), 
-            np.percentile(ref_masked, params['clip-percentile'])
-            )
-
-        img_u8 = (ref_masked / ref_masked.max() * 255).astype(np.uint8)
-        mser = cv2.MSER_create(5, 30, 500)
-        mser.setMaxVariation(params['MSER max variation'])
-        regions, _ = mser.detectRegions(img_u8)
-
-        mask = np.zeros_like(img_u8, dtype=np.int32)
-        for i, region in enumerate(regions):
-            mask[region[:, 1], region[:, 0]] = i + 1
-
-        props = regionprops(mask)
+    
+        # --- 1) gentle denoise, but preserve ridges
+        ref_f = median_filter(self.ref_image, size=(3, 3))
+    
+        # --- 2) robust contrast boost for thin bright fibres
+        img_u8 = enhance_contrast_u8(
+            ref_f,
+            tophat_kernel=p['tophat kernel'],
+            clahe_clip=p['clahe clip']
+        )
+    
+        # --- 3) soft gate: keep pixels above a low percentile (keeps faint axons)
+        thr = np.percentile(img_u8, p['MSER threshold'])
+        soft = img_u8.copy()
+        soft[soft < thr] = 0  # zero background without crushing mid-high values
+    
+        # --- 4) MSER with tunable size + stability
+        delta = int(max(1, round(p['MSER delta'])))
+        min_area = int(max(5, round(p['MSER min area'])))
+        max_area = int(max(min_area + 1, round(p['MSER max area'])))
+        mser = cv2.MSER_create(delta, min_area, max_area)
+        mser.setMaxVariation(p['MSER max variation'])
+    
+        regions, _ = mser.detectRegions(soft)
+    
+        # --- 5) initial label map from MSER regions
+        lab = np.zeros_like(img_u8, dtype=np.int32)
+        for i, reg in enumerate(regions):
+            lab[reg[:, 1], reg[:, 0]] = i + 1
+    
+        # --- 6) region filters (more LENIENT)
+        props = regionprops(lab)
         roi_dict = {}
         roi_id = 1
-        for region in props:
-            area = region.area
-            ecc = region.eccentricity
-            sol = region.solidity
-            ar = region.major_axis_length / (region.minor_axis_length + 1e-6)
-            perim = region.perimeter
+        for r in props:
+            area = r.area
+            if area < p['area min']:
+                continue
+    
+            # geometry
+            ecc = r.eccentricity if np.isfinite(r.eccentricity) else 0.0
+            sol = r.solidity if np.isfinite(r.solidity) else 0.0
+            maj = r.major_axis_length
+            minax = r.minor_axis_length if r.minor_axis_length > 1e-6 else 1e-6
+            ar = maj / minax
+            perim = r.perimeter if r.perimeter > 1e-6 else 1e-6
             thin = 4 * np.pi * area / (perim ** 2)
-            if (area > params['area'] and sol < params['solidity'] and
-                ecc > params['eccentricity'] and ar > params['aspect ratio'] and thin < params['thinness']):
-                ypix, xpix = region.coords[:, 0], region.coords[:, 1]
-                roi_dict[roi_id] = {'xpix': xpix, 'ypix': ypix}
-                roi_id += 1
-
+    
+            # relaxed accept criteria:
+            if sol < p['solidity min']:
+                continue
+            if ecc < p['eccentricity min']:
+                continue
+            if ar < p['aspect ratio min']:
+                continue
+            if thin > p['thinness max']:  # too round/fat
+                continue
+    
+            ypix, xpix = r.coords[:, 0], r.coords[:, 1]
+            roi_dict[roi_id] = {'xpix': xpix, 'ypix': ypix}
+            roi_id += 1
+    
         self.roi_dict = roi_dict
         self.labelled = np.zeros_like(self.ref_image, dtype=np.int32)
         for i, roi in self.roi_dict.items():
             self.labelled[roi['ypix'], roi['xpix']] = i
+    
         self.selected.clear()
         self.plot_image()
         self.canvas.reset_view()
+        print(f'MSER regions: {len(regions)} | kept ROIs: {len(self.roi_dict)}')
     
     def save_roi_dict(self):
         if not hasattr(self, 'ref_image_path') or not hasattr(self, 'recname'):

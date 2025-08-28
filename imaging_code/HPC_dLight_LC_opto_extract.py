@@ -15,8 +15,12 @@ modification notes:
 #%% imports 
 import sys 
 import os 
+
 import numpy as np 
+
+import tifffile
 import matplotlib.pyplot as plt 
+from matplotlib import cm
 from matplotlib.colors import TwoSlopeNorm
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
@@ -173,7 +177,7 @@ def main(path):
     tot_valid_pulses = len(valid_pulse_start_frames)
     
     # determine time bin mask
-    PMT_BUFFER_FRAMES = 15 # frames 
+    PMT_BUFFER_FRAMES = 20 # frames 
     PMT_BUFFER = PMT_BUFFER_FRAMES / SAMP_FREQ
     last_time_s = last_time / 1_000  # convert to seconds
     stim_start = last_time_s + PMT_BUFFER
@@ -361,9 +365,21 @@ def main(path):
     # compute dF/F per pixel (stim. / baseline for raw F), 24 June 2025
     pixel_dFF = np.zeros((shape[1], shape[2], len(valid_pulse_start_frames)))
     pixel_dFF2 = np.zeros_like(pixel_dFF)
+    
+    # we still want F aligned
+    pixel_F_aligned = np.zeros((len(valid_pulse_start_frames), 
+                                ((BEF+AFT) * SAMP_FREQ),
+                                shape[1], 
+                                shape[2]))
+    pixel_F2_aligned = np.zeros_like(pixel_F_aligned)
+    
     for i, p in enumerate(valid_pulse_start_frames):
         temp_F = mov[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
         temp_F2 = mov2[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        
+        # save F aligned too
+        pixel_F_aligned[i, :, :, :] = temp_F
+        pixel_F2_aligned[i, :, :, :] = temp_F2
     
         stim_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
         baseline_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
@@ -381,6 +397,12 @@ def main(path):
             pixel_dFF)
     np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy',
             pixel_dFF2)
+    
+    # save F aligned 
+    np.save(rf'{savepath}\processed_data\{recname}_pixel_F_aligned.npy',
+            pixel_F_aligned)
+    np.save(rf'{savepath}\processed_data\{recname}_pixel_F2_aligned.npy',
+            pixel_F2_aligned)
     
     # generate mean dFF release map as proxy for t-map, 24 June 2025 
     print('computing mean release map...')
@@ -434,6 +456,15 @@ def main(path):
             dpi=300,
             bbox_inches='tight'
         )
+        
+    # save as tiff 
+    cmap = cm.get_cmap('RdBu_r')
+    release_map_rgba = cmap(norm(release_map))
+    release_map_rgb = (release_map_rgba[..., :3] * 255).astype(np.uint8)
+    
+    tifffile.imwrite(rf'{savepath}\{recname}_release_map.tiff',
+                     release_map_rgb)
+    
     
     ## plotting - release map ch 2
     vmin = np.nanpercentile(release_map2, 1)
@@ -477,7 +508,15 @@ def main(path):
             dpi=300,
             bbox_inches='tight'
         )
-        
+    
+    # save as tiff 
+    cmap = cm.get_cmap('RdBu_r')
+    release_map2_rgba = cmap(norm(release_map2))
+    release_map2_rgb = (release_map2_rgba[..., :3] * 255).astype(np.uint8)
+    
+    tifffile.imwrite(rf'{savepath}\{recname}_release_map_ch2.tiff',
+                     release_map2_rgb)
+    
     
     # compute dF/F per pixel IF BEHAVIOUR (run-onset / baseline), 24 June 2025 
     if txt['behaviour']:
@@ -574,6 +613,7 @@ def main(path):
                 dpi=300,
                 bbox_inches='tight'
             )
+        
             
         ## plotting - run release map ch 2
         vmin = np.nanpercentile(release_map_run2, 1)
@@ -671,5 +711,5 @@ def main(path):
 
 #%% execute 
 if __name__ == '__main__':
-    for path in paths[57:]:
+    for path in paths[41:42]:
         main(path)
