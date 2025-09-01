@@ -120,9 +120,12 @@ def get_profiles_and_spike_rates(trains, trials, RO_WINDOW,
     profiles = []
     spike_rates = []
     for trial in trials:
-        curr_train = trains[trial]
-        profiles.append(curr_train[RUN_ONSET_BIN - BEF * SAMP_FREQ : RUN_ONSET_BIN + AFT * SAMP_FREQ])
-        spike_rates.append(np.mean(curr_train[RO_WINDOW[0]:RO_WINDOW[1]]))
+        try:
+            curr_train = trains[trial]
+            profiles.append(curr_train[RUN_ONSET_BIN - BEF * SAMP_FREQ : RUN_ONSET_BIN + AFT * SAMP_FREQ])
+            spike_rates.append(np.mean(curr_train[RO_WINDOW[0]:RO_WINDOW[1]]))
+        except IndexError:
+            continue
     return profiles, spike_rates
 
 def _session_mean_speed(trial_list, speed_times, n=3500):
@@ -145,6 +148,12 @@ axon_prop = pd.read_pickle(
     'Z:/Dinghao/code_dinghao/LCHPC_axon_GCaMP/LCHPC_axon_GCaMP_all_profiles.pkl'
     )
 
+# we only care about the primary axons that have run onset peaks 
+primary_axon_prop = axon_prop[
+    (axon_prop['constituents'].notna()) &
+    (axon_prop['run_onset_peak'] == True)
+    ]
+
 
 #%% containers
 # activity
@@ -159,24 +168,49 @@ sess_late_speed_means_raw  = []
 sess_early_speed_means     = []   # post-match
 sess_late_speed_means      = []
 
-recname = ''
-
 for path in paths:
     recname = path.split('\\')[-1]
     print(f'\n{recname}')
     
     # load beh
-    beh = np.load(
-        rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCHPCGCaMP\{recname}.pkl',
-        allow_pickle=True
-        )
+    beh_path = rf'Z:/Dinghao/code_dinghao/behaviour/all_experiments/LCHPCGCaMP/{recname}.pkl'
+    with open(beh_path, 'rb') as f:
+        beh = pickle.load(f)
+        
+    # we need to be careful with the trials, since previously we eliminated 
+    # trials that were too close to the start and end of the rec
+    run_frames = np.asarray(beh['run_onset_frames'])
+    valid_mask = (run_frames > 0)
+    run_frames = run_frames[valid_mask]
+    orig_idx = np.nonzero(valid_mask)[0]
+    
+    # monotonic ascension
+    filtered_frames = []
+    filtered_idx = []
+    last = -np.inf
+    for f, idx in zip(run_frames, orig_idx):
+        if f > last:
+            filtered_frames.append(f)
+            filtered_idx.append(idx)
+            last = f
+    filtered_frames = np.array(filtered_frames)
+    filtered_idx = np.array(filtered_idx)
+    
+    bef = int(BEF * SAMP_FREQ)
+    aft = int(AFT * SAMP_FREQ)
+    tot_frames = len(beh['frame_times'])
+    
+    head = np.searchsorted(filtered_frames, bef, side='left')
+    tail = np.searchsorted(filtered_frames, tot_frames - aft, side='right')
+    
+    # this is used eventually 
+    kept_frames = filtered_frames[head:tail]
+    kept_trials = filtered_idx[head:tail]
     
     # get licks
-    licks = beh['lick_times_aligned']
+    licks = [licks for trial, licks in enumerate(beh['lick_times_aligned'])
+             if trial in kept_trials]
     tot_trials = len(licks)
-    
-    # get starts 
-    starts = beh['run_onsets']
     
     # get first licks
     first_licks = []
@@ -198,8 +232,6 @@ for path in paths:
     # raw early/late sets
     early_trials, late_trials = [], []
     for trial, t in enumerate(first_licks):
-        if bad_trials[trial] or np.isnan(t):
-            continue
         if t < 2.5:
             early_trials.append(trial)
         elif 2.5 < t < 3.5:
@@ -210,9 +242,9 @@ for path in paths:
         continue
     
     # get keys of RO-peak axons 
-    curr_RO_peak_df = axon_prop[(axon_prop['recname']==recname) &
-                                (axon_prop['run_onset_peak']==True)]
-    curr_RO_peak_keys = list(curr_RO_peak_df.index)
+    curr_axon_prop = primary_axon_prop[primary_axon_prop['recname'] == recname]
+    curr_axon_keys = [s[s.find(' ')+1:]
+                      for s in list(curr_axon_prop.index)]
     
     # all dFF
     all_dFF = np.load(
@@ -220,73 +252,68 @@ for path in paths:
         allow_pickle=True
     ).item()
 
-        # behaviour pickle (to get speed_times_aligned)
-        speed_times = None
-        beh_try_paths = [
-            os.path.join(r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LC', f'{recname}.pkl'),
-            os.path.join(r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCterm', f'{recname}.pkl'),
-        ]
-        for beh_path in beh_try_paths:
-            if os.path.exists(beh_path):
-                with open(beh_path, 'rb') as f:
-                    beh = pickle.load(f)
-                speed_times = beh['speed_times_aligned'][1:]
-                break
+    # behaviour pickle (to get speed_times_aligned)
+    # speed_times = [speeds for trial, speeds in enumerate(beh['speed_times_aligned'])
+    #                if trial in kept_trials]
+    speed_times = beh['speed_times_aligned']
 
-        # PRE-MATCHED session means (if we have speed)
-        if speed_times is not None:
-            e_mean_sp_raw = _session_mean_speed(early_trials, speed_times, n=3500)
-            l_mean_sp_raw = _session_mean_speed(late_trials,  speed_times, n=3500)
-            if e_mean_sp_raw is not None and l_mean_sp_raw is not None:
-                sess_early_speed_means_raw.append(e_mean_sp_raw)
-                sess_late_speed_means_raw.append(l_mean_sp_raw)
+    # PRE-MATCHED session means (if we have speed)
+    if speed_times is not None:
+        e_mean_sp_raw = _session_mean_speed(early_trials, speed_times, n=3500)
+        l_mean_sp_raw = _session_mean_speed(late_trials,  speed_times, n=3500)
+        if e_mean_sp_raw is not None and l_mean_sp_raw is not None:
+            sess_early_speed_means_raw.append(e_mean_sp_raw)
+            sess_late_speed_means_raw.append(l_mean_sp_raw)
 
-        # speed matching
-        if speed_times is None:
-            print('warning: behaviour pickle with speed_times_aligned not found; skipping speed matching')
-            matched_early, matched_late = early_trials, late_trials
+    # speed matching
+    if speed_times is None:
+        print('warning: behaviour pickle with speed_times_aligned not found; skipping speed matching')
+        matched_early, matched_late = early_trials, late_trials
+    else:
+        E_bins, e_valid = compute_bin_speeds_7(early_trials, speed_times)
+        L_bins, l_valid = compute_bin_speeds_7(late_trials,  speed_times)
+
+        matched_early, matched_late = [], []
+        if len(E_bins) and len(L_bins):
+            e_mu = E_bins.mean(axis=0); e_sd = E_bins.std(axis=0, ddof=0)
+            l_mu = L_bins.mean(axis=0); l_sd = L_bins.std(axis=0, ddof=0)
+
+            e_low, e_high = e_mu - MATCH_K * e_sd, e_mu + MATCH_K * e_sd
+            l_low, l_high = l_mu - MATCH_K * l_sd, l_mu + MATCH_K * l_sd
+
+            l_mask_in_e = np.all((L_bins >= e_low) & (L_bins <= e_high), axis=1)
+            e_mask_in_l = np.all((E_bins >= l_low) & (E_bins <= l_high), axis=1)
+
+            matched_late  = [l_valid[i] for i in np.where(l_mask_in_e)[0]]
+            matched_early = [e_valid[i] for i in np.where(e_mask_in_l)[0]]
         else:
-            E_bins, e_valid = compute_bin_speeds_7(early_trials, speed_times)
-            L_bins, l_valid = compute_bin_speeds_7(late_trials,  speed_times)
-
             matched_early, matched_late = [], []
-            if len(E_bins) and len(L_bins):
-                e_mu = E_bins.mean(axis=0); e_sd = E_bins.std(axis=0, ddof=0)
-                l_mu = L_bins.mean(axis=0); l_sd = L_bins.std(axis=0, ddof=0)
 
-                e_low, e_high = e_mu - MATCH_K * e_sd, e_mu + MATCH_K * e_sd
-                l_low, l_high = l_mu - MATCH_K * l_sd, l_mu + MATCH_K * l_sd
+        print(f'{len(matched_early)} early and {len(matched_late)} late trials passed 7-bin speed filtering')
 
-                l_mask_in_e = np.all((L_bins >= e_low) & (L_bins <= e_high), axis=1)
-                e_mask_in_l = np.all((E_bins >= l_low) & (E_bins <= l_high), axis=1)
-
-                matched_late  = [l_valid[i] for i in np.where(l_mask_in_e)[0]]
-                matched_early = [e_valid[i] for i in np.where(e_mask_in_l)[0]]
-            else:
-                matched_early, matched_late = [], []
-
-            print(f'{len(matched_early)} early and {len(matched_late)} late trials passed 7-bin speed filtering')
-
-            # POST-MATCHED session means
-            e_mean_sp = _session_mean_speed(matched_early, speed_times, n=3500)
-            l_mean_sp = _session_mean_speed(matched_late,  speed_times, n=3500)
-            if e_mean_sp is not None and l_mean_sp is not None:
-                sess_early_speed_means.append(e_mean_sp)
-                sess_late_speed_means.append(l_mean_sp)
-
-        # stash for this session
-        current_matched_early = matched_early
-        current_matched_late  = matched_late
+        # POST-MATCHED session means
+        e_mean_sp = _session_mean_speed(matched_early, speed_times, n=3500)
+        l_mean_sp = _session_mean_speed(matched_late,  speed_times, n=3500)
+        if e_mean_sp is not None and l_mean_sp is not None:
+            sess_early_speed_means.append(e_mean_sp)
+            sess_late_speed_means.append(l_mean_sp)
+            
+        # if len(current_matched_early) >= MIN_MATCHED and len(current_matched_late) >= MIN_MATCHED:
+        #     print('passed')
+            
+    # stash for this session
+    current_matched_early = matched_early
+    current_matched_late  = matched_late
 
     # per-cluster work (spikes)
-    trains = all_trains[cluname]
-    if len(current_matched_early) >= MIN_MATCHED and len(current_matched_late) >= MIN_MATCHED:
-        print('passed')
-        tmp_prof, tmp_rate = get_profiles_and_spike_rates(trains, early_trials, RO_WINDOW)
+    for roi in curr_axon_keys:
+        dFF = all_dFF[roi]
+
+        tmp_prof, tmp_rate = get_profiles_and_spike_rates(dFF, early_trials, RO_WINDOW)
         early_profiles.append(np.mean(tmp_prof, axis=0))
         early_spike_rates.extend(tmp_rate)
 
-        tmp_prof, tmp_rate = get_profiles_and_spike_rates(trains, late_trials, RO_WINDOW)
+        tmp_prof, tmp_rate = get_profiles_and_spike_rates(dFF, late_trials, RO_WINDOW)
         late_profiles.append(np.mean(tmp_prof, axis=0))
         late_spike_rates.extend(tmp_rate)
         
@@ -295,7 +322,7 @@ for path in paths:
         ax.plot(late_profiles[-1], label='late', c=late_c)
         
         fig.savefig(
-            rf'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\single_cell_early_v_late\{cluname}',
+            rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\first_lick_analysis\single_axon_early_v_late\{recname} {roi}',
             dpi=300,
             bbox_inches='tight'
             )
@@ -333,7 +360,7 @@ if len(sess_early_speed_means_raw) and len(sess_late_speed_means_raw):
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\pre_matching_speed{ext}',
+            rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\first_lick_analysis\pre_matching_speed{ext}',
             dpi=300,
             bbox_inches='tight'
             )
@@ -393,7 +420,7 @@ if len(sess_early_speed_means) and len(sess_late_speed_means):
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\post_matching_speed{ext}',
+            rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\first_lick_analysis\post_matching_speed{ext}',
             dpi=300,
             bbox_inches='tight'
             )
@@ -402,10 +429,17 @@ if len(sess_early_speed_means) and len(sess_late_speed_means):
 #%% PLOT: spiking (matched)
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 
-early_mean = np.mean(early_profiles, axis=0) if len(early_profiles) else np.array([])
-early_sem  = sem(early_profiles, axis=0)     if len(early_profiles) else np.array([])
-late_mean  = np.mean(late_profiles, axis=0)  if len(late_profiles)  else np.array([])
-late_sem   = sem(late_profiles, axis=0)      if len(late_profiles)  else np.array([])
+paired = [(e, l) for e, l in zip(early_profiles, late_profiles)
+          if not (np.isnan(e).all() or np.isnan(l).all())]
+
+e_arr = np.vstack([p[0] for p in paired])
+l_arr = np.vstack([p[1] for p in paired])
+
+early_mean = np.nanmean(e_arr, axis=0)
+early_sem  = sem(e_arr, axis=0, nan_policy='omit')
+
+late_mean  = np.nanmean(l_arr, axis=0)
+late_sem   = sem(l_arr, axis=0, nan_policy='omit')
 
 if early_mean.size and late_mean.size:
     fig, ax = plt.subplots(figsize=(2.2, 2.1))
@@ -437,7 +471,7 @@ if early_mean.size and late_mean.size:
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\all_run_onset_mean_profiles_early_v_late{ext}',
+            rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\first_lick_analysis\all_run_onset_mean_profiles_early_v_late{ext}',
             dpi=300,
             bbox_inches='tight'
             )

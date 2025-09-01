@@ -214,8 +214,11 @@ for path in paths:
         # trial-wise variability
         variability = support.compute_trialwise_variability(dFF)
 
+        # full ROI name 
+        full_roiname = f'{recname} {roiname}'
+        
         # put into dataframe 
-        df.loc[roiname] = np.array(
+        df.loc[full_roiname] = np.array(
             [recname,
              identity,
              constituents,

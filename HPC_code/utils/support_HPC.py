@@ -327,7 +327,7 @@ def get_good_bad_idx(beh_series):
     
     return good_idx, bad_idx
 
-def get_good_bad_idx_MATLAB(pathname):
+def get_good_bad_idx_MATLAB(pathname, sess=1):
     """
     extract indices of good and bad trials from a MATLAB behavioural parameter file.
 
@@ -338,9 +338,10 @@ def get_good_bad_idx_MATLAB(pathname):
     - good_idx_matlab: list of indices (0-based) for trials marked as good.
     - bad_idx_matlab: list of indices (0-based) for trials marked as bad.
     """
+    recname = pathname.split('\\')[-1]
     beh_parameter_file = sio.loadmat(
-        f'{pathname}{pathname[-18:]}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
-        )
+       rf'{pathname}\{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess{sess}.mat'
+       )
     
     # same as the previous function
     bad_idx_matlab = [trial-1 for trial, quality 
@@ -436,10 +437,17 @@ def get_trialtype_idx_MATLAB(beh_filename):
     - ctrl_idx: indices for control trials.
     """
     behPar = sio.loadmat(beh_filename)
+    max_length = len(behPar['behPar']['stimOn'][0][0][0]) - 1
+    
     stim_idx = np.where(behPar['behPar']['stimOn'][0][0][0]!=0)[0]
+    baseline_idx = np.arange(1, stim_idx[0])
+    ctrl_idx = stim_idx + 2
+    
+    ctrl_mask = ctrl_idx < max_length
+    ctrl_idx = ctrl_idx[ctrl_mask]
     
     if len(stim_idx)>0:
-        return np.arange(1, stim_idx[0]), stim_idx, stim_idx+2  # stim_idx+2 are indices of control trials
+        return baseline_idx, stim_idx, ctrl_idx  # stim_idx+2 are indices of control trials
     else:
         return np.arange(1, len(behPar['behPar']['stimOn'][0][0][0])), [], []  # if no stim trials
 
@@ -447,7 +455,7 @@ def load_beh_series(df_filename, recname):
     return pd.read_pickle(df_filename).loc[recname]
 
 def load_speeds(beh_series):
-    speed_times = beh_series['speed_times']
+    speed_times = beh_series['speed_times_aligned']
     new_speed_times = []
     for trial in range(1, len(speed_times)):  # trial 1 is empty and not included in spike trains
         curr_speed_times = speed_times[trial]

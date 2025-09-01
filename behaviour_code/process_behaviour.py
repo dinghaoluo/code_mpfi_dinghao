@@ -38,7 +38,8 @@ list_to_process = input(
     5. HPCLCGCaMP, 
     6. HPCdLightLCOpto,
     7. HPCdLightLCOptoInhm
-    8. PROCESS ALL\n
+    8. HPCRaphi
+    9. PROCESS ALL\n
     '''
     )
 
@@ -63,6 +64,9 @@ elif list_to_process == '6':
 elif list_to_process == '7':
     paths = rec_list.pathdLightLCOptoInh
     prefix = 'HPCdLightLCOptoInh'
+elif list_to_process == '8':
+    paths = rec_list.pathHPC_Raphi
+    prefix = 'HPCRaphi'
 
 
 #%% main 
@@ -73,7 +77,7 @@ def process_all(prefix, list_to_process, paths):
     os.makedirs(output_folder, exist_ok=True)
 
     for pathname in paths:    
-        recname = pathname[-17:]
+        recname = pathname.split('\\')[-1]
         print(f'\nprocessing {recname}...')
 
         start = time()
@@ -88,7 +92,11 @@ def process_all(prefix, list_to_process, paths):
             txt_path = (rf'Z:\Dinghao\MiceExp\ANMD{recname[1:4]}'
                         rf'\{recname[:4]}{recname[5:]}T.txt')
             behavioural_data = bf.process_behavioural_data_imaging(txt_path)
-            
+        elif list_to_process == '8':
+            txt_path = (rf'Z:\Raphael_tests\mice_expdata\ANM{recname[1:4]}'
+                        rf'\{recname[:13]}\{recname}\{recname}T.txt')
+            behavioural_data = bf.process_behavioural_data(txt_path)
+
         print(f'session finished ({str(timedelta(seconds=int(time()-start)))})')
         start = time()
 
@@ -100,20 +108,28 @@ def process_all(prefix, list_to_process, paths):
 
 
 if __name__ == '__main__':
-    if list_to_process in ['1', '2', '3', '4', '5', '6', '7']:
+    if list_to_process in ['1', '2', '3', '4', '5', '6', '7', '8']:
         process_all(prefix, list_to_process, paths)
-    elif list_to_process == '8':
-        lists = ['HPCLC', 'HPCLCterm', 'LC', 'HPCGRABNE', 'LCHPCGCaMP', 'HPCdLightLCOpto', 'HPCdLightLCOptoInh']
+    elif list_to_process == '9':
+        lists = ['HPCLC', 
+                 'HPCLCterm', 
+                 'LC', 
+                 'HPCGRABNE', 
+                 'LCHPCGCaMP', 
+                 'HPCdLightLCOpto', 
+                 'HPCdLightLCOptoInh',
+                 'HPCRaphi']
         paths_list = [
             rec_list.pathHPCLCopt,
             rec_list.pathHPCLCtermopt,
             rec_list.pathLC,
             rec_list.pathHPCGRABNE,
             rec_list.pathLCHPCGCaMP,
-            rec_list.pathdLightLCOpto
+            rec_list.pathdLightLCOpto,
+            rec_list.pathHPC_Raphi
             ]
-        for i in range(7):
+        for i in range(8):
             print(f'processing {lists[i]}...\n')
             process_all(lists[i], str(i+1), paths_list[i])
     else:
-        raise Exception('not a valid input; only 1, 2, 3, 4, 5, 6, 7 and 8 are supported')
+        raise Exception('not a valid input; only 1, 2, 3, 4, 5, 6, 7, 8 and 9 are supported')

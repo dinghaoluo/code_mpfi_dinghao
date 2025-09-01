@@ -11,6 +11,7 @@ with distance resetting at trial start (180 cm per trial max).
 #%% imports 
 import sys 
 import os 
+import gc
 
 import numpy as np 
 import matplotlib.pyplot as plt 
@@ -31,7 +32,7 @@ smoothing_sigma = 100  # in ms
 
 
 #%% main 
-for path in paths[6:]:
+for path in paths[48:]:
     recname = path.split('\\')[-1]
     print(recname)
 
@@ -102,7 +103,7 @@ for path in paths[6:]:
     os.makedirs(save_dir, exist_ok=True)
     
     ## plotting 
-    window_size = 200 * 1000  # 100 s
+    window_size = 100 * 1000  # 100 s
     n_windows = (len(times) + window_size - 1) // window_size
     for roi in ROI_idx:
         F_ROI = F[roi, :]
@@ -113,7 +114,7 @@ for path in paths[6:]:
     
         for fig_idx in range(0, n_windows, 4):  # 4 windows per figure
             # create more axes: 16 rows (4×(3+1)) = 4 windows × (3 panels + 1 blank)
-            fig, axs = plt.subplots(16, 1, figsize=(14, 28), sharex=False)
+            fig, axs = plt.subplots(16, 1, figsize=(12, 28), sharex=False)
             fig.subplots_adjust(hspace=0.4)  # smaller hspace globally
             
             for i in range(4):  # 4 windows per figure
@@ -158,3 +159,11 @@ for path in paths[6:]:
                 bbox_inches='tight'
                 )
             plt.close(fig)
+    
+        # drop large per-ROI buffers
+        del F_ROI, F_ROI_interp
+        gc.collect()
+
+    # beh dict seems to persist for whatever reason causing memory issues
+    del beh, frame_times, times, speeds, distances, speeds_smoothed, run_onsets, run_onsets_idx
+    gc.collect()
