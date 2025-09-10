@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import sem, ttest_ind, ttest_rel
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from plotting_functions import plot_violin_with_scatter
 from common import mpl_formatting
 mpl_formatting()
 
@@ -201,6 +202,7 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
         matched_late = []
         
         if len(early_trials) < 10 or len(late_trials) < 10:
+            print('skipped')
             continue
 
         # 7-bin speed extraction (0–3500 ms)
@@ -300,6 +302,7 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
         if cluname in pyrON.index:
             early_profiles_ON.extend(get_profiles(trains, matched_early))
             late_profiles_ON.extend(get_profiles(trains, matched_late))
+        
         if cluname in pyrOFF.index:
             early_profiles_OFF.extend(get_profiles(trains, matched_early))
             late_profiles_OFF.extend(get_profiles(trains, matched_late))
@@ -415,6 +418,12 @@ for ext in ['.png', '.pdf']:
 # stat
 early_win_means = np.mean(np.array(early_profiles_ON)[:, 1250+625:1250+1825], axis=1)
 late_win_means  = np.mean(np.array(late_profiles_ON)[:, 1250+625:1250+1825], axis=1)
+
+plot_violin_with_scatter(early_win_means, late_win_means, 
+                         'grey', late_c,
+                         paired=False, showscatter=True,
+                         ylim=(0, 20),
+                         save=False)
 
 # paired t-test
 t_stat, p_val = ttest_ind(early_win_means, late_win_means, nan_policy='omit')

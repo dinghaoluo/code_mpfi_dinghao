@@ -37,7 +37,7 @@ list_to_process = input(
     4. HPCGRABNE, 
     5. HPCLCGCaMP, 
     6. HPCdLightLCOpto,
-    7. HPCdLightLCOptoInhm
+    7. HPCdLightLCOptoInh
     8. HPCRaphi
     9. PROCESS ALL\n
     '''
@@ -88,7 +88,7 @@ def process_all(prefix, list_to_process, paths):
                         rf'\{recname[-17:-3]}\{recname[-17:]}'
                         rf'\{recname[-17:]}T.txt')
             behavioural_data = bf.process_behavioural_data(txt_path)
-        elif list_to_process in ['4', '5', '6']:
+        elif list_to_process in ['4', '5', '6', '7']:
             txt_path = (rf'Z:\Dinghao\MiceExp\ANMD{recname[1:4]}'
                         rf'\{recname[:4]}{recname[5:]}T.txt')
             behavioural_data = bf.process_behavioural_data_imaging(txt_path)

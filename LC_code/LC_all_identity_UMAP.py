@@ -90,7 +90,7 @@ def main():
     umap_scatter = ax.scatter(acg_embedding[:, 0], acg_embedding[:, 1], s=10,
                               c=dist2mean_cmap, alpha=.75, ec='none')
     umap_scatter_tagged = ax.scatter(acg_embedding[tagged_idx, 0], acg_embedding[tagged_idx, 1], 
-                                     s=10, color='orange', ec='none')
+                                     s=10, color=(0.055, 0.082, 0.502), ec='none')
     umap_scatter_tgcom = ax.scatter(tagged_med[0], tagged_med[1],
                                     s=20, color='darkred')
     ax.legend([umap_scatter_tagged, umap_scatter_tgcom], ['tgd. $\it{Dbh}$+', 'tgd. $\it{Dbh}$+ CoM'], 
@@ -202,7 +202,7 @@ def main():
     colours = []
     for i in labels:
         if i==1:  # these are supposedly interneurones
-            colours.append('orange')
+            colours.append((0.055, 0.082, 0.502))
         else:
             colours.append('grey')
     
@@ -217,7 +217,7 @@ def main():
     tgcolor = ax.scatter([], [], 
                          s=20, ec='k', c='royalblue', linewidth=.1, alpha=.8)
     ptcolor = ax.scatter([], [], 
-                         s=20, c='orange', linewidth=.1, alpha=.8)
+                         s=20, c=(0.055, 0.082, 0.502), linewidth=.1, alpha=.8)
     
     ax.legend([tgcolor, ptcolor, ntgcolor], 
               ['tagged Dbh+', 'putative Dbh+', 'putative Dbh-'], 

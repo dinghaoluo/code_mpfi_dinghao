@@ -10,17 +10,17 @@ Modified from LC_code/all_earlyvlate_RO_peak_fixed_threshold.py for processing
 
 #%% imports
 import sys
-import os
+# import os
 
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
-import scipy.io as sio
+# import scipy.io as sio
 from scipy.stats import sem, ranksums, ttest_ind
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import mpl_formatting
+from common import mpl_formatting, smooth_convolve
 mpl_formatting()
 
 sys.path.append('Z:\Dinghao\code_dinghao')
@@ -121,7 +121,7 @@ def get_profiles_and_spike_rates(trains, trials, RO_WINDOW,
     spike_rates = []
     for trial in trials:
         try:
-            curr_train = trains[trial]
+            curr_train = smooth_convolve(trains[trial], 3)
             profiles.append(curr_train[RUN_ONSET_BIN - BEF * SAMP_FREQ : RUN_ONSET_BIN + AFT * SAMP_FREQ])
             spike_rates.append(np.mean(curr_train[RO_WINDOW[0]:RO_WINDOW[1]]))
         except IndexError:
@@ -234,11 +234,11 @@ for path in paths:
     for trial, t in enumerate(first_licks):
         if t < 2.5:
             early_trials.append(trial)
-        elif 2.5 < t < 3.5:
+        elif 2.5 < 3.5:
             late_trials.append(trial)
 
     print(f'found {len(early_trials)} early and {len(late_trials)} late trials (pre-match)')
-    if len(early_trials) < 10 or len(late_trials) < 10:  # skip if not enough trials 
+    if len(early_trials) < 20 or len(late_trials) < 20:  # skip if not enough trials 
         continue
     
     # get keys of RO-peak axons 

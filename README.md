@@ -1,6 +1,13 @@
 # code_dinghao_mpfi
 my scripts at MPFI; unless otherwise specified, I am the author of all the scripts in this repo
 
+## setup
+make sure that `...\code_mpfi_dinghao\utils` is in system paths
+in addition, the recording list (`rec_list`) is stored in the lab network drive (`Z:\Dinghao\code_dinghao`)
+to add both to system paths:
+- Windows: in PowerShell, enter `setx PYTHONPATH "Z:\Dinghao\code_mpfi_dinghao\utils;Z:\Dinghao\code_dinghao"` (repeated `setx`'s overwrite previous paths)
+- Linux/macOS: launch Terminal, open the shell config file with `nano ~/.zshrc`; at the bottom of the config file add `export PYTHONPATH="/mnt/z/Dinghao/code_mpfi_dinghao/utils:/mnt/z/Dinghao/code_dinghao:$PYTHONPATH"`
+
 ## directory tree
 *(does not include defunct scripts)*  
 ```

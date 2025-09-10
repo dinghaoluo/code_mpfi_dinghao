@@ -14,14 +14,13 @@ modification notes:
 
 #%% imports 
 import sys 
-import os 
+from pathlib import Path
 
 import numpy as np 
-
-import tifffile
 import matplotlib.pyplot as plt 
 from matplotlib import cm
 from matplotlib.colors import TwoSlopeNorm
+import tifffile
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
@@ -91,11 +90,11 @@ def main(path):
         )
     os.makedirs(savepath, exist_ok=True)
     
-    # # check for repeated processing 
-    # if (os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy') and
-    #     os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy')):
-    #     print(f'processed... skipping {recname}')
-    #     return
+    # check for repeated processing 
+    if (os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy') and
+        os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy')):
+        print(f'processed... skipping {recname}')
+        return
     
     # load data 
     ops = np.load(opspath, allow_pickle=True).item()
@@ -177,7 +176,7 @@ def main(path):
     tot_valid_pulses = len(valid_pulse_start_frames)
     
     # determine time bin mask
-    PMT_BUFFER_FRAMES = 20 # frames 
+    PMT_BUFFER_FRAMES = 10 # frames 
     PMT_BUFFER = PMT_BUFFER_FRAMES / SAMP_FREQ
     last_time_s = last_time / 1_000  # convert to seconds
     stim_start = last_time_s + PMT_BUFFER
@@ -711,5 +710,5 @@ def main(path):
 
 #%% execute 
 if __name__ == '__main__':
-    for path in paths[41:42]:
+    for path in paths:
         main(path)

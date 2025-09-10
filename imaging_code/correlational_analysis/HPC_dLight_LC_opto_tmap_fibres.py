@@ -32,7 +32,7 @@ paths = rec_list.pathdLightLCOpto
 roi_means = []
 bg_means = []
 
-for path in paths[41:42]:
+for path in paths:
     recname = os.path.basename(path)
     print(f'analysing {recname}...')
 

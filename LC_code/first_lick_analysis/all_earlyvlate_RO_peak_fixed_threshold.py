@@ -32,6 +32,8 @@ mpl_formatting()
 sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathLC
+pathnames = [p.split('\\')[-1] for p in paths]
+
 
 #%% parameters
 SAMP_FREQ = 1250
@@ -53,7 +55,7 @@ MIN_MATCHED = 5
 
 # speed plotting params
 X_SEC = np.arange(3500) / 1000.0
-YLIM_SPEED = (0, 65)
+YLIM_SPEED = (0, 70)
 
 # colours
 early_c = (0.55, 0.65, 0.95)
@@ -181,8 +183,13 @@ recname = ''
 
 for cluname in RO_keys:
     temp_recname = cluname.split(' ')[0]
+    
+    if temp_recname not in pathnames:
+        continue
+    
     if temp_recname != recname:
         recname = temp_recname
+        
         print(f'\n{recname}')
 
         # load alignRun + behaviour flags
@@ -197,6 +204,7 @@ for cluname in RO_keys:
             rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}\{recname[:-3]}\{recname}\{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'
         )
         bad_idx = np.where(behPar['behPar'][0]['indTrBadBeh'][0] == 1)[1] - 1
+        stim_idx = np.where(behPar['behPar'][0]['stimOn'][0] == 1)[1] - 1
 
         # first-lick time (append scalar, not extend), already in seconds
         first_licks = []
@@ -210,7 +218,7 @@ for cluname in RO_keys:
         # raw early/late sets
         early_trials, late_trials = [], []
         for trial, t in enumerate(first_licks):
-            if trial in bad_idx or np.isnan(t):
+            if trial in bad_idx or trial in stim_idx or np.isnan(t):
                 continue
             if t < 2.5:
                 early_trials.append(trial)
@@ -282,30 +290,50 @@ for cluname in RO_keys:
         # stash for this session
         current_matched_early = matched_early
         current_matched_late  = matched_late
+        
+        # holder for this session's profiles
+        curr_early_sess = []
+        curr_late_sess = []
 
     # per-cluster work (spikes)
     trains = all_trains[cluname]
     if len(current_matched_early) >= MIN_MATCHED and len(current_matched_late) >= MIN_MATCHED:
-        print('passed')
         tmp_prof, tmp_rate = get_profiles_and_spike_rates(trains, early_trials, RO_WINDOW)
         early_profiles.append(np.mean(tmp_prof, axis=0))
         early_spike_rates.extend(tmp_rate)
+        
+        curr_early_sess.append(early_profiles[-1])
 
         tmp_prof, tmp_rate = get_profiles_and_spike_rates(trains, late_trials, RO_WINDOW)
         late_profiles.append(np.mean(tmp_prof, axis=0))
         late_spike_rates.extend(tmp_rate)
+        
+        curr_late_sess.append(late_profiles[-1])
         
         fig, ax = plt.subplots(figsize=(3.5,2))
         ax.plot(early_profiles[-1], label='early', c=early_c)
         ax.plot(late_profiles[-1], label='late', c=late_c)
         
         fig.savefig(
-            rf'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\single_cell_early_v_late\{cluname}',
+            rf'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\single_cell_early_v_late\{cluname}.png',
             dpi=300,
             bbox_inches='tight'
             )
         
         plt.close()
+        
+    # curr sess profiles 
+    fig, ax = plt.subplots(figsize=(3.5, 2))
+    ax.plot(np.mean(curr_early_sess, axis=0), label='early', c=early_c)
+    ax.plot(np.mean(curr_late_sess, axis=0), label='late', c=late_c)
+    
+    ax.set(title=recname)
+    
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\single_sess_early_v_late\{recname}.png',
+        dpi=300,
+        bbox_inches='tight'
+        )
 
 
 #%% PLOT: pre-matching session-averaged speed (mean±SEM across sessions)
