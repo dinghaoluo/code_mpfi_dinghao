@@ -291,14 +291,14 @@ def get_cell_info(info_filename):
     - cell_identities: list of strings ('pyr' or 'int') indicating cell types.
     - spike_rates: 1d array of spike rates for all cells.
     """
-    info = sio.loadmat(info_filename)
+    info = sio.loadmat(str(info_filename))
     # rec_info = info['rec'][0][0]
     autocorr = info['autoCorr'][0][0]
     
     # spike_rates = rec_info['firingRate'][0]
     
     # use the pipeline-calculated FR 
-    filestem = info_filename.split('_Info')[0]
+    filestem = str(info_filename).split('_Info')[0]
     spike_rates = sio.loadmat(
         rf'{filestem}_FR_Run1.mat'
         )['mFRStruct']['mFR'][0][0].flatten()
@@ -365,10 +365,10 @@ def get_place_cell_idx(classification_filename):
     """
     # get indices of place cells identifies by the MATLAB pipeline
     # -1 because the indices were 1-indexed, whereas get_pyr_info() uses 0-indexing
-    return sio.loadmat(classification_filename)['fieldSpCorrSessNonStimGood'][0][0]['indNeuron'][0]-1
+    return sio.loadmat(str(classification_filename))['fieldSpCorrSessNonStimGood'][0][0]['indNeuron'][0]-1
 
 def get_relative_depth(pathname):
-    depth_struct = sio.loadmat(pathname)['depthNeu'][0]
+    depth_struct = sio.loadmat(str(pathname))['depthNeu'][0]
     return depth_struct['relDepthNeu'][0][0]  # a list 
 
 def get_trial_matrix(trains, trialtype_idx, max_samples, clu):
@@ -436,7 +436,7 @@ def get_trialtype_idx_MATLAB(beh_filename):
     - stim_idx: indices for stimulation trials.
     - ctrl_idx: indices for control trials.
     """
-    behPar = sio.loadmat(beh_filename)
+    behPar = sio.loadmat(str(beh_filename))
     max_length = len(behPar['behPar']['stimOn'][0][0][0]) - 1
     
     stim_idx = np.where(behPar['behPar']['stimOn'][0][0][0]!=0)[0]
@@ -470,7 +470,7 @@ def load_train(npy_filename):
     return list(npy_file.keys()), list(npy_file.values())
 
 def load_dist_spike_array(dist_filename):
-    dist_mat = mat73.loadmat(dist_filename)['filteredSpikeDistArrayRun']
+    dist_mat = mat73.loadmat(str(dist_filename))['filteredSpikeDistArrayRun']
     trains_dist = []  # use a list to mirror the structure of trains.npy
     for clu in range(len(dist_mat)):
         trains_dist.append(dist_mat[clu][1:])  # trial 1 is empty

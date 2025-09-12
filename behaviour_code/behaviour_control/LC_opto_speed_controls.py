@@ -14,11 +14,9 @@ import pickle
 from scipy.stats import sem  
 import sys 
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathLCopt
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, smooth_convolve
 mpl_formatting()
 

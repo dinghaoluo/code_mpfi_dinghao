@@ -70,6 +70,32 @@ def scan_directory_tree(path, indent='', is_first_level=True):
     return output
 
 
+#%% GPU detection 
+def get_GPU_availability():
+    """
+    try to import cupy and check if a gpu is available.
+
+    returns:
+    - cp (module | None): the cupy module if installed and usable, else None
+    - gpu_available (bool): true if a cuda device is available
+    """
+    try:
+        import cupy as cp  # local import so common.py works even without cupy
+    except ImportError:
+        return None, False
+
+    try:
+        if cp.cuda.runtime.getDeviceCount() > 0:
+            # optional: set memory pools for efficiency
+            cp.cuda.set_allocator(cp.cuda.MemoryPool().malloc)
+            cp.cuda.set_pinned_memory_allocator(cp.cuda.PinnedMemoryPool().malloc)
+            return cp, True
+    except Exception:
+        pass
+
+    return None, False
+
+
 #%% plot formatting
 def mpl_formatting():
     import matplotlib

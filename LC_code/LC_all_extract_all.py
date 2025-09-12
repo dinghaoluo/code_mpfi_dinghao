@@ -8,7 +8,6 @@ extract LC spike trains aligned to all behavioural landmarks
 """
 
 #%% imports 
-import sys
 import h5py
 import os
 import scipy.io as sio 
@@ -16,12 +15,10 @@ from tqdm import tqdm
 from time import time
 from datetime import timedelta
 
-sys.path.append(r'Z:\Dinghao\code_dinghao')
+from common import gaussian_kernel_unity
+
 import rec_list
 paths = rec_list.pathLC
-
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import gaussian_kernel_unity
 
 
 #%% GPU acceleration

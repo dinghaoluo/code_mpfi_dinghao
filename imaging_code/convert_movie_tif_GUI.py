@@ -21,8 +21,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 import threading  # to seperate the main thread from the processing thread (prevents GUI from freezing)
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
-from imaging_utility_functions import gaussian_kernel_unity
+from common import gaussian_kernel_unity
 
 
 #%% global variables

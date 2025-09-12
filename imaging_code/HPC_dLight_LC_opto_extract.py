@@ -13,7 +13,6 @@ modification notes:
 """
 
 #%% imports 
-import sys 
 from pathlib import Path
 
 import numpy as np 
@@ -22,20 +21,17 @@ from matplotlib import cm
 from matplotlib.colors import TwoSlopeNorm
 import tifffile
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import mpl_formatting
+import behaviour_functions as bf 
+import imaging_pipeline_functions as ipf
 from plotting_functions import plot_violin_with_scatter, add_scale_bar
+from common import mpl_formatting, get_GPU_availability
 mpl_formatting()
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
-import imaging_pipeline_functions as ipf
-
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code\utils')
-import behaviour_functions as bf 
-
-sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathdLightLCOpto + rec_list.pathdLightLCOptoCtrl + rec_list.pathdLightLCOptoInh
+
+# GPU acceleration
+cp, GPU_AVAILABLE = get_GPU_availability()
 
 
 #%% parameters 
@@ -48,51 +44,34 @@ TAXIS = np.arange(-BEF*SAMP_FREQ, AFT*SAMP_FREQ) / SAMP_FREQ
 
 BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
 
+# post-stim dispersion calculation
+BIN_WIDTH = 0.2 
 
-#%% GPU acceleration
-try:
-    import cupy as cp 
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
-    if GPU_AVAILABLE:
-        print(
-            'using GPU-acceleration with '
-            f'{str(cp.cuda.runtime.getDeviceProperties(0)["name"].decode("UTF-8"))} '
-            'and CuPy')
-        cp.cuda.set_allocator(cp.cuda.MemoryPool().malloc)
-        cp.cuda.set_pinned_memory_allocator(cp.cuda.PinnedMemoryPool().malloc)
-    else:
-        print('GPU acceleration unavailable')
-except ModuleNotFoundError:
-    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
-    GPU_AVAILABLE = False
-except Exception as e:
-    # catch any other unexpected errors and print a general message
-    print(f'an error occurred: {e}')
-    GPU_AVAILABLE = False
+# path stems 
+mice_exp_stem = Path(r'Z:\Dinghao\MiceExp')
+all_sess_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions')
 
 
 #%% main 
 def main(path):
-    recname = path.split('\\')[-1]
+    recname = Path(path).name
     print(f'\n{recname}')
     
-    binpath = os.path.join(path, 'suite2p/plane0/data.bin')
-    bin2path = os.path.join(path, 'suite2p/plane0/data_chan2.bin')
-    opspath = os.path.join(path, 'suite2p/plane0/ops.npy')
-    txtpath = os.path.join(r'Z:\Dinghao\MiceExp',
-                           f'ANMD{recname[1:4]}',
-                           f'{recname[:4]}{recname[5:]}T.txt')
+    plane_stem = Path(path) / 'suite2p/plane0'
+    sessname = recname.replace('i', '')
+    
+    binpath = plane_stem / 'data.bin'
+    bin2path = plane_stem / 'data_chan2.bin'
+    opspath = plane_stem / 'ops.npy'
+    txtpath = mice_exp_stem / f'ANMD{recname[1:4]}' / f'{sessname}T.txt'
     
     whether_ctrl = '_ctrl' if path in rec_list.pathdLightLCOptoCtrl else ''
-    savepath = os.path.join(
-        r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions',
-        f'{recname}{whether_ctrl}'
-        )
-    os.makedirs(savepath, exist_ok=True)
+    savepath = all_sess_stem / f'{recname}{whether_ctrl}'
+    savepath.mkdir(exist_ok=True)
     
     # check for repeated processing 
-    if (os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy') and
-        os.path.exists(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy')):
+    if ((savepath / f'processed_data/{recname}_pixel_dFF_stim.npy').exists() and
+        (savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy').exists()):
         print(f'processed... skipping {recname}')
         return
     
@@ -180,8 +159,15 @@ def main(path):
     PMT_BUFFER = PMT_BUFFER_FRAMES / SAMP_FREQ
     last_time_s = last_time / 1_000  # convert to seconds
     stim_start = last_time_s + PMT_BUFFER
-    stim_end = stim_start + 1.00
+    stim_end   = stim_start + 1
+    
     STIM_IDX = (TAXIS >= stim_start) & (TAXIS < stim_end)
+    
+    # post-stim dispersion calculation, 10 Sept 2025
+    BIN_START = stim_start
+    BIN_END   = stim_start + 4
+    bin_edges = np.arange(BIN_START, BIN_END + BIN_WIDTH, BIN_WIDTH)
+    n_bins = len(bin_edges) - 1
     
     # pulse processing 
     print('extracting data...')
@@ -308,7 +294,7 @@ def main(path):
 
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'{savepath}\{recname}_aligned_stim{ext}',
+            savepath / f'{recname}_aligned_stim{ext}',
             dpi=300,
             bbox_inches='tight'
             )
@@ -321,7 +307,7 @@ def main(path):
         ylabel='ΔF/F',
         title=recname,
         save=True,
-        savepath=rf'{savepath}\{recname}_dFF_dFF2_violinplot'
+        savepath=savepath / f'{recname}_dFF_dFF2_violinplot'
         )
     
     baseline_dFF, stim_dFF = map(list, zip(*[
@@ -339,7 +325,7 @@ def main(path):
         ylabel='ΔF/F',
         title=recname,
         save=True,
-        savepath=rf'{savepath}\{recname}_baseline_stim_violinplot'
+        savepath=savepath / f'{recname}_baseline_stim_violinplot'
         )
     plot_violin_with_scatter(
         baseline2_dFF, stim2_dFF, 
@@ -348,7 +334,7 @@ def main(path):
         ylabel='ΔF/F',
         title=recname,
         save=True,
-        savepath=rf'{savepath}\{recname}_baseline_stim_ch2_violinplot'
+        savepath=savepath / f'{recname}_baseline_stim_ch2_violinplot'
         )
     
     ## pixel-wise extraction 
@@ -392,15 +378,15 @@ def main(path):
         dFF2[np.abs(dFF2) > 10] = np.nan
         pixel_dFF2[:, :, i] = dFF2
         
-    np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_stim.npy',
+    np.save(savepath / f'processed_data/{recname}_pixel_dFF_stim.npy',
             pixel_dFF)
-    np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_stim.npy',
+    np.save(savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy',
             pixel_dFF2)
     
     # save F aligned 
-    np.save(rf'{savepath}\processed_data\{recname}_pixel_F_aligned.npy',
+    np.save(savepath / f'processed_data/{recname}_pixel_F_aligned.npy',
             pixel_F_aligned)
-    np.save(rf'{savepath}\processed_data\{recname}_pixel_F2_aligned.npy',
+    np.save(savepath / f'processed_data/{recname}_pixel_F2_aligned.npy',
             pixel_F2_aligned)
     
     # generate mean dFF release map as proxy for t-map, 24 June 2025 
@@ -409,9 +395,8 @@ def main(path):
     release_map2 = np.nanmean(pixel_dFF2, axis=2)
     
     # save map matrices 
-    np.save(rf'{savepath}\processed_data\{recname}_release_map.npy', release_map)
-    np.save(rf'{savepath}\processed_data\{recname}_release_map_ch2.npy', release_map2)
-
+    np.save(savepath / f'processed_data/{recname}_release_map.npy', release_map)
+    np.save(savepath / f'processed_data/{recname}_release_map_ch2.npy', release_map2)
 
     ## plotting - release map ch 1 
     vmin = np.nanpercentile(release_map, 1)
@@ -451,7 +436,7 @@ def main(path):
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'{savepath}\{recname}_release_map{ext}',
+            savepath / f'{recname}_release_map{ext}',
             dpi=300,
             bbox_inches='tight'
         )
@@ -461,7 +446,7 @@ def main(path):
     release_map_rgba = cmap(norm(release_map))
     release_map_rgb = (release_map_rgba[..., :3] * 255).astype(np.uint8)
     
-    tifffile.imwrite(rf'{savepath}\{recname}_release_map.tiff',
+    tifffile.imwrite(savepath / f'{recname}_release_map.tiff',
                      release_map_rgb)
     
     
@@ -503,7 +488,7 @@ def main(path):
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'{savepath}\{recname}_release_map_ch2{ext}',
+            savepath / f'{recname}_release_map_ch2{ext}',
             dpi=300,
             bbox_inches='tight'
         )
@@ -513,11 +498,49 @@ def main(path):
     release_map2_rgba = cmap(norm(release_map2))
     release_map2_rgb = (release_map2_rgba[..., :3] * 255).astype(np.uint8)
     
-    tifffile.imwrite(rf'{savepath}\{recname}_release_map_ch2.tiff',
+    tifffile.imwrite(savepath / f'{recname}_release_map_ch2.tiff',
                      release_map2_rgb)
     
+    # dispersion rate calculation, 10 Sept 2025 
+    print('calculating binned ratios (for dispersion rate analysis)...')
+    all_bins_ch1 = []
+    all_bins_ch2 = []
     
-    # compute dF/F per pixel IF BEHAVIOUR (run-onset / baseline), 24 June 2025 
+    for i, p in enumerate(valid_pulse_start_frames):
+        temp_F = mov[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        temp_F2 = mov2[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        
+        trial_bins_ch1 = np.zeros((shape[1], shape[2], n_bins))
+        trial_bins_ch2 = np.zeros_like(trial_bins_ch1)
+    
+        for b in range(n_bins):
+            bin_mask = (TAXIS >= bin_edges[b]) & (TAXIS < bin_edges[b+1])
+    
+            stim_mean  = np.mean(temp_F[bin_mask, :, :], axis=0)
+            baseline_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
+            dFF_bin = (stim_mean - baseline_mean) / np.abs(baseline_mean)
+            dFF_bin[np.abs(dFF_bin) > 10] = np.nan
+            trial_bins_ch1[:, :, b] = dFF_bin
+    
+            stim_mean2  = np.mean(temp_F2[bin_mask, :, :], axis=0)
+            baseline_mean2 = np.mean(temp_F2[BASELINE_IDX, :, :], axis=0)
+            dFF_bin2 = (stim_mean2 - baseline_mean2) / np.abs(baseline_mean2)
+            dFF_bin2[np.abs(dFF_bin2) > 10] = np.nan
+            trial_bins_ch2[:, :, b] = dFF_bin2
+    
+        all_bins_ch1.append(trial_bins_ch1)
+        all_bins_ch2.append(trial_bins_ch2)
+    
+    # average across trials → final shape (y, x, n_bins)
+    pixel_dFF_bins  = np.nanmean(np.stack(all_bins_ch1, axis=-1), axis=-1)
+    pixel_dFF2_bins = np.nanmean(np.stack(all_bins_ch2, axis=-1), axis=-1)
+    
+    # save arrays
+    np.save(savepath / f'processed_data/{recname}_pixel_dFF_bins.npy', pixel_dFF_bins)
+    np.save(savepath / f'processed_data/{recname}_pixel_dFF_ch2_bins.npy', pixel_dFF2_bins)
+    
+    
+    ## compute dF/F per pixel IF BEHAVIOUR (run-onset / baseline), 24 June 2025 
     if txt['behaviour']:
         print('behaviour session; compiling run-onset dFF dict...')
         txt = bf.process_behavioural_data_imaging(txtpath)
@@ -555,9 +578,9 @@ def main(path):
             dFF_run2[np.abs(dFF_run2) > 10] = np.nan
             pixel_dFF_run2[:, :, i] = dFF_run2
             
-        np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_run.npy',
+        np.save(savepath / f'processed_data/{recname}_pixel_dFF_run.npy',
                 pixel_dFF)
-        np.save(rf'{savepath}\processed_data\{recname}_pixel_dFF_ch2_run.npy',
+        np.save(savepath / f'processed_data/{recname}_pixel_dFF_ch2_run.npy',
                 pixel_dFF2)
         
         # compute mean run-onset aligned release maps
@@ -566,8 +589,8 @@ def main(path):
         release_map_run2 = np.nanmean(pixel_dFF_run2, axis=2)
 
         # save map matrices
-        np.save(rf'{savepath}\processed_data\{recname}_release_map_run.npy', release_map_run)
-        np.save(rf'{savepath}\processed_data\{recname}_release_map_run_ch2.npy', release_map_run2)
+        np.save(savepath / f'processed_data/{recname}_release_map_run.npy', release_map_run)
+        np.save(savepath / f'processed_data\{recname}_release_map_run_ch2.npy', release_map_run2)
 
         ## plotting - run release map ch 2
         vmin = np.nanpercentile(release_map_run, 1)
@@ -608,7 +631,7 @@ def main(path):
 
         for ext in ['.png', '.pdf']:
             fig.savefig(
-                rf'{savepath}\{recname}_release_map_run{ext}',
+                savepath / f'{recname}_release_map_run{ext}',
                 dpi=300,
                 bbox_inches='tight'
             )
@@ -652,7 +675,7 @@ def main(path):
         
         for ext in ['.png', '.pdf']:
             fig.savefig(
-                rf'{savepath}\{recname}_release_map_run_ch2{ext}',
+                savepath / '{recname}_release_map_run_ch2{ext}',
                 dpi=300,
                 bbox_inches='tight'
             )
@@ -662,16 +685,14 @@ def main(path):
     
     # axon-only imaging session check and processing 
     axon_only_folder = path + '_1100'
-    if os.path.isdir(axon_only_folder):  # if we have a 1100-nm wavelength session 
+    if Path(axon_only_folder).exists():  # if we have a 1100-nm wavelength session 
         print(f'axon-only recording found: {axon_only_folder}')
     
-        axon_only_bin_path = os.path.join(axon_only_folder, 
-                                          'suite2p/plane0/data_chan2.bin')
-        axon_only_ops_path = os.path.join(axon_only_folder, 
-                                          'suite2p/plane0/ops.npy')
+        axon_only_bin_path = Path(axon_only_folder) / 'suite2p/plane0/data_chan2.bin'
+        axon_only_ops_path = Path(axon_only_folder) / 'suite2p/plane0/ops.npy'
 
-        if (os.path.exists(axon_only_bin_path) 
-            and os.path.exists(axon_only_ops_path)):
+        if (axon_only_bin_path.exists() and 
+            axon_only_ops_path.exists()):
             ops_axon_only = np.load(
                 axon_only_ops_path, allow_pickle=True
                 ).item()
@@ -700,11 +721,11 @@ def main(path):
 
             fig.suptitle('ref 1100 nm')
             fig.tight_layout()
-            fig.savefig(rf'{savepath}\{recname}_ref_1100nm.png',
+            fig.savefig(savepath / f'{recname}_ref_1100nm.png',
                         dpi=300,
                         bbox_inches='tight')
             
-            np.save(rf'{savepath}\processed_data\{recname}_ref_mat_1100nm.npy', 
+            np.save(savepath / f'processed_data/{recname}_ref_mat_1100nm.npy', 
                     reference_axon_only)
     
 

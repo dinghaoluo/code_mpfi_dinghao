@@ -22,32 +22,30 @@ add depth to the dataframe?
 
 
 #%% imports 
-import os 
-import sys 
+from pathlib import Path
 
 from time import time
 from datetime import timedelta 
 
-from tqdm import tqdm 
 import pickle
 import pandas as pd 
+import numpy as np 
+from scipy.stats import sem
+from tqdm import tqdm 
 
 # suppress the warning prompts when ctrl and stim have no trials 
 import warnings
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+import support_HPC as support 
 from common import mpl_formatting
 mpl_formatting()
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\HPC_code\utils')
-import support_HPC as support 
-
 
 #%% dataframe initialisation/loading
-fname = r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles_raphi.pkl'
-if os.path.exists(fname):
-    df = pd.read_pickle(fname)
-    print(f'df loaded from {fname}')
+fpath = Path(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles_raphi.pkl')
+if fpath.exists():
+    df = pd.read_pickle(fpath)
+    print(f'df loaded from {fpath}')
     processed_sess = df['recname'].tolist()
 else:
     processed_sess = []
@@ -83,7 +81,6 @@ else:
 
 
 #%% load paths to recordings 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathHPC_Raphi
 mazes = rec_list.pathHPC_Raphi_maze_sess
@@ -107,20 +104,14 @@ run_onset_activated_thres = 2/3
 run_onset_inhibited_thres = 3/2
 
 
-#%% GPU acceleration
-'''
-So far it seems that there is nothing to parallelise in this script for signi-
-ficant improvement in performance, so let's just stick to CPU computation
-'''
-print('not using GPU acceleration due to lack of available parallelisation\n')
-import numpy as np 
-GPU_AVAILABLE = False
-from scipy.stats import sem
+#%% parameters and path stems 
+beh_stem = Path(r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCRaphi')
+train_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions_raphi')
 
 
 #%% MAIN
-for i, pathname in enumerate(paths):
-    recname = pathname.split('\\')[-1]
+for i, path in enumerate(paths):
+    recname = Path(path).name
     
     if recname in processed_sess:
         print(f'{recname} already processed; skipped')
@@ -131,10 +122,7 @@ for i, pathname in enumerate(paths):
     t0 = time()
     
     # load beh dataframe 
-    beh_path = os.path.join(
-        r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCRaphi',
-        f'{recname}.pkl'
-    )
+    beh_path = beh_stem / f'{recname}.pkl'
     with open(beh_path, 'rb') as f:
         beh = pickle.load(f)
         
@@ -142,7 +130,7 @@ for i, pathname in enumerate(paths):
     good_idx, bad_idx = support.get_good_bad_idx(beh)
     
     # import bad beh trial indices from MATLAB pipeline 
-    good_idx_matlab, bad_idx_matlab = support.get_good_bad_idx_MATLAB(pathname,
+    good_idx_matlab, bad_idx_matlab = support.get_good_bad_idx_MATLAB(path,
                                                                       sess=mazes[i])
     
     # calculate occupancy
@@ -153,46 +141,37 @@ for i, pathname in enumerate(paths):
         ]
     
     # load spike trains as a list 
-    clu_list, trains = support.load_train(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions_raphi\{}\{}_all_trains.npy'
-        .format(recname, recname)
-        )
+    train_path = train_stem / recname / f'{recname}_all_trains.npy'
+    clu_list, trains = support.load_train(train_path)
     
     # load spike trains (in distance) as a list
-    trains_dist = support.load_dist_spike_array(
-        rf'{pathname}\{recname}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess{mazes[i]}_Run0.mat'
-        )
+    train_dist_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess{mazes[i]}_Run0.mat'
+    trains_dist = support.load_dist_spike_array(train_dist_path)
     
     # get pyr and int ID's and corresponding spike rates
-    cell_identities, spike_rates = support.get_cell_info(
-        r'{}\{}_DataStructure_mazeSection1_TrialType1_Info.mat'
-        .format(pathname, recname)
-        )
+    cell_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_Info.mat'
+    cell_identities, spike_rates = support.get_cell_info(cell_info_path)
     
     # get place cell indices 
     try:
-        place_cell_idx = support.get_place_cell_idx(
-            rf'{pathname}\{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{mazes[i]}_Run0.mat'
-            )
+        place_cell_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{mazes[i]}_Run0.mat'
+        place_cell_idx = support.get_place_cell_idx(place_cell_info_path)
     except FileNotFoundError:  # for some of Raphi's recordings
-        place_cell_idx = support.get_place_cell_idx(
-            rf'{pathname}\{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{mazes[i]}_Run1.mat'
-            )
+        place_cell_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{mazes[i]}_Run1.mat'
+        place_cell_idx = support.get_place_cell_idx(place_cell_info_path)
     
     # get cell depth 
-    depths = support.get_relative_depth(
-        r'{}\{}_DataStructure_mazeSection1_TrialType1_Depth.mat'
-        .format(pathname, recname)
-        )
+    depth_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_Depth.mat'
+    depths = support.get_relative_depth(depth_info_path)
         
     # behaviour parameters
+    beh_MATLAB_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess{mazes[i]}.mat'
     (
         baseline_idx,
         stim_idx, 
         ctrl_idx
-    ) = support.get_trialtype_idx_MATLAB(
-        rf'{pathname}\{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess{mazes[i]}.mat'
-        )
+    ) = support.get_trialtype_idx_MATLAB(beh_MATLAB_path)
+    
     baseline_idx = baseline_idx[:-1]
     stim_idx = [t - 1 for t in stim_idx]  # since we skipped trial 1 when extracting trains 
     ctrl_idx = [t - 1 for t in ctrl_idx]
@@ -298,21 +277,6 @@ for i, pathname in enumerate(paths):
             trains[clu][trial][SAMP_FREQ*3:],
             bin_size_steps=1) for trial in stim_idx
             if trains[clu][trial] is not None]
-
-        # transfer stuff from VRAM back to RAM
-        if GPU_AVAILABLE:
-            baseline_run_onset_ratio = baseline_run_onset_ratio.get()
-            stim_run_onset_ratio = stim_run_onset_ratio.get()
-            ctrl_run_onset_ratio = ctrl_run_onset_ratio.get()
-            baseline_var = baseline_var.get()
-            stim_var = stim_var.get()
-            ctrl_var = ctrl_var.get()
-            baseline_mean = baseline_mean.get()
-            baseline_sem = baseline_sem.get()
-            stim_mean = stim_mean.get()
-            stim_sem = stim_sem.get()
-            ctrl_mean = ctrl_mean.get()
-            ctrl_sem = ctrl_sem.get()
         
         cluname = clu_list[clu]
         df.loc[cluname] = np.array([recname,  # recname 
@@ -348,5 +312,5 @@ for i, pathname in enumerate(paths):
         
         
 #%% save dataframe 
-df.to_pickle(fname)
+df.to_pickle(fpath)
 print('\ndataframe saved')

@@ -162,7 +162,7 @@ tgd = ax.scatter(spike_width_dict['tagged'],
                  spike_rate_dict['tagged'], c='royalblue', ec='k',
                  s=10, lw=.1, alpha=.8, zorder=10)
 pt = ax.scatter(spike_width_dict['putative'],
-                spike_rate_dict['putative'], c='orange', ec='k', 
+                spike_rate_dict['putative'], c=(0.055, 0.082, 0.502), ec='k', 
                 s=10, lw=.1, alpha=.8, zorder=9)
 ntgd = ax.scatter(spike_width_dict['other'],
                   spike_rate_dict['other'],
@@ -215,7 +215,7 @@ jitter_putative_spike_width_x = np.random.uniform(
     )
 ax.scatter([1.9]*len(spike_width_dict['putative']) + jitter_putative_spike_width_x, 
            spike_width_dict['putative'], 
-           s=10, c='orange', ec='k', lw=.1, alpha=.8)
+           s=10, c=(0.055, 0.082, 0.502), ec='k', lw=.1, alpha=.8)
 
 jitter_other_spike_width_x = np.random.uniform(
     -.1, .1, len(spike_width_dict['other'])
@@ -224,7 +224,7 @@ ax.scatter([2.9]*len(spike_width_dict['other']) + jitter_other_spike_width_x,
            spike_width_dict['other'], 
            s=10, c='grey', ec='none', lw=.1, alpha=.8)
 
-colors = ['royalblue', 'orange', 'grey']
+colors = ['royalblue', (0.055, 0.082, 0.502), 'grey']
 for patch, color in zip(bp['boxes'], colors):
     patch.set_facecolor(color)
 
@@ -309,7 +309,7 @@ jitter_putative_spike_rate_x = np.random.uniform(
     )
 ax.scatter([1.9]*len(spike_rate_putative_logged) + jitter_putative_spike_rate_x, 
            spike_rate_putative_logged, 
-           s=10, c='orange', ec='k', lw=.1, alpha=.8)
+           s=10, c=(0.055, 0.082, 0.502), ec='k', lw=.1, alpha=.8)
 
 jitter_other_spike_rate_x = np.random.uniform(
     -.1, .1, len(spike_rate_other_logged)
@@ -318,7 +318,7 @@ ax.scatter([2.9]*len(spike_rate_other_logged) + jitter_other_spike_rate_x,
            spike_rate_other_logged, 
            s=10, c='grey', ec='none', lw=.1, alpha=.8)
 
-colors = ['royalblue', 'orange', 'grey']
+colors = ['royalblue', (0.055, 0.082, 0.502), 'grey']
 for patch, color in zip(bp['boxes'], colors):
     patch.set_facecolor(color)
 
