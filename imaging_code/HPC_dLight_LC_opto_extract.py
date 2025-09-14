@@ -45,7 +45,7 @@ TAXIS = np.arange(-BEF*SAMP_FREQ, AFT*SAMP_FREQ) / SAMP_FREQ
 BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
 
 # post-stim dispersion calculation
-BIN_WIDTH = 0.2 
+BIN_WIDTH = 0.1
 
 # path stems 
 mice_exp_stem = Path(r'Z:\Dinghao\MiceExp')
@@ -70,10 +70,10 @@ def main(path):
     savepath.mkdir(exist_ok=True)
     
     # check for repeated processing 
-    if ((savepath / f'processed_data/{recname}_pixel_dFF_stim.npy').exists() and
-        (savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy').exists()):
-        print(f'processed... skipping {recname}')
-        return
+    # if ((savepath / f'processed_data/{recname}_pixel_dFF_stim.npy').exists() and
+    #     (savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy').exists()):
+    #     print(f'processed... skipping {recname}')
+    #     return
     
     # load data 
     ops = np.load(opspath, allow_pickle=True).item()
@@ -590,7 +590,7 @@ def main(path):
 
         # save map matrices
         np.save(savepath / f'processed_data/{recname}_release_map_run.npy', release_map_run)
-        np.save(savepath / f'processed_data\{recname}_release_map_run_ch2.npy', release_map_run2)
+        np.save(savepath / f'processed_data/{recname}_release_map_run_ch2.npy', release_map_run2)
 
         ## plotting - run release map ch 2
         vmin = np.nanpercentile(release_map_run, 1)
@@ -675,7 +675,7 @@ def main(path):
         
         for ext in ['.png', '.pdf']:
             fig.savefig(
-                savepath / '{recname}_release_map_run_ch2{ext}',
+                savepath / f'{recname}_release_map_run_ch2{ext}',
                 dpi=300,
                 bbox_inches='tight'
             )

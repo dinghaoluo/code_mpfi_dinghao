@@ -9,28 +9,25 @@ analyse the decay time constants of pyramidal cells in stim. vs ctrl. trials
 
 
 #%% imports 
+import sys 
+
 import numpy as np 
 import pickle 
 import matplotlib.pyplot as plt 
-import sys 
 from scipy.stats import sem
 import os 
 import pandas as pd 
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
+from plotting_functions import plot_violin_with_scatter, plot_ecdfs
 from common import mpl_formatting
 mpl_formatting()
 
-sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 pathHPCLCopt = rec_list.pathHPCLCopt
 pathHPCLCtermopt = rec_list.pathHPCLCtermopt
 
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\HPC_code\decay_time')
 from decay_time_analysis import detect_peak, compute_tau
-
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from plotting_functions import plot_violin_with_scatter, plot_ecdfs
 
 
 #%% parameters 
@@ -107,6 +104,9 @@ def main(paths, exp='HPCLC'):
     
     all_amp_ON_delta_sum = []
     all_amp_ON_delta_mean = []
+    
+    all_amp_OFF_delta_sum = []
+    all_amp_OFF_delta_mean = []
     
     for path in paths:
         recname = path[-17:]
@@ -352,7 +352,7 @@ def main(paths, exp='HPCLC'):
                 if fit_params_stim['adj_r_squared']>0.6:
                     tau_values_stim_only_OFF.append(tau_stim)
                     
-        # store per-session mean profile of ctrl-only and stim-only ON cells
+        # store per-session mean profile of ctrl-only and stim-only cells
         if len(mean_prof_ctrl_only_ON) > 0:
             sess_mean_ctrl = np.mean(mean_prof_ctrl_only_ON[-len(curr_df_pyr):], axis=0)
             mean_prof_ctrl_only_ON_sess.append(sess_mean_ctrl)
@@ -367,6 +367,22 @@ def main(paths, exp='HPCLC'):
             
             amp_ON_delta_mean = np.mean(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
             all_amp_ON_delta_mean.append(amp_ON_delta_mean)
+            
+            
+        if len(mean_prof_ctrl_only_OFF) > 0:
+            sess_mean_ctrl = np.mean(mean_prof_ctrl_only_OFF[-len(curr_df_pyr):], axis=0)
+            mean_prof_ctrl_only_OFF_sess.append(sess_mean_ctrl)
+        
+        if len(mean_prof_stim_only_OFF) > 0:
+            sess_mean_stim = np.mean(mean_prof_stim_only_OFF[-len(curr_df_pyr):], axis=0)
+            mean_prof_stim_only_OFF_sess.append(sess_mean_stim)
+            
+        if len(mean_prof_ctrl_only_OFF) > 0 and len(mean_prof_stim_only_OFF) > 0:
+            amp_OFF_delta_sum = np.sum(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
+            all_amp_OFF_delta_sum.append(amp_OFF_delta_sum)
+            
+            amp_OFF_delta_mean = np.mean(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
+            all_amp_OFF_delta_mean.append(amp_OFF_delta_mean)
     
     
     # plotting 
@@ -649,7 +665,7 @@ def main(paths, exp='HPCLC'):
                              paired=False,
                              showscatter=True,
                              showmedians=True,
-                             ylabel='spike rate (Hz)',
+                             ylabel='Firing rate (Hz)',
                              dpi=300,
                              save=True,
                              savepath=rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_only_stim_only_ON_amp')
@@ -669,7 +685,9 @@ def main(paths, exp='HPCLC'):
                              'violet', 'purple',
                              xticklabels=['ctrl.', 'stim.'],
                              paired=False,
-                             ylabel='spike rate (Hz)',
+                             showscatter=True,
+                             showmedians=True,
+                             ylabel='Firing rate (Hz)',
                              dpi=300,
                              save=True,
                              savepath=rf'Z:\Dinghao\code_dinghao\HPC_ephys\run_onset_response\ctrl_stim\{exp}_ctrl_only_stim_only_OFF_amp')
@@ -771,6 +789,86 @@ def main(paths, exp='HPCLC'):
     
     for ext in ['.png', '.pdf']:
         fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_delta_amp_sum_dist{ext}',
+                    dpi=300,
+                    bbox_inches='tight')
+        
+        
+    
+    ## OFF -- same 
+    # filter and clean data
+    all_amp_OFF_delta_mean_filt = [v for i, v in enumerate(all_amp_OFF_delta_mean)
+                             if not np.isnan(all_ctrl_stim_lick_distance_delta[i])]
+    all_ctrl_stim_lick_distance_delta_filt = [v for i, v in enumerate(all_ctrl_stim_lick_distance_delta)
+                                              if not np.isnan(all_ctrl_stim_lick_distance_delta[i])]
+    
+    # regression
+    slope, intercept, r, p, _ = linregress(all_amp_OFF_delta_mean_filt, all_ctrl_stim_lick_distance_delta_filt)
+    
+    # plot
+    fig, ax = plt.subplots(figsize=(2.4, 2.2))
+    
+    # scatter
+    ax.scatter(all_amp_OFF_delta_mean_filt, all_ctrl_stim_lick_distance_delta_filt,
+               color='teal', edgecolor='white', s=30, alpha=0.8)
+    
+    # regression line
+    x_vals = np.linspace(min(all_amp_OFF_delta_mean_filt), max(all_amp_OFF_delta_mean_filt), 100)
+    y_vals = intercept + slope * x_vals
+    ax.plot(x_vals, y_vals, color='k', lw=1)
+    
+    # r and p text
+    ax.text(0.05, 0.95, f'$R = {r:.2f}$\n$p = {p:.3g}$',
+            transform=ax.transAxes, ha='left', va='top', fontsize=9)
+    
+    # labels and style
+    ax.set_xlabel('delta OFF (Hz)', fontsize=10)
+    ax.set_ylabel('delta lick dist. (stim − ctrl)', fontsize=10)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.tick_params(labelsize=9)
+    fig.tight_layout()
+    plt.show()
+    
+    for ext in ['.png', '.pdf']:
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_OFF_delta_amp_mean_dist{ext}',
+                    dpi=300,
+                    bbox_inches='tight')
+        
+    
+    ## sum vs dist 
+    all_amp_OFF_delta_sum_filt = [v for i, v in enumerate(all_amp_OFF_delta_sum)
+                                  if not np.isnan(all_ctrl_stim_lick_distance_delta[i])]
+    
+    # regression
+    slope, intercept, r, p, _ = linregress(all_amp_OFF_delta_sum_filt, all_ctrl_stim_lick_distance_delta_filt)
+    
+    # plot
+    fig, ax = plt.subplots(figsize=(2.4, 2.2))
+    
+    # scatter
+    ax.scatter(all_amp_OFF_delta_sum_filt, all_ctrl_stim_lick_distance_delta_filt,
+               color='teal', edgecolor='white', s=30, alpha=0.8)
+    
+    # regression line
+    x_vals = np.linspace(min(all_amp_OFF_delta_sum_filt), max(all_amp_OFF_delta_sum_filt), 100)
+    y_vals = intercept + slope * x_vals
+    ax.plot(x_vals, y_vals, color='k', lw=1)
+    
+    # r and p text
+    ax.text(0.05, 0.95, f'$R = {r:.2f}$\n$p = {p:.3g}$',
+            transform=ax.transAxes, ha='left', va='top', fontsize=9)
+    
+    # labels and style
+    ax.set_xlabel('delta OFF (Hz)', fontsize=10)
+    ax.set_ylabel('delta lick dist. (stim − ctrl)', fontsize=10)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.tick_params(labelsize=9)
+    fig.tight_layout()
+    plt.show()
+    
+    for ext in ['.png', '.pdf']:
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_OFF_delta_amp_sum_dist{ext}',
                     dpi=300,
                     bbox_inches='tight')
         

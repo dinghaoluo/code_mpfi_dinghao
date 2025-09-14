@@ -14,22 +14,18 @@ temporary script due to cell profiles not saved 2 Sept 2025
 
 #%% imports
 import os
-import sys
 
 import numpy as np
 import pickle
 import scipy.io as sio
 import matplotlib.pyplot as plt
-from scipy.stats import sem, ttest_ind, ttest_rel
+from scipy.stats import sem, ttest_ind
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\HPC_code\utils')
 import support_HPC as support 
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
 mpl_formatting()
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathHPC_Raphi
 mazes = rec_list.pathHPC_Raphi_maze_sess
@@ -53,7 +49,7 @@ XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 
 
 #%% helper 
-def compute_bin_speeds_7(trial_indices, n_bins=7, bin_size=500):
+def _compute_bin_speeds_7(trial_indices, n_bins=7, bin_size=500):
     means = []
     valid = []
     total_len = n_bins * bin_size  # 3500
@@ -72,10 +68,10 @@ def compute_bin_speeds_7(trial_indices, n_bins=7, bin_size=500):
         return np.empty((0, n_bins)), []
     return np.vstack(means), valid    
 
-def get_profiles(trains, trials,
-                 RUN_ONSET_BIN=RUN_ONSET_BIN,
-                 SAMP_FREQ=SAMP_FREQ,
-                 BEF=BEF, AFT=AFT):
+def _get_profiles(trains, trials,
+                  RUN_ONSET_BIN=RUN_ONSET_BIN,
+                  SAMP_FREQ=SAMP_FREQ,
+                  BEF=BEF, AFT=AFT):
     profiles = []
     for trial in trials:
         curr_train = trains[trial]
@@ -211,8 +207,8 @@ for i, path in enumerate(paths):
         continue
 
     # 7-bin speed extraction (0–3500 ms)
-    E_bins, e_valid = compute_bin_speeds_7(early_trials)  # shape: (nE, 7)
-    L_bins, l_valid = compute_bin_speeds_7(late_trials)   # shape: (nL, 7)
+    E_bins, e_valid = _compute_bin_speeds_7(early_trials)  # shape: (nE, 7)
+    L_bins, l_valid = _compute_bin_speeds_7(late_trials)   # shape: (nL, 7)
     
     matched_early, matched_late = [], []
     if len(E_bins) and len(L_bins):
@@ -338,8 +334,8 @@ for i, path in enumerate(paths):
             )
 
         if ratiotype == 'run-onset ON':
-            temp_early = get_profiles(trains, matched_early)
-            temp_late = get_profiles(trains, matched_late)
+            temp_early = _get_profiles(trains, matched_early)
+            temp_late = _get_profiles(trains, matched_late)
             
             if int(recname[1:4]) > 40:  # for some reason some sessions did not get scaled with SAMP_FREQ when extracting
                 temp_early = [t*SAMP_FREQ for t in temp_early]
@@ -352,8 +348,8 @@ for i, path in enumerate(paths):
             curr_late_ON.extend(temp_late)
             
         if ratiotype == 'run-onset OFF':
-            temp_early = get_profiles(trains, matched_early)
-            temp_late = get_profiles(trains, matched_late)
+            temp_early = _get_profiles(trains, matched_early)
+            temp_late = _get_profiles(trains, matched_late)
             
             if int(recname[1:4]) > 40:
                 temp_early = [t*SAMP_FREQ for t in temp_early]
