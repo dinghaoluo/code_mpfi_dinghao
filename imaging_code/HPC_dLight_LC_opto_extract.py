@@ -70,10 +70,10 @@ def main(path):
     savepath.mkdir(exist_ok=True)
     
     # check for repeated processing 
-    # if ((savepath / f'processed_data/{recname}_pixel_dFF_stim.npy').exists() and
-    #     (savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy').exists()):
-    #     print(f'processed... skipping {recname}')
-    #     return
+    if ((savepath / f'processed_data/{recname}_pixel_dFF_stim.npy').exists() and
+        (savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy').exists()):
+        print(f'processed... skipping {recname}')
+        return
     
     # load data 
     ops = np.load(opspath, allow_pickle=True).item()

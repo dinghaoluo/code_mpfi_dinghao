@@ -195,4 +195,4 @@ plot_violin_with_scatter(bg_means, roi_means,
                          xticklabels=['background', 'ROI'],
                          ylabel='stim. v baseline DA',
                          save=True,
-                         savepath=r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\correlation_analysis\tmap_x_release\summary_violinplot')
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\correlation_analysis\summary_violinplot')

@@ -9,22 +9,20 @@ replicate what we have done on LC run onset-peaking cells with HPC recordings
 
 
 #%% imports
-import os
-import sys
+from pathlib import Path 
 
 import numpy as np
 import pandas as pd
 import pickle
 import scipy.io as sio
 import matplotlib.pyplot as plt
-from scipy.stats import sem, ttest_ind, ttest_rel
+from scipy.stats import sem, ttest_ind
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from plotting_functions import plot_violin_with_scatter
+from decay_time_analysis import detect_peak, compute_tau
 from common import mpl_formatting
 mpl_formatting()
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathHPCLCopt = rec_list.pathHPCLCopt
 pathHPCLCtermopt = rec_list.pathHPCLCtermopt
@@ -36,9 +34,16 @@ RUN_ONSET_BIN = 3750
 BEF = 1  # seconds before run-onset
 AFT = 4  # seconds after run-onset
 
+TIME = np.arange(-SAMP_FREQ*BEF, SAMP_FREQ*AFT)/SAMP_FREQ
+
+
+#%% path stems 
+all_exp_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments')
+first_lick_stem = Path('Z:/Dinghao/code_dinghao/HPC_ephys/first_lick_analysis')
+
 
 #%% helper 
-def compute_bin_speeds_7(trial_indices, n_bins=7, bin_size=500):
+def _compute_bin_speeds_7(trial_indices, n_bins=7, bin_size=500):
     means = []
     valid = []
     total_len = n_bins * bin_size  # 3500
@@ -57,10 +62,10 @@ def compute_bin_speeds_7(trial_indices, n_bins=7, bin_size=500):
         return np.empty((0, n_bins)), []
     return np.vstack(means), valid    
 
-def get_profiles(trains, trials,
-                 RUN_ONSET_BIN=RUN_ONSET_BIN,
-                 SAMP_FREQ=SAMP_FREQ,
-                 BEF=BEF, AFT=AFT):
+def _get_profiles(trains, trials,
+                  RUN_ONSET_BIN=RUN_ONSET_BIN,
+                  SAMP_FREQ=SAMP_FREQ,
+                  BEF=BEF, AFT=AFT):
     profiles = []
     for trial in trials:
         curr_train = trains[trial]
@@ -92,9 +97,7 @@ def _trial_bin_means(trial_idx_list, bin_size=500, total_len=3500, n_bins=7):
 
 #%% load data 
 print('loading dataframes...')
-cell_profiles = pd.read_pickle(
-    r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl'
-)
+cell_profiles = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
 df_pyr = cell_profiles[cell_profiles['cell_identity'] == 'pyr']
 pyrON = df_pyr[df_pyr['class'] == 'run-onset ON']
 pyrOFF = df_pyr[df_pyr['class'] == 'run-onset OFF']
@@ -103,11 +106,15 @@ pyrOFF = df_pyr[df_pyr['class'] == 'run-onset OFF']
 #%% main
 # ON cells 
 early_profiles_ON = []
-late_profiles_ON = []
+late_profiles_ON  = []
+early_tau_ON      = []
+late_tau_ON       = []
 
 # OFF cells 
 early_profiles_OFF = []
-late_profiles_OFF = []
+late_profiles_OFF  = []
+early_tau_OFF      = []
+late_tau_OFF       = []
 
 # speed after speed matching for each session 
 sess_early_speed_means = []
@@ -166,6 +173,9 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
                 late_trials.append(trial)
 
         print(f'found {len(early_trials)} early trials, {len(late_trials)} late trials')
+        if len(early_trials) < 10 or len(late_trials) < 10:
+            print('skipped')
+            continue
 
         all_trains = np.load(
             rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{recname}'
@@ -174,17 +184,11 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
         ).item()
 
         try:
-            beh_path = os.path.join(
-                r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCLC',
-                f'{recname}.pkl'
-            )
+            beh_path = all_exp_stem/ 'HPCLC' / f'{recname}.pkl'
             with open(beh_path, 'rb') as f:
                 beh = pickle.load(f)
         except FileNotFoundError:
-            beh_path = os.path.join(
-                r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCLCterm',
-                f'{recname}.pkl'
-            )
+            beh_path = all_exp_stem/ 'HPCLCterm' / f'{recname}.pkl'
             with open(beh_path, 'rb') as f:
                 beh = pickle.load(f)
 
@@ -200,14 +204,10 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
         # speed matching begins here 
         matched_early = []
         matched_late = []
-        
-        if len(early_trials) < 10 or len(late_trials) < 10:
-            print('skipped')
-            continue
 
         # 7-bin speed extraction (0–3500 ms)
-        E_bins, e_valid = compute_bin_speeds_7(early_trials)  # shape: (nE, 7)
-        L_bins, l_valid = compute_bin_speeds_7(late_trials)   # shape: (nL, 7)
+        E_bins, e_valid = _compute_bin_speeds_7(early_trials)  # shape: (nE, 7)
+        L_bins, l_valid = _compute_bin_speeds_7(late_trials)   # shape: (nL, 7)
         
         matched_early, matched_late = [], []
         if len(E_bins) and len(L_bins):
@@ -286,29 +286,74 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
             ax.spines[s].set_visible(False)
         fig.tight_layout()
         
-        vis_path = os.path.join(
-            r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\single_session_speed_matching',
-            f'{recname}_bin_filtered_speed_traces'
-        )
+        vis_path = first_lick_stem / 'single_session_speed_matching' / f'{recname}_bin_filtered_speed_traces'
         for ext in ['.pdf', '.png']:
-            fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\single_session_speed_matching\\'
-                        rf'{recname}_bin_filtered_speed_traces{ext}', 
-                        dpi=200)
+            fig.savefig(f'{vis_path}{ext}', dpi=200)
         plt.close(fig)
 
     # main 
+    if len(early_trials) < 10 or len(late_trials) < 10:
+        continue
+    
     trains = all_trains[cluname]
     if len(matched_early) >= 10 and len(matched_late) >= 10:
         if cluname in pyrON.index:
-            early_profiles_ON.extend(get_profiles(trains, matched_early))
-            late_profiles_ON.extend(get_profiles(trains, matched_late))
+            early_profiles = _get_profiles(trains, matched_early)
+            late_profiles  = _get_profiles(trains, matched_late)
+            
+            early_profiles_ON.extend(early_profiles)
+            late_profiles_ON.extend(late_profiles)
+            
+            # get tau 
+            early_mean = np.nanmean(early_profiles, axis=0)
+            late_mean  = np.nanmean(late_profiles, axis=0)
+            
+            peak_idx_early = detect_peak(early_mean, 'run-onset ON', run_onset_bin=1250)
+            tau_early, fit_params_early = compute_tau(
+                TIME, early_mean, peak_idx_early, 'run-onset ON'
+                )
+        
+            peak_idx_late = detect_peak(late_mean, 'run-onset ON', run_onset_bin=1250)
+            tau_late, fit_params_late = compute_tau(
+                TIME, late_mean, peak_idx_late, 'run-onset ON'
+                )
+            
+            if (fit_params_late['adj_r_squared']>0.6 and 
+                fit_params_early['adj_r_squared']>0.6):
+                early_tau_ON.append(tau_early)
+                late_tau_ON.append(tau_late)
         
         if cluname in pyrOFF.index:
-            early_profiles_OFF.extend(get_profiles(trains, matched_early))
-            late_profiles_OFF.extend(get_profiles(trains, matched_late))
+            early_profiles = _get_profiles(trains, matched_early)
+            late_profiles  = _get_profiles(trains, matched_late)
+            
+            early_profiles_OFF.extend(early_profiles)
+            late_profiles_OFF.extend(late_profiles)
+            
+            # get tau 
+            early_mean = np.nanmean(early_profiles, axis=0)
+            late_mean  = np.nanmean(late_profiles, axis=0)
+            
+            peak_idx_early = detect_peak(early_mean, 'run-onset OFF', run_onset_bin=1250)
+            tau_early, fit_params_early = compute_tau(
+                TIME, early_mean, peak_idx_early, 'run-onset OFF'
+                )
+        
+            peak_idx_late = detect_peak(late_mean, 'run-onset OFF', run_onset_bin=1250)
+            tau_late, fit_params_late = compute_tau(
+                TIME, late_mean, peak_idx_late, 'run-onset ON'
+                )
+            
+            if (fit_params_late['adj_r_squared']>0.6 and 
+                fit_params_early['adj_r_squared']>0.6):
+                early_tau_OFF.append(tau_early)
+                late_tau_OFF.append(tau_late)
 
 
 #%% BEFORE-matching session-averaged speed
+early_speed_c = (168/255, 155/255, 202/255)
+late_speed_c = (102/255, 8/255, 162/255)
+
 E_raw = np.vstack(sess_early_speed_means_raw)  # n_sessions x 3500
 L_raw = np.vstack(sess_late_speed_means_raw)
 
@@ -320,17 +365,16 @@ L_raw_sem  = sem(L_raw, axis=0)
 x_sec = np.arange(3500) / 1000.0
 
 fig, ax = plt.subplots(figsize=(2.1, 2.0))
-ax.plot(x_sec, E_raw_mean, c='grey', label='early (<2.5 s)')
+ax.plot(x_sec, E_raw_mean, c=early_speed_c, label='early (<2.5 s)')
 ax.fill_between(x_sec, E_raw_mean+E_raw_sem, E_raw_mean-E_raw_sem,
-                color='grey', edgecolor='none', alpha=.25)
+                color=early_speed_c, edgecolor='none', alpha=.25)
 
-late_c = (0.20, 0.35, 0.65)
-ax.plot(x_sec, L_raw_mean, c=late_c, label='late (2.5–3.5 s)')
+ax.plot(x_sec, L_raw_mean, c=late_speed_c, label='late (2.5–3.5 s)')
 ax.fill_between(x_sec, L_raw_mean+L_raw_sem, L_raw_mean-L_raw_sem,
-                color=late_c, edgecolor='none', alpha=.25)
+                color=late_speed_c, edgecolor='none', alpha=.25)
 
-ax.set(xlabel='time from run onset (s)', xlim=(0,3.5),
-       ylabel='speed (cm/s)', ylim=(0, 65),
+ax.set(xlabel='Time from run onset (s)', xlim=(0,3.5),
+       ylabel='Speed (cm/s)', ylim=(0, 65),
        title='pre-matching speed')
 ax.legend(frameon=False, fontsize=7)
 for s in ['top', 'right']:
@@ -339,7 +383,7 @@ fig.tight_layout()
 plt.show()
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\speed_pre_matched{ext}',
+    fig.savefig(first_lick_stem / 'speed_pre_matched{ext}',
                 dpi=300,
                 bbox_inches='tight')
     
@@ -354,14 +398,13 @@ L_trace_mean = np.mean(L, axis=0)
 L_trace_sem  = sem(L, axis=0)
 
 fig, ax = plt.subplots(figsize=(2.1, 2.0))
-ax.plot(x_sec, E_trace_mean, c='grey', label='early (<2.5 s)')
+ax.plot(x_sec, E_trace_mean, c=early_speed_c, label='early (<2.5 s)')
 ax.fill_between(x_sec, E_trace_mean+E_trace_sem, E_trace_mean-E_trace_sem,
-                color='grey', edgecolor='none', alpha=.25)
+                color=early_speed_c, edgecolor='none', alpha=.25)
 
-late_c = (0.20, 0.35, 0.65)
-ax.plot(x_sec, L_trace_mean, c=late_c, label='late (2.5–3.5 s)')
+ax.plot(x_sec, L_trace_mean, c=late_speed_c, label='late (2.5–3.5 s)')
 ax.fill_between(x_sec, L_trace_mean+L_trace_sem, L_trace_mean-L_trace_sem,
-                color=late_c, edgecolor='none', alpha=.25)
+                color=late_speed_c, edgecolor='none', alpha=.25)
 
 # per-bin stats (500 ms bins)
 bin_size = 500  # ms
@@ -409,7 +452,7 @@ for i, (lo, hi) in enumerate(edges_ms):
     print(f'  {lo:4d}–{hi:4d} ms: t={tvals[i]:6.3f}, p={pvals[i]:.4f}, dz={dz[i]:.3f}')
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\speed_post_matched{ext}',
+    fig.savefig(first_lick_stem / 'speed_post_matched{ext}',
                 dpi=300,
                 bbox_inches='tight')
 
@@ -420,7 +463,7 @@ early_win_means = np.mean(np.array(early_profiles_ON)[:, 1250+625:1250+1825], ax
 late_win_means  = np.mean(np.array(late_profiles_ON)[:, 1250+625:1250+1825], axis=1)
 
 plot_violin_with_scatter(early_win_means, late_win_means, 
-                         'grey', late_c,
+                         'lightcoral', 'firebrick',
                          paired=False, showscatter=True,
                          ylim=(0, 20),
                          save=False)
@@ -440,23 +483,20 @@ early_sem = sem(early_profiles_ON, axis=0)
 late_mean = np.mean(late_profiles_ON, axis=0)
 late_sem = sem(late_profiles_ON, axis=0)
 
-early_c = (0.55, 0.65, 0.95)
-late_c  = (0.20, 0.35, 0.65)
-
 fig, ax = plt.subplots(figsize=(2.3, 2.0))
-ax.plot(XAXIS, early_mean, c='grey', label='<2.5')
+ax.plot(XAXIS, early_mean, c='lightcoral', label='<2.5')
 ax.fill_between(XAXIS, early_mean+early_sem, early_mean-early_sem,
-                color='grey', edgecolor='none', alpha=.25)
-ax.plot(XAXIS, late_mean, c=late_c, label='2.5~3.5')
+                color='lightcoral', edgecolor='none', alpha=.25)
+ax.plot(XAXIS, late_mean, c='firebrick', label='2.5~3.5')
 ax.fill_between(XAXIS, late_mean+late_sem, late_mean-late_sem,
-                color=late_c, edgecolor='none', alpha=.25)
+                color='firebrick', edgecolor='none', alpha=.25)
 
 ax.hlines(3.5, .5, 1.5, color='k', lw=1)
 ax.text((.5 + 1.5)/2, 3.5, f'p={p_val:.6f}',
         ha='center', va='bottom', fontsize=5)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='time from run-onset (s)', xlim=(-1, 4),
+ax.set(xlabel='time from run-onset (s)', xlim=(-1, 4), ylim=(1, 3.5),
        ylabel='spike rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -465,9 +505,10 @@ fig.tight_layout()
 plt.show()
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\all_run_onset_ON_mean_profiles{ext}',
-                dpi=300,
-                bbox_inches='tight')
+    fig.savefig(
+        first_lick_stem / f'all_run_onset_ON_mean_profiles{ext}',
+        dpi=300,
+        bbox_inches='tight')
     
 
 #%% mean spiking curves (OFF) for early v late 
@@ -490,24 +531,21 @@ early_sem = sem(early_profiles_OFF, axis=0)
 late_mean = np.mean(late_profiles_OFF, axis=0)
 late_sem = sem(late_profiles_OFF, axis=0)
 
-early_c = (0.55, 0.65, 0.95)
-late_c  = (0.20, 0.35, 0.65)
-
 fig, ax = plt.subplots(figsize=(2.3, 2.0))
-ax.plot(XAXIS, early_mean, c='grey', label='<2.5')
+ax.plot(XAXIS, early_mean, c='violet', label='<2.5')
 ax.fill_between(XAXIS, early_mean+early_sem, early_mean-early_sem,
-                color='grey', edgecolor='none', alpha=.25)
-ax.plot(XAXIS, late_mean, c=late_c, label='2.5~3.5')
+                color='violet', edgecolor='none', alpha=.25)
+ax.plot(XAXIS, late_mean, c='purple', label='2.5~3.5')
 ax.fill_between(XAXIS, late_mean+late_sem, late_mean-late_sem,
-                color=late_c, edgecolor='none', alpha=.25)
+                color='purple', edgecolor='none', alpha=.25)
 
 ax.hlines(2.5, .5, 1.5, color='k', lw=1)
 ax.text((.5 + 1.5)/2, 2.5, f'p={p_val:.6f}',
         ha='center', va='bottom', fontsize=5)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='time from run-onset (s)', xlim=(-1, 4),
-       ylabel='spike rate (Hz)')
+ax.set(xlabel='Time from run-onset (s)', xlim=(-1, 4), ylim=(1, 3.5),
+       ylabel='Firing rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 
@@ -515,6 +553,7 @@ fig.tight_layout()
 plt.show()
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\all_run_onset_OFF_mean_profiles{ext}',
-                dpi=300,
-                bbox_inches='tight')
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\all_run_onset_OFF_mean_profiles{ext}',
+        dpi=300,
+        bbox_inches='tight')

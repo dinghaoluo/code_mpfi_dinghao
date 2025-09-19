@@ -43,6 +43,10 @@ def compute_tau(time: np.array,
     time = np.array(time)
     profile = np.array(profile)
 
+    # subtract baseline, 18 Sept 2025
+    baseline = np.min(profile)
+    profile = profile - baseline
+
     x_data = time[peak_idx:] - time[peak_idx]
     y_data = profile[peak_idx:]
 
@@ -65,17 +69,20 @@ def compute_tau(time: np.array,
 
         # adjusted r2
         n = len(y_data)
-        p = 2  # number of fit parameters: a and b
+        p = 2
         adj_r_squared = 1 - (1 - r_squared) * (n - 1) / (n - p - 1)
 
     except RuntimeError:
         print('curve fitting failed')
         return None, None
 
-    return tau, {'a': a_fit, 
-                 'b': b_fit, 
-                 'r_squared': r_squared, 
-                 'adj_r_squared': adj_r_squared}
+    return tau, {
+        'a': a_fit,
+        'b': b_fit,
+        'r_squared': r_squared,
+        'adj_r_squared': adj_r_squared,
+        'baseline': baseline
+    }
 
 def detect_min_max(
         profile: np.array,

@@ -196,7 +196,7 @@ class ROIEditor(QMainWindow):
         grid = QGridLayout()
         param_names = [
             'clip-percentile',         # 95–99
-            'MSER threshold',          # 10–30 (percentile)
+            'MSER threshold',          # percentile
             'MSER max variation',      # 0.5–2.0
             'MSER delta',              # 3–8
             'MSER min area',           # 20–200
@@ -211,7 +211,7 @@ class ROIEditor(QMainWindow):
         ]
         defaults = [
             99,
-            20,
+            80,
             1.2,
             5,
             30,
@@ -359,6 +359,25 @@ class ROIEditor(QMainWindow):
             self.canvas.reset_view()
             self.append_output(f'{self.recname} loaded\n')
             
+            # auto-check for ROI dict, 15 Sept 2025 
+            roi_dict_path = os.path.join(os.path.dirname(path), f'{self.recname}_ROI_dict.npy')
+            if os.path.exists(roi_dict_path):
+                try:
+                    roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
+                    if isinstance(roi_dict, dict):
+                        self.roi_dict = roi_dict
+                        self.labelled = np.zeros_like(self.ref_image, dtype=np.int32)
+                        for roi_id, coords in self.roi_dict.items():
+                            self.labelled[coords['ypix'], coords['xpix']] = roi_id
+                        self.selected.clear()
+                        self.plot_image()
+                        self.canvas.reset_view()
+                        self.append_output(f'ROI dict loaded automatically from {roi_dict_path}\n')
+                except Exception as e:
+                    self.append_output(f'failed to load ROI dict: {e}\n')
+            else:  # if no roi dict exists
+                self.run_segmentation()
+            
     def load_roi_dict(self):
         if self.ref_image is None:
             print('please load a reference image first')
@@ -461,22 +480,22 @@ class ROIEditor(QMainWindow):
             print('invalid segmentation parameters')
             return
     
-        # --- 1) gentle denoise, but preserve ridges
+        # denoise whilst preserving ridges
         ref_f = median_filter(self.ref_image, size=(3, 3))
     
-        # --- 2) robust contrast boost for thin bright fibres
+        # contrast boost for thin bright fibres
         img_u8 = enhance_contrast_u8(
             ref_f,
             tophat_kernel=p['tophat kernel'],
             clahe_clip=p['clahe clip']
         )
     
-        # --- 3) soft gate: keep pixels above a low percentile (keeps faint axons)
+        # soft gate: keep pixels above a low percentile (keeps faint axons)
         thr = np.percentile(img_u8, p['MSER threshold'])
         soft = img_u8.copy()
         soft[soft < thr] = 0  # zero background without crushing mid-high values
     
-        # --- 4) MSER with tunable size + stability
+        # MSER with tunable size + stability
         delta = int(max(1, round(p['MSER delta'])))
         min_area = int(max(5, round(p['MSER min area'])))
         max_area = int(max(min_area + 1, round(p['MSER max area'])))
@@ -485,12 +504,12 @@ class ROIEditor(QMainWindow):
     
         regions, _ = mser.detectRegions(soft)
     
-        # --- 5) initial label map from MSER regions
+        # initial label map from MSER regions
         lab = np.zeros_like(img_u8, dtype=np.int32)
         for i, reg in enumerate(regions):
             lab[reg[:, 1], reg[:, 0]] = i + 1
     
-        # --- 6) region filters (more LENIENT)
+        # region filters (more LENIENT)
         props = regionprops(lab)
         roi_dict = {}
         roi_id = 1

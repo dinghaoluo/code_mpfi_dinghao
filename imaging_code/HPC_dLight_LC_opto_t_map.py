@@ -8,8 +8,7 @@ pixel-wise stim.-response map
 """
 
 #%% imports 
-import sys 
-import os 
+from pathlib import Path
 
 import numpy as np 
 import matplotlib.pyplot as plt 
@@ -18,9 +17,8 @@ from matplotlib.colors import TwoSlopeNorm
 from matplotlib import cm 
 from scipy.stats import ttest_rel
 
-sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
-paths = rec_list.pathdLightLCOpto + rec_list.pathdLightLCOptoCtrl
+paths = rec_list.pathdLightLCOpto + rec_list.pathdLightLCOptoCtrl + rec_list.pathdLightLCOptoInh
 
 
 #%% parameters 
@@ -35,31 +33,31 @@ BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -.15)
 STIM_IDX = (TAXIS >= 1.15) & (TAXIS < 2.0)
 
 
+#%% path stems
+all_sess_stem = Path('Z:/Dinghao/code_dinghao/HPC_dLight_LC_opto/all_sessions')
+tmap_stem = Path('Z:/Dinghao/code_dinghao/HPC_dLight_LC_opto/t_maps')
+
+
 #%% main 
-for path in paths[41:42]:
-    recname = path.split('\\')[-1]
+for path in paths:
+    recname = Path(path).name
     print(f'\n{recname}')
     
     whether_ctrl = '_ctrl' if path in rec_list.pathdLightLCOptoCtrl else ''
-    savepath = os.path.join(
-        r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions',
-        f'{recname}{whether_ctrl}'
-        )
-    
-    tmappath = r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\t_maps'
-    
-    if os.path.exists(rf'{savepath}\processed_data\{recname}_tmap.npy'):
-        print(f'{recname} has been processed... skipped')
-        continue
+    savepath = all_sess_stem / f'{recname}{whether_ctrl}'
+        
+    # if (savepath / 'processed_data' / f'{recname}_tmap.npy').exists():
+    #     print(f'{recname} has been processed... skipped')
+    #     continue
     
     aligned_F = np.load(
-        rf'{savepath}\processed_data\{recname}_pixel_F_aligned.npy'
+        savepath / 'processed_data' / f'{recname}_pixel_F_aligned.npy'
         )
     ref = np.load(
-        rf'{savepath}\processed_data\{recname}_ref_mat_ch1.npy'
+        savepath / 'processed_data' / f'{recname}_ref_mat_ch1.npy'
         )
     ref2 = np.load(
-        rf'{savepath}\processed_data\{recname}_ref_mat_ch2.npy'
+        savepath / 'processed_data' / f'{recname}_ref_mat_ch2.npy'
         )
     
     # extract activity from defined periods
@@ -85,8 +83,8 @@ for path in paths[41:42]:
                 tmap[i, j] = np.nan
                 
     # tmap plotting 
-    vmin = np.nanmin(tmap)
-    vmax = np.nanmax(tmap)
+    vmin = min(np.nanmin(tmap), -.001)
+    vmax = max(np.nanmax(tmap), .001)
     
     norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
     
@@ -101,7 +99,7 @@ for path in paths[41:42]:
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
-            rf'{tmappath}\{recname}_tmap{ext}',
+            tmap_stem / f'{recname}_tmap{ext}',
             dpi=300,
             bbox_inches='tight'
         )
@@ -113,9 +111,7 @@ for path in paths[41:42]:
     # convert to 8-bit RGB for TIFF
     rgb_tmap = (rgba_tmap[..., :3] * 255).astype(np.uint8)
             
-    tifffile.imwrite(rf'{tmappath}\{recname}_tmap.tiff',
-                     rgb_tmap)
+    tifffile.imwrite(tmap_stem / f'{recname}_tmap.tiff', rgb_tmap)
     
     # save the tmap 
-    np.save(rf'{savepath}\processed_data\{recname}_tmap.npy',
-            tmap)
+    np.save(savepath / 'processed_data' / f'{recname}_tmap.npy', tmap)

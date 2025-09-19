@@ -13,7 +13,7 @@ temporary script due to cell profiles not saved 2 Sept 2025
 
 
 #%% imports
-import os
+from pathlib import Path
 
 import numpy as np
 import pickle
@@ -23,6 +23,7 @@ from scipy.stats import sem, ttest_ind
 
 import support_HPC as support 
 
+import plotting_functions as pf
 from common import mpl_formatting
 mpl_formatting()
 
@@ -46,6 +47,11 @@ early_c = (0.55, 0.65, 0.95)
 late_c  = (0.20, 0.35, 0.65)
 
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
+
+
+#%% path stems 
+beh_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCRaphi')
+first_lick_stem = Path('Z:/Dinghao/code_dinghao/HPC_ephys/first_lick_analysis_raphi')
 
 
 #%% helper 
@@ -140,10 +146,7 @@ for i, path in enumerate(paths):
     bad_idx = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
     good_idx = [t for t in range(tot_trial) if t not in bad_idx]
 
-    beh_path = os.path.join(
-        r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCRaphi',
-        f'{recname}.pkl'
-    )
+    beh_path = beh_stem / f'{recname}.pkl'
     with open(beh_path, 'rb') as f:
         beh = pickle.load(f)
 
@@ -290,13 +293,9 @@ for i, path in enumerate(paths):
         ax.spines[s].set_visible(False)
     fig.tight_layout()
     
-    vis_path = os.path.join(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis_raphi\single_session_speed_matching',
-        f'{recname}_bin_filtered_speed_traces'
-    )
+    vis_path = first_lick_stem/ 'single_session_speed_matching' / f'{recname}_bin_filtered_speed_traces'
     for ext in ['.pdf', '.png']:
-        fig.savefig(r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis_raphi\single_session_speed_matching\\'
-                    rf'{recname}_bin_filtered_speed_traces{ext}', 
+        fig.savefig(f'{vis_path}{ext}', 
                     dpi=200)
     plt.close(fig)
     
@@ -369,6 +368,16 @@ for i, path in enumerate(paths):
         curr_late_mean = np.mean(curr_late_ON, axis=0)
         curr_late_sem = sem(curr_late_ON, axis=0)
 
+        curr_early_amp = np.mean(np.array(curr_early_ON)[:, 1250+625:1250+1825], axis=1)
+        curr_late_amp = np.mean(np.array(curr_late_ON)[:, 1250+625:1250+1825], axis=1)
+        
+        pf.plot_violin_with_scatter(curr_early_amp, curr_late_amp, 'grey', 'royalblue',
+                                    paired=False, showscatter=True,
+                                    ylim=(0, 10),
+                                    save=True,
+                                    title=f'{len(matched_early)} {len(matched_late)}\n{np.mean(curr_early_amp)} {np.mean(curr_late_amp)}',
+                                    savepath=rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis_raphi\all_sessions\{recname}_run_onset_ON_mean_amp{ext}')
+
         fig, ax = plt.subplots(figsize=(2.3, 2.0))
         ax.plot(XAXIS, curr_early_mean, c='grey', label='<2.5')
         ax.fill_between(XAXIS, curr_early_mean+curr_early_sem, curr_early_mean-curr_early_sem,
@@ -386,10 +395,9 @@ for i, path in enumerate(paths):
         fig.tight_layout()
         plt.show()
 
-        for ext in ['.png', '.pdf']:
-            fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis_raphi\all_sessions\{recname}_run_onset_ON_mean_profiles{ext}',
-                        dpi=300,
-                        bbox_inches='tight')
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis_raphi\all_sessions\{recname}_run_onset_ON_mean_profiles.png',
+                    dpi=300,
+                    bbox_inches='tight')
     
         
     if curr_early_OFF:
@@ -416,10 +424,9 @@ for i, path in enumerate(paths):
         fig.tight_layout()
         plt.show()
 
-        for ext in ['.png', '.pdf']:
-            fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis_raphi\all_sessions\{recname}_run_onset_OFF_mean_profiles{ext}',
-                        dpi=300,
-                        bbox_inches='tight')
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis_raphi\all_sessions\{recname}_run_onset_OFF_mean_profiles.png',
+                    dpi=300,
+                    bbox_inches='tight')
 
 
 #%% BEFORE-matching session-averaged speed

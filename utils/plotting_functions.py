@@ -148,7 +148,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              showmeans=False, showmedians=True, showextrema=False,
                              print_statistics=False, plot_statistics=True,
                              save=False, savepath=' ', dpi=300,
-                             figsize=(1.8,2.2)):
+                             figsize=(1.8,2.2),
+                             pngonly=False):
     """
     plot half-violins with optional scatter and statistical comparisons
 
@@ -328,17 +329,16 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     plt.grid(False)
     plt.show()
     
-    print(
-        f'data0 mean = {np.mean(data0)}, sem = {sem(data0)}\n'
-        f'data1 mean = {np.mean(data1)}, sem = {sem(data1)}\n'
-        f'ttest p = {ttest_p_str}\n'
-        f'wilc p = {wilc_p_str}\n')
-    
     if save:
-        for ext in ['.png', '.pdf']:
-            fig.savefig(f'{savepath}{ext}',
+        if pngonly:
+            fig.savefig(f'{savepath}.png',
                         dpi=dpi,
                         bbox_inches='tight')
+        else:
+            for ext in ['.png', '.pdf']:
+                fig.savefig(f'{savepath}{ext}',
+                            dpi=dpi,
+                            bbox_inches='tight')
         
         
 def plot_ecdfs(data0, data1, 
