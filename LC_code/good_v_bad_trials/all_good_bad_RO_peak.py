@@ -18,65 +18,24 @@ bad trial parameters 12 Dec 2024 (in the .pkl dataframe):
 
 
 #%% imports
-import os 
-import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from scipy.stats import wilcoxon
+import pickle 
+from scipy.stats import wilcoxon, sem
 import matplotlib.pyplot as plt 
 import scipy.io as sio
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 import plotting_functions as pf
 from common import mpl_formatting 
 mpl_formatting()
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathLC = rec_list.pathLC
 
 
-#%% GPU acceleration
-try:
-    import cupy as cp 
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
-except ModuleNotFoundError:
-    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
-    GPU_AVAILABLE = False
-except Exception as e:
-    # catch any other unexpected errors and print a general message
-    print(f'An error occurred: {e}')
-    GPU_AVAILABLE = False
-
-if GPU_AVAILABLE:
-    # we are assuming that there is only 1 GPU device
-    xp = cp
-    from coommon import sem_gpu as sem
-    name = cp.cuda.runtime.getDeviceProperties(0)['name'].decode('UTF-8')
-    print(f'GPU-acceleration with {str(name)} and cupy')
-else:
-    import numpy as np 
-    from scipy.stats import sem 
-    xp = np
-    print('GPU-acceleartion unavailable')
-
-
 #%% functions 
-def load_beh_series(df_filename, recname):
-    return pd.read_pickle(df_filename).loc[recname]
-
-def find_RO_peaking(cell_prop):
-    RO_peaking_keys = []
-    for cell in cell_prop.index:
-        pk = cell_prop['peakness'][cell]  # union-peakness
-        pt = cell_prop['putative'][cell]  # putative
-        tg = cell_prop['tagged'][cell]
-        
-        if pk and (pt or tg):
-            RO_peaking_keys.append(cell)
-
-    return RO_peaking_keys
-
 def get_good_bad_idx(beh_series):
     bad_trial_map = beh_series['bad_trials']
     good_idx = [trial for trial, quality in enumerate(bad_trial_map) if not quality]
@@ -86,39 +45,51 @@ def get_good_bad_idx(beh_series):
 
 def get_trialtype_idx(beh_filename):
     behPar = sio.loadmat(beh_filename)
-    stim_idx = xp.where(behPar['behPar']['stimOn'][0][0][0]!=0)[0]
+    stim_idx = np.where(behPar['behPar']['stimOn'][0][0][0]!=0)[0]
     
     if len(stim_idx)>0:
-        return xp.arange(1, stim_idx[0]), stim_idx, stim_idx+2  # stim_idx+2 are indices of control trials
+        return np.arange(1, stim_idx[0]), stim_idx, stim_idx+2  # stim_idx+2 are indices of control trials
     else:
         return np.arange(1, len(behPar['behPar']['stimOn'][0][0][0])), [], []  # if no stim trials
 
 
+#%% parameters 
+max_length = 12500  # max length for trial analysis
+xaxis = np.arange(-3*1250, 7*1250, 1)/1250 
+
+colour_tag = (70/255, 101/255, 175/255)
+colour_put = (101/255, 82/255, 163/255)
+
+
+#%% path stems 
+LC_all_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys')
+beh_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
+
+
 #%% load data 
-trains = np.load(r'Z:/Dinghao/code_dinghao/LC_all/LC_all_info.npy',
-                 allow_pickle=True).item()
-cell_prop = pd.read_pickle(r'Z:\Dinghao\code_dinghao\LC_all\LC_all_single_cell_properties.pkl')
+cell_prop_path = LC_all_stem / 'LC_all_cell_profiles.pkl'
+cell_prop = pd.read_pickle(cell_prop_path)
 
 
 #%% MAIN
 # get RO-peaking cells 
-RO_peaking = find_RO_peaking(cell_prop)
+peak_good_tag, peak_bad_tag = [], []
+prof_good_tag, prof_bad_tag = [], []
 
-pk_good = []; pk_bad = []
-s2n_good = []; s2n_bad = []
-p_good = {}; p_good_sem = {}  # single trials
-p_bad = {}; p_bad_sem = {}  # single trials
-max_length = 12500  # max length for trial analysis
+peak_good_put, peak_bad_put = [], []
+prof_good_put, prof_bad_put = [], []
 
-for pathname in pathLC[4:5]:
-    recname = pathname[-17:]
+for path in pathLC:
+    recname = Path(path).name
     print(recname)
     
     # load behaviour
-    beh_df = load_beh_series(r'Z:\Dinghao\code_dinghao\behaviour\all_LC_sessions.pkl', recname)
+    beh_path = beh_stem / f'{recname}.pkl'
+    with open(beh_path, 'rb') as f:
+        beh = pickle.load(f)
     
     # import bad beh trial indices
-    behPar = sio.loadmat(pathname+pathname[-18:]+
+    behPar = sio.loadmat(path+path[-18:]+
                          '_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat')
     # -1 to account for MATLAB Python difference
     bad_idx = np.where(behPar['behPar'][0]['indTrBadBeh'][0][0]==1)[0]-1
@@ -129,143 +100,138 @@ for pathname in pathLC[4:5]:
     # import stim trial indices
     baseline_idx, _, _ = get_trialtype_idx(
         r'{}\{}_DataStructure_mazeSection1_TrialType1_behPar_msess1.mat'.
-        format(pathname, recname)
+        format(path, recname)
         )
     
     # import tagged cell spike trains from all_tagged_train
     if len(bad_idx) >= 10:  # 10 bad trials at least, prevents contam.
-        for name in RO_peaking:
-            if name[:17] == recname:
-                curr = trains[name]  # train of current clu
-                curr_good = np.zeros([len(good_idx), max_length])
-                curr_bad = np.zeros([len(bad_idx), max_length])
-                for i, trial in enumerate(good_idx):
-                    curr_length = len(curr[trial])
-                    curr_good[i, :curr_length] = curr[trial][:max_length]
-                for i, trial in enumerate(bad_idx):
-                    curr_length = len(curr[trial])
-                    curr_bad[i, :curr_length] = curr[trial][:max_length]
-                p_good[name] = xp.mean(curr_good, axis=0)
-                p_good_sem[name] = sem(curr_good, axis=0)
-                pk_good.append(xp.mean(p_good[name][3125:4375]))
-                bl_good = (xp.mean(p_good[name][625:1875])+xp.mean(p_good[name][5625:6875]))/2
-                s2n_good.append(xp.mean(p_good[name][3125:4375])/bl_good)
-                p_bad[name] = xp.mean(curr_bad, axis=0)
-                p_bad_sem[name] = sem(curr_bad, axis=0)
-                bl_bad = (xp.mean(p_bad[name][625:1875])+xp.mean(p_bad[name][5625:6875]))/2
-                s2n_bad.append(xp.mean(p_bad[name][3125:4375])/bl_bad)
-                pk_bad.append(xp.mean(p_bad[name][3125:4375]))
-
-
-#%% calculation 
-p_g_avg = []
-p_b_avg = []
-for clu in list(p_good.items()):
-    p_g_avg.append(clu[1])
-for clu in list(p_bad.items()):
-    p_b_avg.append(clu[1])
-p_g_sem = sem(p_g_avg, axis=0)
-p_g_avg = np.mean(p_g_avg, axis=0)
-p_b_sem = sem(p_b_avg, axis=0)
-p_b_avg = np.mean(p_b_avg, axis=0)
-
-
-#%% plotting
-print('\nplotting avg onset-bursting good vs bad spike trains...')
-tot_plots = len(p_good)  # total number of cells
-col_plots = 5
-row_plots = tot_plots // col_plots
-if tot_plots % col_plots != 0:
-    row_plots += 1
-plot_pos = np.arange(1, tot_plots+1)
-
-fig = plt.figure(1, figsize=[5*4, row_plots*2.5]); fig.tight_layout()
-xaxis = np.arange(-3*1250, 7*1250, 1)/1250 
-
-for i in range(tot_plots):
-    curr_clu_good = list(p_good.items())[i]
-    curr_clu_name = curr_clu_good[0]
-    curr_good_avg = curr_clu_good[1]
-    curr_good_sem = p_good_sem[curr_clu_name]
-    curr_bad_avg = p_bad[curr_clu_name]
-    curr_bad_sem = p_bad[curr_clu_name]
     
-    ax = fig.add_subplot(row_plots, col_plots, plot_pos[i])
-    ax.set_title(curr_clu_name[-22:], fontsize = 10)
-    ax.set(ylim=(0, np.max(curr_good_avg)*1250*1.5),
-           ylabel='spike rate (Hz)',
-           xlabel='time (s)')
-    good_avg = ax.plot(xaxis, curr_good_avg*1250, color='seagreen')
-    good_sem = ax.fill_between(xaxis, curr_good_avg*1250+curr_good_sem*1250,
-                                      curr_good_avg*1250-curr_good_sem*1250,
-                                      color='springgreen')
-    bad_avg = ax.plot(xaxis, curr_bad_avg*1250, color='firebrick', alpha=.3)
-    bad_sem = ax.fill_between(xaxis, curr_bad_avg+curr_bad_sem,
-                                     curr_bad_avg-curr_bad_sem,
-                                     color='lightcoral')
-    ax.vlines(0, 0, 20, color='grey', alpha=.25)
+        curr_cell_prop = cell_prop[cell_prop['sessname'] == recname]
+        curr_RO = curr_cell_prop[curr_cell_prop['run_onset_peak'] == True]
+        
+        trains_path = LC_all_stem / 'all_sessions' / recname
+        curr_trains = np.load(
+            trains_path / f'{recname}_all_trains.npy', allow_pickle=True
+            ).item()
+        
+        for cluname, row in curr_RO.iterrows():
+            trains = curr_trains[cluname]
+            curr_good = np.zeros([len(good_idx), max_length])
+            curr_bad = np.zeros([len(bad_idx), max_length])
+            for i, trial in enumerate(good_idx):
+                curr_length = len(trains[trial])
+                curr_good[i, :curr_length] = trains[trial][:max_length]
+            for i, trial in enumerate(bad_idx):
+                curr_length = len(trains[trial])
+                curr_bad[i, :curr_length] = trains[trial][:max_length]
+                
+            if row['identity'] == 'tagged':
+                prof_good_tag.append(np.mean(curr_good, axis=0))
+                peak_good_tag.append(np.mean(prof_good_tag[-1][3125:4375]))
+                prof_bad_tag.append(np.mean(curr_bad, axis=0))
+                peak_bad_tag.append(np.mean(prof_bad_tag[-1][3125:4375]))
+            if row['identity'] == 'putative':
+                prof_good_put.append(np.mean(curr_good, axis=0))
+                peak_good_put.append(np.mean(prof_good_put[-1][3125:4375]))
+                prof_bad_put.append(np.mean(curr_bad, axis=0))
+                peak_bad_put.append(np.mean(prof_bad_put[-1][3125:4375]))
 
-plt.subplots_adjust(hspace = 0.5)
-plt.show()
 
-out_directory = r'Z:\Dinghao\code_dinghao\LC_all'
-if not os.path.exists(out_directory):
-    os.makedirs(out_directory)
-fig.savefig(out_directory + '\\'+'LC_all_goodvbad_(alignedRun)_putDbh_ROpeaking.png')
+#%% tagged 
+pval_wil = wilcoxon(peak_good_tag, peak_bad_tag)[1]
 
-
-#%% avg profile for onset-bursting clus
-print('\nplotting avg onset-bursting good vs bad averaged spike trains...')
-
-pval_wil = wilcoxon(pk_good, pk_bad)[1]
-
-xaxis = np.arange(-3*1250, 7*1250, 1)/1250 
-
-p_g_burst_avg = []
-p_b_burst_avg = []
-for clu in list(p_good.items()):
-    p_g_burst_avg.append(clu[1])
-    p_b_burst_avg.append(p_bad[clu[0]])
-p_g_burst_sem = sem(p_g_burst_avg, axis=0)
-p_g_burst_avg = np.mean(p_g_burst_avg, axis=0)
-p_b_burst_sem = sem(p_b_burst_avg, axis=0)
-p_b_burst_avg = np.mean(p_b_burst_avg, axis=0)
+mean_good_tag_profile = np.mean(prof_good_tag, axis=0)
+sem_good_tag_profile = sem(prof_good_tag, axis=0)
+mean_bad_tag_profile = np.mean(prof_bad_tag, axis=0)
+sem_bad_tag_profile = sem(prof_bad_tag, axis=0)
 
 fig, ax = plt.subplots(figsize=(2,1.4))
-p_good_ln, = ax.plot(xaxis, p_g_burst_avg*1250, color='forestgreen')
-p_bad_ln, = ax.plot(xaxis, p_b_burst_avg*1250, color='grey')
-ax.fill_between(xaxis, p_g_burst_avg*1250+p_g_burst_sem*1250, 
-                       p_g_burst_avg*1250-p_g_burst_sem*1250,
-                       color='mediumseagreen', alpha=.1, edgecolor='none')
-ax.fill_between(xaxis, p_b_burst_avg*1250+p_b_burst_sem*1250, 
-                       p_b_burst_avg*1250-p_b_burst_sem*1250,
-                       color='gainsboro', alpha=.1, edgecolor='none')
+p_good_ln, = ax.plot(xaxis, mean_good_tag_profile, color=colour_tag)
+p_bad_ln, = ax.plot(xaxis, mean_bad_tag_profile, color='grey')
+
+ax.fill_between(xaxis, mean_good_tag_profile+sem_good_tag_profile,
+                       mean_good_tag_profile-sem_good_tag_profile,
+                       color=colour_tag, alpha=.3, edgecolor='none')
+ax.fill_between(xaxis, mean_bad_tag_profile+sem_bad_tag_profile,
+                       mean_bad_tag_profile-sem_bad_tag_profile,
+                       color='grey', alpha=.3, edgecolor='none')
+
 # ax.vlines(0, 0, 10, color='grey', linestyle='dashed', alpha=.1)
 ax.set(title='good v bad trials (all Dbh+)',
-       ylim=(1.8,9.6),yticks=[2,5,8],
+       ylim=(1.5,5.6),
        xlim=(-1,4),xticks=[0,2,4],
-       ylabel='spike rate (Hz)',
-       xlabel='time from run-onset (s)')
+       ylabel='Firing rate (Hz)',
+       xlabel='Time from run onset (s)')
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.legend([p_good_ln, p_bad_ln], 
-          ['good trial', 'bad trial'], frameon=False, fontsize=8)
+          ['Good trial', 'Bad trial'], frameon=False, fontsize=8)
 
-plt.plot([-.5,.5], [9,9], c='k', lw=.5)
-plt.text(0, 9, 'pval_wil={}'.format(round(pval_wil, 5)), ha='center', va='bottom', color='k', fontsize=5)
+plt.plot([-.5,.5], [5.5, 5.5], c='k', lw=.5)
+plt.text(0, 5.5, 'pval_wil={}'.format(round(pval_wil, 5)), ha='center', va='bottom', color='k', fontsize=5)
 
-for ext in ['png', 'pdf']:
-    fig.savefig('Z:\Dinghao\code_dinghao\LC_all\LC_all_goodvbad_(alignedRun)_avg_ROpeaking.{}'.format(ext),
+for ext in ['.png', '.pdf']:
+    fig.savefig(f'Z:\Dinghao\code_dinghao\LC_ephys\LC_tagged_goodvbad_ROpeaking{ext}',
+                dpi=300,
+                bbox_inches='tight')
+    
+    
+#%% putative 
+pval_wil = wilcoxon(peak_good_put, peak_bad_put)[1]
+
+mean_good_put_profile = np.mean(prof_good_put, axis=0)
+sem_good_put_profile = sem(prof_good_put, axis=0)
+mean_bad_put_profile = np.mean(prof_bad_put, axis=0)
+sem_bad_put_profile = sem(prof_bad_put, axis=0)
+
+fig, ax = plt.subplots(figsize=(2,1.4))
+p_good_ln, = ax.plot(xaxis, mean_good_put_profile, color=colour_put)
+p_bad_ln, = ax.plot(xaxis, mean_bad_put_profile, color='grey')
+
+ax.fill_between(xaxis, mean_good_put_profile+sem_good_put_profile,
+                       mean_good_put_profile-sem_good_put_profile,
+                       color=colour_put, alpha=.3, edgecolor='none')
+ax.fill_between(xaxis, mean_bad_put_profile+sem_bad_put_profile,
+                       mean_bad_put_profile-sem_bad_put_profile,
+                       color='grey', alpha=.3, edgecolor='none')
+
+# ax.vlines(0, 0, 10, color='grey', linestyle='dashed', alpha=.1)
+ax.set(title='good v bad trials (putative)',
+       ylim=(1.6,5.6),
+       xlim=(-1,4),xticks=[0,2,4],
+       ylabel='Firing rate (Hz)',
+       xlabel='Time from run onset (s)')
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.legend([p_good_ln, p_bad_ln], 
+          ['Good trial', 'Bad trial'], frameon=False, fontsize=8)
+
+plt.plot([-.5,.5], [5, 5], c='k', lw=.5)
+plt.text(0, 5, 'pval_wil={}'.format(round(pval_wil, 5)), ha='center', va='bottom', color='k', fontsize=5)
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(f'Z:\Dinghao\code_dinghao\LC_ephys\LC_putative_goodvbad_ROpeaking{ext}',
                 dpi=300,
                 bbox_inches='tight')
 
 
 #%% statistics 
-pf.plot_violin_with_scatter(s2n_good, s2n_bad, 
-                            'darkgreen', 'grey', 
+pf.plot_violin_with_scatter(peak_bad_tag, peak_good_tag, 
+                            'grey', colour_tag, 
                             paired=True, 
-                            xticklabels=['good\ntrials', 'bad\ntrials'], 
-                            ylabel='run-onset burst SNR', 
-                            title='LC RO-SNR', 
-                            save=True, savepath=r'Z:\Dinghao\code_dinghao\LC_all\LC_all_goodvbad_(alignedRun)_avg_ROpeaking_violin', 
-                            dpi=300)
+                            xticklabels=['Bad\ntrials', 'Good\ntrials'], 
+                            ylabel='Run onset peak amplitude', 
+                            title='LC RO peak', 
+                            save=True, 
+                            savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\LC_tagged_goodvbad_ROpeaking_violin', 
+                            ylim=(0,9))
+
+pf.plot_violin_with_scatter(peak_bad_put, peak_good_put, 
+                            'grey', colour_put,
+                            paired=True, 
+                            xticklabels=['Bad\ntrials', 'Good\ntrials'], 
+                            ylabel='run onset peak amplitude', 
+                            title='LC RO peak', 
+                            save=True, 
+                            savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\LC_putative_goodvbad_ROpeaking_violin', 
+                            ylim=(0,9))

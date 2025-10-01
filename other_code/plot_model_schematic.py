@@ -12,12 +12,15 @@ import matplotlib.pyplot as plt
 import numpy as np 
 from scipy.signal import fftconvolve
 
+from common import mpl_formatting
+mpl_formatting()
+
 
 #%% plotting 
 # HPC curve 
 taxis_HPC = np.linspace(-.5, 6, 550)
 sigmoid_onset = 1 / (1 + np.exp(-5 * (taxis_HPC - 0.3)))  # onset at ~0.3 s
-exponential_tail = np.exp(-taxis_HPC / 5)  # slow decay
+exponential_tail = np.exp(-taxis_HPC / 2.5)  # slow decay
 
 HPC = sigmoid_onset * exponential_tail
 HPC /= np.max(HPC)
@@ -33,19 +36,19 @@ gauss_peak /= np.max(gauss_peak)  # normalise to peak at 1
 
 # dopamine trace: starts at time -1, similar rise to LC Gaussian, slower decay
 taxis_decay = np.linspace(0, 6, 600)
-tau_decay_mod = 3.4
+tau_decay_mod = 4.4
 decay = np.exp(-taxis_decay / tau_decay_mod)
 dopamine = fftconvolve(gauss_peak, decay)[:600]
 dopamine /= np.max(dopamine)
 taxis_mod = np.linspace(0, 6, 600)
-taxis_mod = taxis_mod - 1
+taxis_mod = taxis_mod - .9
 
 fig, ax = plt.subplots(figsize=(2.2, 1.6))
 # ax.plot(taxis_HPC, HPC_mod, c='lightcoral', alpha=.6)
 ax.plot(taxis_HPC, HPC, c='firebrick', alpha=.8)
-ax.plot(taxis_HPC, 1-HPC, c='purple', alpha=.8)
+# ax.plot(taxis_HPC, 1-HPC, c='purple', alpha=.8)
 # ax.plot(taxis_LC, gauss_peak, c='royalblue')
-# ax.plot(taxis_mod, dopamine, c='darkgreen', ls='--')
+ax.plot(taxis_mod, dopamine, c='darkgreen', ls='--')
 
 # scaled LC peaks
 ax.plot(taxis_LC, gauss_peak * 1, c='royalblue', lw=2, alpha=1)
@@ -65,7 +68,7 @@ ax.set(xlim=(-1, 5), xticks=[],
 plt.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_LC_stim_HPC_diversity_response.png',
+fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_LC_stim_HPC_diversity_response.pdf',
             dpi=300,
             bbox_inches='tight')
 

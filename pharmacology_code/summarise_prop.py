@@ -79,9 +79,9 @@ for i, pathname in enumerate(pathNEblocker):
             )
         
         if i == 0:
-            mean_speeds_baseline.append(np.mean(speed_dist, axis=0))
+            mean_speeds_baseline.append(np.mean(speed_dist, axis=0)*1.8)
         elif i >= 1:
-            mean_speeds_drug.append(np.mean(speed_dist, axis=0))
+            mean_speeds_drug.append(np.mean(speed_dist, axis=0)*1.8)
         
         # licks (spatial)
         lick_dist = np.array(
@@ -96,12 +96,6 @@ for i, pathname in enumerate(pathNEblocker):
         elif i >= 1:
             mean_licks_drug.append(np.mean(lick_dist, axis=0))
         
-        
-#%% 
-fig, ax = plt.subplots(figsize=(3,3))
-for i in range(5):
-    ax.plot(mean_licks_baseline[i])
-        
 
 #%% speed plot
 fig, ax = plt.subplots(figsize=(2.3,1.7))
@@ -115,16 +109,16 @@ lp, = ax.plot(x_speed, ms_baseline, color='grey')
 ax.fill_between(x_speed, ms_baseline+ss_baseline,
                          ms_baseline-ss_baseline,
                 color='grey', edgecolor='none', alpha=.15)
-ld, = ax.plot(x_speed, ms_drug, color='darkgreen')
+ld, = ax.plot(x_speed, ms_drug, color='darkcyan')
 ax.fill_between(x_speed, ms_drug+ss_drug,
                          ms_drug-ss_drug,
-                color='darkgreen', edgecolor='none', alpha=.15)
+                color='darkcyan', edgecolor='none', alpha=.15)
 
 plt.legend([lp, ld], ['baseline', 'exp.'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 ax.set(xlim=(0,180), xlabel='distance (cm)',
-       ylabel='velocity (cm/s)')
+       ylabel='velocity (cm/s)', ylim=(0,75))
 
 for ext in ['.png', '.pdf']:
     fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\propranolol\speed_profile_new{}'.format(ext),
@@ -143,16 +137,16 @@ lp, = ax.plot(x_lick, ml_baseline, color='grey')
 ax.fill_between(x_lick, ml_baseline+sl_baseline,
                         ml_baseline-sl_baseline,
                 color='grey', edgecolor='none', alpha=.15)
-ld, = ax.plot(x_lick, ml_drug, color='darkgreen')
+ld, = ax.plot(x_lick, ml_drug, color='darkcyan')
 ax.fill_between(x_lick, ml_drug+sl_drug,
                         ml_drug-sl_drug,
-                color='darkgreen', edgecolor='none', alpha=.15)
+                color='darkcyan', edgecolor='none', alpha=.15)
 
 plt.legend([lp, ld], ['baseline', 'exp.'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 ax.set(xlim=(30,219), xlabel='distance (cm)',
-       ylim=(0,0.4), ylabel='hist. licks', yticks=[0, 0.3])
+       ylim=(0,0.2), ylabel='hist. licks', yticks=[0, 0.2])
 
 for ext in ['.png', '.pdf']:
     fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\propranolol\lick_profile_new{}'.format(ext),
@@ -181,7 +175,7 @@ bar_width = 0.5
 ax.bar(positions[0], mean_rp_baseline, yerr=sem_rp_baseline, width=bar_width,
        color='grey', alpha=0.7, capsize=3)
 ax.bar(positions[1], mean_rp_drug, yerr=sem_rp_drug, width=bar_width,
-       color='darkgreen', alpha=0.7, capsize=3)
+       color='darkcyan', alpha=0.7, capsize=3)
 
 # plot lines connecting individual animals
 for b, d in zip(reward_percentages_baseline, avg_rp_drug):
@@ -197,7 +191,7 @@ ax.set(xticks=positions, xticklabels=['baseline', 'NE blocker'],
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 ax.set_xlim(.5, 2.5)
-ax.set_ylim(0, 1)
+ax.set_ylim(0, 1.1)
 
 # save
 for ext in ['.png', '.pdf']:
@@ -228,7 +222,7 @@ bar_width = 0.5
 ax.bar(positions[0], mean_ms_baseline, yerr=sem_ms_baseline, width=bar_width,
        color='grey', alpha=0.7, capsize=3)
 ax.bar(positions[1], mean_ms_drug, yerr=sem_ms_drug, width=bar_width,
-       color='darkgreen', alpha=0.7, capsize=3)
+       color='darkcyan', alpha=0.7, capsize=3)
 
 # plot lines connecting individual animals
 for b, d in zip(avg_speed_baseline, avg_speed_drug):

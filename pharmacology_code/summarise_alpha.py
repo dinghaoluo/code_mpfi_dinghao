@@ -12,14 +12,11 @@ summarise pharmacological experiments with SCH23390
 import os 
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
-from scipy.stats import sem
+from scipy.stats import sem, ttest_rel
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, smooth_convolve, replace_outlier
 mpl_formatting()
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code\utils')
 import behaviour_functions as bf
 
 x_speed = np.arange(2200)/10
@@ -27,7 +24,6 @@ x_lick = np.arange(2200)/10
 
 
 #%% recording list
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathNEblocker = rec_list.pathAlphaBlocker
 sessNEblocker = rec_list.sessAlphaBlocker
@@ -39,6 +35,9 @@ mean_speeds_drug = []
 
 mean_licks_baseline = []
 mean_licks_drug = []
+
+reward_percentages_baseline = []
+reward_percentages_drug = []
 
 for i, pathname in enumerate(pathNEblocker):    
     sessname = pathname[-13:]
@@ -59,6 +58,15 @@ for i, pathname in enumerate(pathNEblocker):
             
         file = bf.process_behavioural_data(txtpath)
         
+        # reward percentage 
+        reward_times = file['reward_times'][1:-1]
+        rewarded = [1 if not np.isnan(t) else 0 for t in reward_times]
+        
+        if i == 0:
+            reward_percentages_baseline.append(sum(rewarded)/len(rewarded))
+        elif i == 1:
+            reward_percentages_drug.append(sum(rewarded)/len(rewarded))
+        
         # speed (spatial)
         speed_dist = np.array(
             [replace_outlier(np.array(trial))
@@ -67,9 +75,9 @@ for i, pathname in enumerate(pathNEblocker):
             )
         
         if i == 0:
-            mean_speeds_baseline.append(np.mean(speed_dist, axis=0))
-        elif i >= 1:
-            mean_speeds_drug.append(np.mean(speed_dist, axis=0))
+            mean_speeds_baseline.append(np.mean(speed_dist, axis=0)*1.8)
+        elif i == 1:
+            mean_speeds_drug.append(np.mean(speed_dist, axis=0)*1.8)
         
         # licks (spatial)
         lick_dist = np.array(
@@ -77,20 +85,21 @@ for i, pathname in enumerate(pathNEblocker):
             for i, trial in enumerate(file['lick_maps'])
             if len(trial)>0]
             )
-
+        mean_licks = np.mean(lick_dist, axis=0)
+        
         if i == 0:
             mean_licks_baseline.append(np.mean(lick_dist, axis=0))
-        elif i >= 1:
+        elif i == 1:
             mean_licks_drug.append(np.mean(lick_dist, axis=0))
         
 
-#%% speed plot  
+#%% speed plot
 fig, ax = plt.subplots(figsize=(2.3,1.7))
 
-ms_baseline = np.mean(mean_speeds_baseline, axis=0)/10
-ms_drug = np.mean(mean_speeds_drug, axis=0)/10
-ss_baseline = sem(mean_speeds_baseline, axis=0)/10
-ss_drug = sem(mean_speeds_drug, axis=0)/10
+ms_baseline = np.mean(mean_speeds_baseline, axis=0)
+ms_drug = np.mean(mean_speeds_drug, axis=0)
+ss_baseline = sem(mean_speeds_baseline, axis=0)
+ss_drug = sem(mean_speeds_drug, axis=0)
 
 lp, = ax.plot(x_speed, ms_baseline, color='grey')
 ax.fill_between(x_speed, ms_baseline+ss_baseline,
@@ -105,7 +114,7 @@ plt.legend([lp, ld], ['baseline', 'exp.'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 ax.set(xlim=(0,180), xlabel='distance (cm)',
-       ylabel='velocity (cm/s)')
+       ylabel='velocity (cm/s)', ylim=(0,75))
 
 for ext in ['.png', '.pdf']:
     fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\alpha\speed_profile{}'.format(ext),
@@ -133,8 +142,96 @@ plt.legend([lp, ld], ['baseline', 'exp.'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 ax.set(xlim=(30,219), xlabel='distance (cm)',
-       ylim=(0,0.4), ylabel='hist. licks', yticks=[0, 0.3])
+       ylim=(0,0.2), ylabel='hist. licks', yticks=[0, 0.2])
 
 for ext in ['.png', '.pdf']:
     fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\alpha\lick_profile{}'.format(ext),
+                dpi=300, bbox_inches='tight')
+    
+    
+#%% bar plot for reward percentage with connected scatter + p-value
+fig, ax = plt.subplots(figsize=(2.3,1.7))
+
+# means and sems
+mean_rp_baseline = np.mean(reward_percentages_baseline)
+mean_rp_drug = np.mean(reward_percentages_drug)
+sem_rp_baseline = sem(reward_percentages_baseline)
+sem_rp_drug = sem(reward_percentages_drug)
+
+# paired t-test
+tstat, pval = ttest_rel(reward_percentages_baseline, reward_percentages_drug)
+print(f'paired t-test p = {pval:.4f}')
+
+# plot bars
+positions = [1, 2]
+bar_width = 0.5
+ax.bar(positions[0], mean_rp_baseline, yerr=sem_rp_baseline, width=bar_width,
+       color='grey', alpha=0.7, capsize=3)
+ax.bar(positions[1], mean_rp_drug, yerr=sem_rp_drug, width=bar_width,
+       color='darkgreen', alpha=0.7, capsize=3)
+
+# plot lines connecting individual animals
+for b, d in zip(reward_percentages_baseline, reward_percentages_drug):
+    ax.plot(positions, [b, d], color='black', alpha=0.4, linewidth=0.8, marker='o', markersize=3)
+
+# add p-value text
+ax.text(1.5, max(mean_rp_baseline, mean_rp_drug) * 1.05,
+        f'p = {pval:.3f}', ha='center', va='bottom', fontsize=8)
+
+# tidy up axes
+ax.set(xticks=positions, xticklabels=['baseline', 'NE blocker'],
+       ylabel='reward %')
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+ax.set_xlim(.5, 2.5)
+ax.set_ylim(0, 1.1)
+
+# save
+for ext in ['.png', '.pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\alpha\reward_percentage{}'.format(ext),
+                dpi=300, bbox_inches='tight')
+
+
+#%% bar plot for mean speed with connected scatter + p-value
+fig, ax = plt.subplots(figsize=(2.3,1.7))
+
+# means and sems
+mean_ms_baseline = np.mean(mean_speeds_baseline, axis=1)
+mean_ms_drug = np.mean(mean_speeds_drug, axis=1)
+
+mean_speed_baseline = np.mean(mean_ms_baseline)
+mean_speed_drug = np.mean(mean_ms_drug)
+sem_speed_baseline = sem(mean_ms_baseline)
+sem_speed_drug = sem(mean_ms_drug)
+
+# paired t-test
+tstat, pval = ttest_rel(mean_ms_baseline, mean_ms_drug)
+print(f'paired t-test p = {pval:.4f}')
+
+# plot bars
+positions = [1, 2]
+bar_width = 0.5
+ax.bar(positions[0], mean_speed_baseline, yerr=sem_speed_baseline, width=bar_width,
+       color='grey', alpha=0.7, capsize=3)
+ax.bar(positions[1], mean_speed_drug, yerr=sem_speed_drug, width=bar_width,
+       color='darkgreen', alpha=0.7, capsize=3)
+
+# plot lines connecting individual animals
+for b, d in zip(mean_ms_baseline, mean_ms_drug):
+    ax.plot(positions, [b, d], color='black', alpha=0.4, linewidth=0.8, marker='o', markersize=3)
+
+# add p-value text
+ax.text(1.5, max(mean_speed_baseline, mean_speed_drug) * 1.05,
+        f'p = {pval:.3f}', ha='center', va='bottom', fontsize=8)
+
+# tidy up axes
+ax.set(xticks=positions, xticklabels=['baseline', 'NE blocker'],
+       ylabel='mean speed (cm/s)')
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+ax.set_xlim(.5, 2.5)
+
+# save
+for ext in ['.png', '.pdf']:
+    fig.savefig(r'Z:\Dinghao\code_dinghao\pharmacology\alpha\mean_speed{}'.format(ext),
                 dpi=300, bbox_inches='tight')

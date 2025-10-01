@@ -23,6 +23,11 @@ from common import mpl_formatting
 mpl_formatting()
 
 
+#%% parameters 
+colour_tag = (70/255, 101/255, 175/255)
+colour_put = (101/255, 82/255, 163/255)
+
+
 #%% function
 def accumulate_info(df: pd.DataFrame,
                     identity: str,
@@ -159,15 +164,15 @@ accumulate_info(df_putative, 'putative')
 fig, ax = plt.subplots(figsize=(3, 2.5))
 
 tgd = ax.scatter(spike_width_dict['tagged'],
-                 spike_rate_dict['tagged'], c='royalblue', ec='k',
+                 spike_rate_dict['tagged'], c=colour_tag, ec='k',
                  s=10, lw=.1, alpha=.8, zorder=10)
 pt = ax.scatter(spike_width_dict['putative'],
-                spike_rate_dict['putative'], c=(0.055, 0.082, 0.502), ec='k', 
+                spike_rate_dict['putative'], c=colour_put, ec='k', 
                 s=10, lw=.1, alpha=.8, zorder=9)
 ntgd = ax.scatter(spike_width_dict['other'],
                   spike_rate_dict['other'],
                   s=10, lw=.1, c='grey', ec='k', alpha=.8)
-ax.set(ylabel='spike rate (Hz)', xlabel='spike-width (ms)')
+ax.set(ylabel='Firing rate (Hz)', xlabel='Spike width (ms)')
 ax.legend([tgd, pt, ntgd], ['tagged', 'putative\nDbh+', 'putative\nDbh-'], 
           frameon=False, fontsize=6)
 for spine in ['top', 'right']:
@@ -179,8 +184,6 @@ for ext in ('.png', '.pdf'):
                 dpi=300,
                 bbox_inches='tight')
 
-plt.close(fig)
-
 
 #%% box plot for spike width
 spike_width_tagged = [sw for sw in spike_width_dict['tagged'] if not np.isnan(sw)]
@@ -188,7 +191,7 @@ spike_width_putative = [sw for sw in spike_width_dict['putative'] if not np.isna
 spike_width_other = [sw for sw in spike_width_dict['other'] if not np.isnan(sw)]
 
 fig, ax = plt.subplots(figsize=(2.8, 3))
-ax.set(ylabel='spike-width (ms)',
+ax.set(ylabel='Spike width (ms)',
        xlim=(0,3.2))
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
@@ -208,14 +211,14 @@ jitter_tagged_spike_width_x = np.random.uniform(
     )
 ax.scatter([.9]*len(spike_width_dict['tagged']) + jitter_tagged_spike_width_x, 
            spike_width_dict['tagged'], 
-           s=10, c='royalblue', ec='k', lw=.1, alpha=.8)
+           s=10, c=colour_tag, ec='k', lw=.1, alpha=.8)
 
 jitter_putative_spike_width_x = np.random.uniform(
     -.1, .1, len(spike_width_dict['putative'])
     )
 ax.scatter([1.9]*len(spike_width_dict['putative']) + jitter_putative_spike_width_x, 
            spike_width_dict['putative'], 
-           s=10, c=(0.055, 0.082, 0.502), ec='k', lw=.1, alpha=.8)
+           s=10, c=colour_put, ec='k', lw=.1, alpha=.8)
 
 jitter_other_spike_width_x = np.random.uniform(
     -.1, .1, len(spike_width_dict['other'])
@@ -224,7 +227,7 @@ ax.scatter([2.9]*len(spike_width_dict['other']) + jitter_other_spike_width_x,
            spike_width_dict['other'], 
            s=10, c='grey', ec='none', lw=.1, alpha=.8)
 
-colors = ['royalblue', (0.055, 0.082, 0.502), 'grey']
+colors = [colour_tag, colour_put, 'grey']
 for patch, color in zip(bp['boxes'], colors):
     patch.set_facecolor(color)
 
@@ -272,8 +275,6 @@ for ext in ('.png', '.pdf'):
                 dpi=300,
                 bbox_inches='tight')
     
-plt.close(fig)
-
     
 #%% box plot for spike rate 
 spike_rate_tagged_logged = [np.log(t) for t in spike_rate_dict['tagged']]
@@ -281,7 +282,7 @@ spike_rate_putative_logged = [np.log(t) for t in spike_rate_dict['putative']]
 spike_rate_other_logged = [np.log(t) for t in spike_rate_dict['other']]
 
 fig, ax = plt.subplots(figsize=(2.8, 3))
-ax.set(ylabel='logged spike rate (Hz)',
+ax.set(ylabel='log(Firing rate) (Hz)',
        xlim=(0,3.2))
 for p in ['top', 'right', 'bottom']:
     ax.spines[p].set_visible(False)
@@ -302,14 +303,14 @@ jitter_tagged_spike_rate_x = np.random.uniform(
     )
 ax.scatter([.9]*len(spike_rate_tagged_logged) + jitter_tagged_spike_rate_x, 
            spike_rate_tagged_logged, 
-           s=10, c='royalblue', ec='k', lw=.1, alpha=.8)
+           s=10, c=colour_tag, ec='k', lw=.1, alpha=.8)
 
 jitter_putative_spike_rate_x = np.random.uniform(
     -.1, .1, len(spike_rate_putative_logged)
     )
 ax.scatter([1.9]*len(spike_rate_putative_logged) + jitter_putative_spike_rate_x, 
            spike_rate_putative_logged, 
-           s=10, c=(0.055, 0.082, 0.502), ec='k', lw=.1, alpha=.8)
+           s=10, c=colour_put, ec='k', lw=.1, alpha=.8)
 
 jitter_other_spike_rate_x = np.random.uniform(
     -.1, .1, len(spike_rate_other_logged)
@@ -365,5 +366,3 @@ for ext in ('.png', '.pdf'):
                 rf'\summary_and_comparison\spike_rate_logged_boxplot{ext}',
                 dpi=300,
                 bbox_inches='tight')
-    
-plt.close(fig)

@@ -28,8 +28,6 @@ import matplotlib
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 pathLC = rec_list.pathLC
 

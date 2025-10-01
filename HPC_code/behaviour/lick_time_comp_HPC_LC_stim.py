@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Jun  3 13:26:35 2023
+Updated for plotting 24 Sept 2025
 
 compare opto stim vs baseline licktime
 
@@ -13,10 +14,11 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import scipy.io as sio
 from scipy.stats import ranksums, wilcoxon  # median used 
-import sys
 
-if ('Z:\Dinghao\code_dinghao' in sys.path) == False:
-    sys.path.append('Z:\Dinghao\code_dinghao')
+from plotting_functions import plot_violin_with_scatter
+from common import mpl_formatting
+mpl_formatting()
+
 import rec_list
 pathOpt = rec_list.pathHPCLCopt
 
@@ -24,7 +26,7 @@ pathOpt = rec_list.pathHPCLCopt
 sess_list = [sess[-17:] for sess in pathOpt]
 
 n_bst = 1000  # hyperparameter for bootstrapping
-comp_method = 'stim_cont'
+comp_method = 'baseline'
 print('\n**BOOTSTRAP # = {}**'.format(n_bst))
 print('**comparison method: {}**\n'.format(comp_method))
 
@@ -181,11 +183,11 @@ for sessname in sess_list:
             color='grey', alpha=.5)
     fig.suptitle('t 1st licks')
     if comp_method == 'baseline':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_HPC_LC_stim\{}.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_HPC_LC_stim\{}.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
     elif comp_method == 'stim_cont':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
     
@@ -205,11 +207,11 @@ for sessname in sess_list:
     fig.suptitle('mean velocity')
     
     if comp_method == 'baseline':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_HPC_LC_stim\{}_control_velocity.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_HPC_LC_stim\{}_control_velocity.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
     elif comp_method == 'stim_cont':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}_control_velocity.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}_control_velocity.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
         
@@ -229,11 +231,11 @@ for sessname in sess_list:
     fig.suptitle('peak velocity')
     
     if comp_method == 'baseline':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_HPC_LC_stim\{}_control_peak_velocity.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_HPC_LC_stim\{}_control_peak_velocity.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
     elif comp_method == 'stim_cont':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}_control_peak_velocity.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}_control_peak_velocity.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
         
@@ -253,269 +255,77 @@ for sessname in sess_list:
     fig.suptitle('initial acceleration')
     
     if comp_method == 'baseline':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_HPC_LC_stim\{}_control_init_accel.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_HPC_LC_stim\{}_control_init_accel.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
     elif comp_method == 'stim_cont':
-        fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}_control_init_accel.png'.format(stim_cond, sessname),
+        fig.savefig(r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_0{}0_stim_cont_HPC_LC_stim\{}_control_init_accel.png'.format(stim_cond, sessname),
                     dpi=300,
                     bbox_inches='tight')
 
 
-#%% summary statistics 
-res = 0; pval = 0
-res_mspeeds = 0; pval_mspeeds = 0
-res_pspeeds = 0; pval_pspeeds = 0
-res, pval = wilcoxon(all_licks_non_stim, all_licks_stim)
-res_mspeeds, pval_mspeeds = wilcoxon(all_mspeeds_non_stim, all_mspeeds_stim)
-res_pspeeds, pval_pspeeds = wilcoxon(all_pspeeds_non_stim, all_pspeeds_stim)
-res_initacc, pval_initacc = wilcoxon(all_initacc_non_stim, all_initacc_stim)
+#%% summary
+if comp_method == 'baseline':
+    plot_violin_with_scatter(all_licks_non_stim, all_licks_stim, 
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='1st-lick time (s)',
+                             print_statistics=True,
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_HPC_LC_stim\summary_wilc')
+elif comp_method == 'stim_cont':
+    plot_violin_with_scatter(all_licks_non_stim, all_licks_stim, 
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='1st-lick time (s)',
+                             print_statistics=True,
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc')
 
-
-#%% licks summary
-fig, ax = plt.subplots(figsize=(3,4.5))
-
-bp = ax.boxplot([all_licks_non_stim, all_licks_stim],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
-
-ax.scatter([.8]*len(all_licks_non_stim), 
-           all_licks_non_stim, 
-           s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([1.7]*len(all_licks_stim), 
-           all_licks_stim, 
-           s=10, c='royalblue', ec='none', lw=.5)
-
-colors = ['grey', 'royalblue']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-
-for median in bp['medians']:
-    median.set(color='darkred',
-                linewidth=1)
-
-ax.plot([[.8]*len(all_licks_stim), [1.7]*len(all_licks_stim)], [all_licks_non_stim, all_licks_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(all_licks_non_stim), np.median(all_licks_stim)],
-        color='royalblue', linewidth=2)
-ymin = min(min(all_licks_stim), min(all_licks_non_stim))-.25
-ymax = max(max(all_licks_stim), max(all_licks_non_stim))+.25
-ax.set(xlim=(0,2.5), ylim=(ymin,ymax),
-       ylabel='t. 1st licks (s)',
-       title='t. 1st licks non-stim v stim, p={}'.format(np.round(pval, 4)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-fig.suptitle('t 1st licks')
-
-fig.tight_layout()
-plt.show()
 
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_HPC_LC_stim\summary_wilc.png',
-                dpi=500,
-                bbox_inches='tight')
+    plot_violin_with_scatter(all_mspeeds_non_stim, all_mspeeds_stim, 
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='Mean speed (m/s)',
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_HPC_LC_stim\summary_wilc_control_velocity')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc.png',
-                dpi=500,
-                bbox_inches='tight')
+    plot_violin_with_scatter(all_mspeeds_non_stim, all_mspeeds_stim, 
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='Mean speed (m/s)',
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc_control_velocity')
 
-plt.close(fig)
-
-
-#%% mean speeds summary
-fig, ax = plt.subplots(figsize=(3,4.5))
-
-bp = ax.boxplot([all_mspeeds_non_stim, all_mspeeds_stim],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
-
-ax.scatter([.8]*len(all_mspeeds_non_stim), 
-           all_mspeeds_non_stim, 
-           s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([1.7]*len(all_mspeeds_stim), 
-           all_mspeeds_stim, 
-           s=10, c='royalblue', ec='none', lw=.5)
-
-colors = ['grey', 'royalblue']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-
-for median in bp['medians']:
-    median.set(color='darkred',
-                linewidth=1)
-
-ax.plot([[.8]*len(all_mspeeds_stim), [1.7]*len(all_mspeeds_stim)], [all_mspeeds_non_stim, all_mspeeds_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(all_mspeeds_non_stim), np.median(all_mspeeds_stim)],
-        color='royalblue', linewidth=2)
-ymin_speed = min(min(all_mspeeds_stim), min(all_mspeeds_non_stim))-5
-ymax_speed = max(max(all_mspeeds_stim), max(all_mspeeds_non_stim))+5
-ax.set(xlim=(0,2.5), ylim=(ymin_speed,ymax_speed),
-       ylabel='mean velocity (cm/s)',
-       title='mean velocity non-stim v stim, p={}'.format(np.round(pval_mspeeds, 4)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-fig.suptitle('mean velocity')
-
-fig.tight_layout()
-plt.show()
 
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_HPC_LC_stim\summary_wilc_control_velocity.png',
-                dpi=500,
-                bbox_inches='tight')
+    plot_violin_with_scatter(all_pspeeds_non_stim, all_pspeeds_stim, 
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='Peak speed (m/s)',
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_HPC_LC_stim\summary_wilc_control_peak_velocity')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc_control_velocity.png',
-                dpi=500,
-                bbox_inches='tight')
-    
-plt.close(fig)
-    
+    plot_violin_with_scatter(all_pspeeds_non_stim, all_pspeeds_stim, 
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='Peak speed (m/s)',
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc_control_peak_velocity')
 
-#%% peak speeds summary
-fig, ax = plt.subplots(figsize=(3,4.5))
-
-bp = ax.boxplot([all_pspeeds_non_stim, all_pspeeds_stim],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
-
-ax.scatter([.8]*len(all_pspeeds_non_stim), 
-           all_pspeeds_non_stim, 
-           s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([1.7]*len(all_pspeeds_stim), 
-           all_pspeeds_stim, 
-           s=10, c='royalblue', ec='none', lw=.5)
-
-colors = ['grey', 'royalblue']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-
-for median in bp['medians']:
-    median.set(color='darkred',
-                linewidth=1)
-
-ax.plot([[.8]*len(all_pspeeds_stim), [1.7]*len(all_pspeeds_stim)], [all_pspeeds_non_stim, all_pspeeds_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(all_pspeeds_non_stim), np.median(all_pspeeds_stim)],
-
-        color='royalblue', linewidth=2)
-ymin_pspeed = min(min(all_pspeeds_stim), min(all_pspeeds_non_stim))-5
-ymax_pspeed = max(max(all_pspeeds_stim), max(all_pspeeds_non_stim))+5
-ax.set(xlim=(0,2.5), ylim=(ymin_pspeed,ymax_pspeed),
-       ylabel='peak velocity (cm/s)',
-       title='peak velocity non-stim v stim, p={}'.format(np.round(pval_pspeeds, 4)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-fig.suptitle('peak velocity')
-
-fig.tight_layout()
-plt.show()
 
 if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_HPC_LC_stim\summary_wilc_control_peak_velocity.png',
-                dpi=500,
-                bbox_inches='tight')
+    plot_violin_with_scatter(all_initacc_non_stim, all_initacc_stim, 
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='Init. accel. (m/s^2)',
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_HPC_LC_stim\summary_wilc_control_init_accel')
 elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc_control_peak_velocity.png',
-                dpi=500,
-                bbox_inches='tight')
-    
-plt.close(fig)
-    
-    
-#%% init accels summary
-fig, ax = plt.subplots(figsize=(3,4.5))
-
-bp = ax.boxplot([all_initacc_non_stim, all_initacc_stim],
-                positions=[.5, 2],
-                patch_artist=True,
-                notch='True')
-
-ax.scatter([.8]*len(all_initacc_non_stim), 
-           all_initacc_non_stim, 
-           s=10, c='grey', ec='none', lw=.5)
-
-ax.scatter([1.7]*len(all_initacc_stim), 
-           all_initacc_stim, 
-           s=10, c='royalblue', ec='none', lw=.5)
-
-colors = ['grey', 'royalblue']
-for patch, color in zip(bp['boxes'], colors):
-    patch.set_facecolor(color)
-
-bp['fliers'][0].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-bp['fliers'][1].set(marker ='o',
-                color ='#e7298a',
-                markersize=2,
-                alpha=0.5)
-
-for median in bp['medians']:
-    median.set(color='darkred',
-                linewidth=1)
-
-ax.plot([[.8]*len(all_initacc_stim), [1.7]*len(all_initacc_stim)], [all_initacc_non_stim, all_initacc_stim], 
-        color='grey', alpha=.25, linewidth=1)
-ax.plot([.8, 1.7], [np.median(all_initacc_non_stim), np.median(all_initacc_stim)],
-        color='royalblue', linewidth=2)
-ymin_acc = min(min(all_initacc_stim), min(all_initacc_non_stim))-.25
-ymax_acc = max(max(all_initacc_stim), max(all_initacc_non_stim))+.25
-ax.set(xlim=(0,2.5), ylim=(ymin_acc,ymax_acc),
-       ylabel='init. accel. (cm/s\u00b2)',
-       title='initial acceleration non-stim v stim, p={}'.format(np.round(pval_initacc, 4)))
-ax.set_xticks([.5, 2]); ax.set_xticklabels(['non-stim', 'stim'])
-for p in ['top', 'right', 'bottom']:
-    ax.spines[p].set_visible(False)
-fig.suptitle('initial acceleration')
-
-fig.tight_layout()
-plt.show()
-
-if comp_method == 'baseline':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_HPC_LC_stim\summary_wilc_control_init_accel.png',
-                dpi=500,
-                bbox_inches='tight')
-elif comp_method == 'stim_cont':
-    fig.savefig('Z:\Dinghao\code_dinghao\HPC_opto_ephys\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc_control_init_accel.png',
-                dpi=500,
-                bbox_inches='tight')
-    
-plt.close(fig)
+    plot_violin_with_scatter(all_initacc_non_stim, all_initacc_stim,
+                             'grey', 'royalblue',
+                             xticklabels=('ctrl.', 'stim.'),
+                             ylabel='Init. accel. (m/s^2)',
+                             save=True,
+                             savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_stim_cont_HPC_LC_stim\summary_wilc_control_init_accel')

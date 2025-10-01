@@ -14,8 +14,7 @@ loop over all cells for early v late trials
 """
 
 #%% imports
-import sys
-import os
+from pathlib import Path 
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,12 +23,9 @@ import pickle
 import scipy.io as sio
 from scipy.stats import sem, ranksums, ttest_ind
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
-from plotting_functions import plot_violin_with_scatter
 mpl_formatting()
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathLC
 pathnames = [p.split('\\')[-1] for p in paths]
@@ -55,15 +51,17 @@ MIN_MATCHED = 5
 
 # speed plotting params
 X_SEC = np.arange(3500) / 1000.0
+X_SEC_PLOT = np.arange(4000) / 1000.0
+
 YLIM_SPEED = (0, 70)
 
 # colours
-early_c = (0.55, 0.65, 0.95)
-late_c  = (0.20, 0.35, 0.65)
+early_c = (168/255, 155/255, 202/255)
+late_c  = (102/255, 83/255 , 162/255)
 
 
 #%% helpers (mirror the HPC script)
-def compute_bin_speeds_7(trial_indices, speed_times,
+def _compute_bin_speeds_7(trial_indices, speed_times,
                          n_bins=N_BINS, bin_size=BIN_SIZE_MS):
     """
     make a (n_trials x 7) matrix of mean speeds per 500 ms bin over 0–3500 ms
@@ -102,7 +100,7 @@ def _trial_bin_means(trial_idx_list, speed_times,
         out.append(s)
     return np.vstack(out) if out else np.empty((0, n_bins))
 
-def get_profiles_and_spike_rates(trains, trials, RO_WINDOW,
+def _get_profiles_and_spike_rates(trains, trials, RO_WINDOW,
                                  RUN_ONSET_BIN=RUN_ONSET_BIN,
                                  SAMP_FREQ=SAMP_FREQ,
                                  BEF=BEF, AFT=AFT):
@@ -130,7 +128,7 @@ def get_profiles_and_spike_rates(trains, trials, RO_WINDOW,
         spike_rates.append(np.mean(curr_train[RO_WINDOW[0]:RO_WINDOW[1]]))
     return profiles, spike_rates
 
-def _session_mean_speed(trial_list, speed_times, n=3500):
+def _session_mean_speed(trial_list, speed_times, n=4000):
     """
     average speed trace over a set of trials for a single session (0–n ms)
     """
@@ -236,11 +234,11 @@ for cluname in RO_keys:
         # behaviour pickle (to get speed_times_aligned)
         speed_times = None
         beh_try_paths = [
-            os.path.join(r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LC', f'{recname}.pkl'),
-            os.path.join(r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LCterm', f'{recname}.pkl'),
+            Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC') / f'{recname}.pkl',
+            Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LCterm') / f'{recname}.pkl',
         ]
         for beh_path in beh_try_paths:
-            if os.path.exists(beh_path):
+            if beh_path.exists():
                 with open(beh_path, 'rb') as f:
                     beh = pickle.load(f)
                 speed_times = beh['speed_times_aligned'][1:]
@@ -248,8 +246,8 @@ for cluname in RO_keys:
 
         # PRE-MATCHED session means (if we have speed)
         if speed_times is not None:
-            e_mean_sp_raw = _session_mean_speed(early_trials, speed_times, n=3500)
-            l_mean_sp_raw = _session_mean_speed(late_trials,  speed_times, n=3500)
+            e_mean_sp_raw = _session_mean_speed(early_trials, speed_times, n=4000)
+            l_mean_sp_raw = _session_mean_speed(late_trials,  speed_times, n=4000)
             if e_mean_sp_raw is not None and l_mean_sp_raw is not None:
                 sess_early_speed_means_raw.append(e_mean_sp_raw)
                 sess_late_speed_means_raw.append(l_mean_sp_raw)
@@ -259,8 +257,8 @@ for cluname in RO_keys:
             print('warning: behaviour pickle with speed_times_aligned not found; skipping speed matching')
             matched_early, matched_late = early_trials, late_trials
         else:
-            E_bins, e_valid = compute_bin_speeds_7(early_trials, speed_times)
-            L_bins, l_valid = compute_bin_speeds_7(late_trials,  speed_times)
+            E_bins, e_valid = _compute_bin_speeds_7(early_trials, speed_times)
+            L_bins, l_valid = _compute_bin_speeds_7(late_trials,  speed_times)
 
             matched_early, matched_late = [], []
             if len(E_bins) and len(L_bins):
@@ -281,8 +279,8 @@ for cluname in RO_keys:
             print(f'{len(matched_early)} early and {len(matched_late)} late trials passed 7-bin speed filtering')
 
             # POST-MATCHED session means
-            e_mean_sp = _session_mean_speed(matched_early, speed_times, n=3500)
-            l_mean_sp = _session_mean_speed(matched_late,  speed_times, n=3500)
+            e_mean_sp = _session_mean_speed(matched_early, speed_times, n=4000)
+            l_mean_sp = _session_mean_speed(matched_late,  speed_times, n=4000)
             if e_mean_sp is not None and l_mean_sp is not None:
                 sess_early_speed_means.append(e_mean_sp)
                 sess_late_speed_means.append(l_mean_sp)
@@ -298,13 +296,13 @@ for cluname in RO_keys:
     # per-cluster work (spikes)
     trains = all_trains[cluname]
     if len(current_matched_early) >= MIN_MATCHED and len(current_matched_late) >= MIN_MATCHED:
-        tmp_prof, tmp_rate = get_profiles_and_spike_rates(trains, early_trials, RO_WINDOW)
+        tmp_prof, tmp_rate = _get_profiles_and_spike_rates(trains, early_trials, RO_WINDOW)
         early_profiles.append(np.mean(tmp_prof, axis=0))
         early_spike_rates.extend(tmp_rate)
         
         curr_early_sess.append(early_profiles[-1])
 
-        tmp_prof, tmp_rate = get_profiles_and_spike_rates(trains, late_trials, RO_WINDOW)
+        tmp_prof, tmp_rate = _get_profiles_and_spike_rates(trains, late_trials, RO_WINDOW)
         late_profiles.append(np.mean(tmp_prof, axis=0))
         late_spike_rates.extend(tmp_rate)
         
@@ -347,17 +345,17 @@ if len(sess_early_speed_means_raw) and len(sess_late_speed_means_raw):
     L_raw_sem  = sem(L_raw, axis=0)
 
     fig, ax = plt.subplots(figsize=(2.1, 2.0))
-    ax.plot(X_SEC, E_raw_mean, c='grey', label='early (<2.5 s)')
-    ax.fill_between(X_SEC, E_raw_mean+E_raw_sem, E_raw_mean-E_raw_sem,
-                    color='grey', edgecolor='none', alpha=.25)
-
-    ax.plot(X_SEC, L_raw_mean, c=late_c, label='late (2.5–3.5 s)')
-    ax.fill_between(X_SEC, L_raw_mean+L_raw_sem, L_raw_mean-L_raw_sem,
+    ax.plot(X_SEC_PLOT, E_raw_mean, c=early_c, label='early (<2.5 s)')
+    ax.fill_between(X_SEC_PLOT, E_raw_mean+E_raw_sem, E_raw_mean-E_raw_sem,
+                    color=early_c, edgecolor='none', alpha=.25)
+    
+    ax.plot(X_SEC_PLOT, L_raw_mean, c=late_c, label='late (2.5–3.5 s)')
+    ax.fill_between(X_SEC_PLOT, L_raw_mean+L_raw_sem, L_raw_mean-L_raw_sem,
                     color=late_c, edgecolor='none', alpha=.25)
-
-    ax.set(xlabel='time from run onset (s)', xlim=(0, 3.5),
-           ylabel='speed (cm/s)', ylim=YLIM_SPEED,
-           title='pre-matching speed')
+    
+    ax.set(xlabel='Time from run onset (s)', xlim=(0, 4),
+           ylabel='Speed (cm/s)', ylim=YLIM_SPEED,
+           title='Pre-matching speed')
     ax.legend(frameon=False, fontsize=7)
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)
@@ -383,12 +381,12 @@ if len(sess_early_speed_means) and len(sess_late_speed_means):
     L_sem  = sem(L, axis=0)
 
     fig, ax = plt.subplots(figsize=(2.1, 2.0))
-    ax.plot(X_SEC, E_mean, c='grey', label='early (<2.5 s)')
-    ax.fill_between(X_SEC, E_mean+E_sem, E_mean-E_sem,
-                    color='grey', edgecolor='none', alpha=.25)
+    ax.plot(X_SEC_PLOT, E_mean, c=early_c, label='early (<2.5 s)')
+    ax.fill_between(X_SEC_PLOT, E_mean+E_sem, E_mean-E_sem,
+                    color=early_c, edgecolor='none', alpha=.25)
 
-    ax.plot(X_SEC, L_mean, c=late_c, label='late (2.5–3.5 s)')
-    ax.fill_between(X_SEC, L_mean+L_sem, L_mean-L_sem,
+    ax.plot(X_SEC_PLOT, L_mean, c=late_c, label='late (2.5–3.5 s)')
+    ax.fill_between(X_SEC_PLOT, L_mean+L_sem, L_mean-L_sem,
                     color=late_c, edgecolor='none', alpha=.25)
 
     # optional per-bin independent Welch t-tests (500 ms bins)
@@ -415,9 +413,9 @@ if len(sess_early_speed_means) and len(sess_late_speed_means):
         ax.text((x_left + x_right)/2, text_y, f'p={pvals[i]:.3f}',
                 ha='center', va='bottom', fontsize=5)
 
-    ax.set(xlabel='time from run onset (s)', xlim=(0, 3.5),
-           ylabel='speed (cm/s)', ylim=YLIM_SPEED,
-           title='post-matching speed')
+    ax.set(xlabel='Time from run onset (s)', xlim=(0, 4),
+           ylabel='Speed (cm/s)', ylim=YLIM_SPEED,
+           title='Post-matching speed')
     ax.legend(frameon=False, fontsize=7)
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)
@@ -442,17 +440,17 @@ late_sem   = sem(late_profiles, axis=0)      if len(late_profiles)  else np.arra
 
 if early_mean.size and late_mean.size:
     fig, ax = plt.subplots(figsize=(2.2, 2.1))
-    ax.plot(XAXIS, early_mean, c='grey', label='early (matched)')
+    ax.plot(XAXIS, early_mean, c=early_c, label='early (matched)')
     ax.fill_between(XAXIS, early_mean + early_sem, early_mean - early_sem,
-                    color='grey', edgecolor='none', alpha=.25)
+                    color=early_c, edgecolor='none', alpha=.25)
 
     ax.plot(XAXIS, late_mean, c=late_c, label='late (matched)')
     ax.fill_between(XAXIS, late_mean + late_sem, late_mean - late_sem,
                     color=late_c, edgecolor='none', alpha=.25)
 
     plt.legend(fontsize=7, frameon=False)
-    ax.set(xlabel='time from run-onset (s)', xlim=(-1, 4),
-           ylabel='spike rate (Hz)')
+    ax.set(xlabel='Time from run-onset (s)', xlim=(-1, 4),
+           ylabel='Firing rate (Hz)')
 
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)

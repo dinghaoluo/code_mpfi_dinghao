@@ -76,6 +76,10 @@ def plot_bar_with_paired_scatter(
     except ValueError:
         w_stat, w_p = np.nan, 1.0
     t_stat, t_p = ttest_rel(ctrl, stim)
+    
+    rank_sum_stat, rank_sum_p = ranksums(ctrl, stim)
+    
+    t_ind_stat, t_ind_p = ttest_ind(ctrl, stim)
 
     # annotations
     yrange = ylims[1] - ylims[0]

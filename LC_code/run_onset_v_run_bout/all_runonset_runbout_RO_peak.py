@@ -12,7 +12,6 @@ LC: visual and statistical comparison between run-onset and run-bout-onset LC
 """
 
 #%% imports
-import sys
 import mat73
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,17 +19,12 @@ import pandas as pd
 import scipy.io as sio
 from scipy.stats import sem, wilcoxon
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import mpl_formatting, smooth_convolve
 import plotting_functions as pf
-
-sys.path.append(r'Z:\Dinghao\code_dinghao')
-import rec_list
-
+from common import mpl_formatting, smooth_convolve
 mpl_formatting()
 
-# import rec lists 
-recs = [path[-17:] for path in rec_list.pathLC]
+import rec_list
+recs = [path[-17:] for path in rec_list.pathLC if path[-17:] != 'A065r-20230728-02']
 
 
 #%% parameters 
@@ -494,11 +488,11 @@ def main(keys, list_identity):
                     alpha=.25, edgecolor='none')
     ax.set(xlim=(-1,4), xticks=[0,2,4],
            ylim=(1.8,5.3), yticks=[2,4], 
-           title=f'run-onset v run-bout-onset\n({list_identity} Dbh+)',
-           xlabel='time (s)',
-           ylabel='spike rate (Hz)')
+           title=f'Run-onset v run-bout-onset\n({list_identity} Dbh+)',
+           xlabel='Time from run onset (s)',
+           ylabel='Spike rate (Hz)')
     ax.legend([mean_run_onset_ln, mean_run_bout_ln], 
-              ['trial run onset', 'run-bout onset'], 
+              ['Trial run onset', 'Run-bout onset'], 
               frameon=False, fontsize=6)
     
     plt.plot([-.5,.5], [5.1,5.1], c='k', lw=.5)
@@ -605,8 +599,8 @@ def main(keys, list_identity):
                ylim=(0, max(mean_run_onset_speed.max(), 
                             mean_run_bout_speed.max(), 
                             mean_run_bout_speed_matched.max()) * 1.1),
-               xlabel='time (s)',
-               ylabel='speed (cm/s)')
+               xlabel='Time (s)',
+               ylabel='Speed (cm/s)')
         for s in ['top', 'right']:
             ax.spines[s].set_visible(False)
     

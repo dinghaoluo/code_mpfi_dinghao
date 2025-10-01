@@ -37,6 +37,8 @@ MAX_SAMPLES = SAMP_FREQ * MAX_TIME
 
 XAXIS = np.arange(-1*1250, 4*1250) / 1250
 
+DELTA_THRES = 0.5  # Hz
+
 bin_edges = np.arange(3750 + int(-0.5*1250), 3750 + int(3.5*1250) + 1, 1250)
 bin_labels = ['-0.5-0.5', '0.5–1.5s', '1.5–2.5s', '2.5–3.5s']
 
@@ -49,7 +51,7 @@ def _annotate_pvals(ax, pvals, y_level=4.05, star=True):
         if star:
             if p < 0.001: text = '***'
             elif p < 0.01: text = '**'
-            elif p < 0.05: text = '*'
+            elif p < 0.05: text = round(p, 4)
             else: text = 'n.s.'
         else:
             text = f'{p:.3f}'
@@ -151,11 +153,11 @@ def main(paths, exp='HPCLC'):
     all_ctrl_stim_lick_time_delta     = []
     all_ctrl_stim_lick_distance_delta = []
     
-    all_amp_ON_delta_sum  = []
-    all_amp_ON_delta_mean = []
-    
-    all_amp_OFF_delta_sum  = []
+    all_amp_ON_delta_mean  = []
     all_amp_OFF_delta_mean = []
+    
+    all_amp_remain_ON_delta_mean  = []
+    all_amp_remain_OFF_delta_mean = []
     
     session_prop_remain_ON, session_prop_new_ON   = [], []
     session_prop_remain_OFF, session_prop_new_OFF = [], []
@@ -183,9 +185,9 @@ def main(paths, exp='HPCLC'):
         first_lick_times = [t[0][0] - s for t, s
                             in zip(beh['lick_times'], beh['run_onsets'])
                             if t]
-        ctrl_stim_lick_time_delta = np.mean(
+        ctrl_stim_lick_time_delta = np.median(
             [t for i, t in enumerate(first_lick_times) if i in stim_idx]
-            ) - np.mean(
+            ) - np.median(
                 [t for i, t in enumerate(first_lick_times) if i in ctrl_idx]
                 )
         all_ctrl_stim_lick_time_delta.append(ctrl_stim_lick_time_delta)
@@ -589,9 +591,6 @@ def main(paths, exp='HPCLC'):
                 mean_prof_stim_only_OFF_sess.append(sess_mean_stim_OFF)
                 
                 # delta firing rate vs dist/time
-                amp_OFF_delta_sum = np.sum(sess_mean_stim_OFF[3750+625:3750+1825]) - np.mean(sess_mean_ctrl_OFF[3750+625:3750+1825])
-                all_amp_OFF_delta_sum.append(amp_OFF_delta_sum)
-                
                 amp_OFF_delta_mean = np.mean(sess_mean_stim_OFF[3750+625:3750+1825]) - np.mean(sess_mean_ctrl_OFF[3750+625:3750+1825])
                 all_amp_OFF_delta_mean.append(amp_OFF_delta_mean)
                 
@@ -599,7 +598,6 @@ def main(paths, exp='HPCLC'):
                 dist_delta = all_ctrl_stim_lick_distance_delta[-1]
                 if not np.isnan(dist_delta):
                     OFF_pairs_mean.append((amp_OFF_delta_mean, dist_delta))
-                    OFF_pairs_sum.append((amp_OFF_delta_sum,  dist_delta))
             
         # if len(mean_prof_ctrl_only_ON) > 0 and len(mean_prof_stim_only_ON) > 0:
         #     curr_ctrl_ON = mean_prof_ctrl_only_ON[-len(curr_df_pyr):]
@@ -610,20 +608,32 @@ def main(paths, exp='HPCLC'):
         
         # store per-session mean profile of ctrl-only and stim-only cells
         if len(mean_prof_ctrl_only_ON) > 0:
-            sess_mean_ctrl = np.mean(mean_prof_ctrl_only_ON[-len(curr_df_pyr):], axis=0)
+            sess_mean_ctrl = np.mean(
+                mean_prof_ctrl_only_ON[-sum(curr_df_pyr['class_ctrl']=='run-onset ON'):], axis=0)  # corrected indexing, 19 Sept 2025
             mean_prof_ctrl_only_ON_sess.append(sess_mean_ctrl)
-        
         if len(mean_prof_stim_only_ON) > 0:
-            sess_mean_stim = np.mean(mean_prof_stim_only_ON[-len(curr_df_pyr):], axis=0)
+            sess_mean_stim = np.mean(
+                mean_prof_stim_only_ON[-sum(curr_df_pyr['class_stim']=='run-onset ON'):], axis=0)
             mean_prof_stim_only_ON_sess.append(sess_mean_stim)
-            
         if len(mean_prof_ctrl_only_ON) > 0 and len(mean_prof_stim_only_ON) > 0:
-            amp_ON_delta_sum = np.sum(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
-            all_amp_ON_delta_sum.append(amp_ON_delta_sum)
-            
             amp_ON_delta_mean = np.mean(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
             all_amp_ON_delta_mean.append(amp_ON_delta_mean)
             
+            
+        if len(mean_prof_ctrl_remain_ON) > 0:
+            union = sum((curr_df_pyr['class_ctrl']=='run-onset ON') 
+                        & (curr_df_pyr['class_stim']=='run-onset ON'))
+            sess_mean_ctrl = np.mean(mean_prof_ctrl_remain_ON[-union:], axis=0)
+            sess_mean_stim = np.mean(mean_prof_stim_remain_ON[-union:], axis=0)
+            amp_remain_ON_delta_mean = np.mean(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
+            all_amp_remain_ON_delta_mean.append(amp_remain_ON_delta_mean)
+        if len(mean_prof_ctrl_remain_OFF) > 0:
+            union = sum((curr_df_pyr['class_ctrl']=='run-onset OFF') 
+                        & (curr_df_pyr['class_stim']=='run-onset OFF'))
+            sess_mean_ctrl = np.mean(mean_prof_ctrl_remain_OFF[-union:], axis=0)
+            sess_mean_stim = np.mean(mean_prof_stim_remain_OFF[-union:], axis=0)
+            amp_remain_OFF_delta_mean = np.mean(sess_mean_stim[3750+625:3750+1825]) - np.mean(sess_mean_ctrl[3750+625:3750+1825])
+            all_amp_remain_OFF_delta_mean.append(amp_remain_OFF_delta_mean)
     ## single-session processing ends ##
     
     
@@ -1163,32 +1173,32 @@ def main(paths, exp='HPCLC'):
     
     ## dist v amp_mean ##  
     # filter and clean data
-    all_amp_ON_delta_mean_filt_dist = []
+    all_amp_remain_ON_delta_mean_filt_dist = []
     all_ctrl_stim_lick_distance_delta_filt = []
-    for amp, dist in zip(all_amp_ON_delta_mean, all_ctrl_stim_lick_distance_delta):
-        if not np.isnan(amp) and not np.isnan(dist):
-            all_amp_ON_delta_mean_filt_dist.append(amp)
+    for amp, dist in zip(all_amp_remain_ON_delta_mean, all_ctrl_stim_lick_distance_delta):
+        if not np.isnan(amp) and not np.isnan(dist) and -DELTA_THRES < amp < 2:
+            all_amp_remain_ON_delta_mean_filt_dist.append(amp)
             all_ctrl_stim_lick_distance_delta_filt.append(dist)
     
-    all_amp_ON_delta_mean_filt_time = []
+    all_amp_remain_ON_delta_mean_filt_time = []
     all_ctrl_stim_lick_time_delta_filt = []
-    for amp, dist in zip(all_amp_ON_delta_mean, all_ctrl_stim_lick_time_delta):
-        if not np.isnan(amp) and not np.isnan(dist):
-            all_amp_ON_delta_mean_filt_time.append(amp)
-            all_ctrl_stim_lick_time_delta_filt.append(dist)
+    for amp, time in zip(all_amp_remain_ON_delta_mean, all_ctrl_stim_lick_time_delta):
+        if not np.isnan(amp) and not np.isnan(time) and time < 800 and -DELTA_THRES < amp < 2:
+            all_amp_remain_ON_delta_mean_filt_time.append(amp)
+            all_ctrl_stim_lick_time_delta_filt.append(time)
     
     # regression
-    slope, intercept, r, p, _ = linregress(all_amp_ON_delta_mean_filt_dist, all_ctrl_stim_lick_distance_delta_filt)
+    slope, intercept, r, p, _ = linregress(all_amp_remain_ON_delta_mean_filt_dist, all_ctrl_stim_lick_distance_delta_filt)
     
     # plot
     fig, ax = plt.subplots(figsize=(2.4, 2.2))
     
     # scatter
-    ax.scatter(all_amp_ON_delta_mean_filt_dist, all_ctrl_stim_lick_distance_delta_filt,
+    ax.scatter(all_amp_remain_ON_delta_mean_filt_dist, all_ctrl_stim_lick_distance_delta_filt,
                color='firebrick', edgecolor='none', s=30, alpha=0.8)
     
     # regression line
-    x_vals = np.linspace(min(all_amp_ON_delta_mean_filt_dist), max(all_amp_ON_delta_mean_filt_dist), 100)
+    x_vals = np.linspace(min(all_amp_remain_ON_delta_mean_filt_dist), max(all_amp_remain_ON_delta_mean_filt_dist), 100)
     y_vals = intercept + slope * x_vals
     ax.plot(x_vals, y_vals, color='k', lw=1)
     
@@ -1206,22 +1216,22 @@ def main(paths, exp='HPCLC'):
     plt.show()
     
     for ext in ['.png', '.pdf']:
-        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_ON_delta_amp_mean_dist{ext}',
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_remain_ON_delta_amp_mean_dist{ext}',
                     dpi=300,
                     bbox_inches='tight')
         
     # mean v time
-    slope, intercept, r, p, _ = linregress(all_amp_ON_delta_mean_filt_time, all_ctrl_stim_lick_time_delta_filt)
+    slope, intercept, r, p, _ = linregress(all_amp_remain_ON_delta_mean_filt_time, all_ctrl_stim_lick_time_delta_filt)
     
     # plot
     fig, ax = plt.subplots(figsize=(2.4, 2.2))
     
     # scatter
-    ax.scatter(all_amp_ON_delta_mean_filt_time, all_ctrl_stim_lick_time_delta_filt,
+    ax.scatter(all_amp_remain_ON_delta_mean_filt_time, all_ctrl_stim_lick_time_delta_filt,
                color='firebrick', edgecolor='none', s=30, alpha=0.8)
     
     # regression line
-    x_vals = np.linspace(min(all_amp_ON_delta_mean_filt_time), max(all_amp_ON_delta_mean_filt_time), 100)
+    x_vals = np.linspace(min(all_amp_remain_ON_delta_mean_filt_time), max(all_amp_remain_ON_delta_mean_filt_time), 100)
     y_vals = intercept + slope * x_vals
     ax.plot(x_vals, y_vals, color='k', lw=1)
     
@@ -1239,7 +1249,7 @@ def main(paths, exp='HPCLC'):
     plt.show()
     
     for ext in ['.png', '.pdf']:
-        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_ON_delta_amp_mean_time{ext}',
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_remain_ON_delta_amp_mean_time{ext}',
                     dpi=300,
                     bbox_inches='tight')
     
@@ -1250,16 +1260,16 @@ def main(paths, exp='HPCLC'):
     all_amp_OFF_delta_mean_filt_dist = []
     all_ctrl_stim_lick_distance_delta_filt = []
     for amp, dist in zip(all_amp_OFF_delta_mean, all_ctrl_stim_lick_distance_delta):
-        if not np.isnan(amp) and not np.isnan(dist):
+        if not np.isnan(amp) and not np.isnan(dist) and -2 < amp < DELTA_THRES:
             all_amp_OFF_delta_mean_filt_dist.append(amp)
             all_ctrl_stim_lick_distance_delta_filt.append(dist)
     
     all_amp_OFF_delta_mean_filt_time = []
     all_ctrl_stim_lick_time_delta_filt = []
-    for amp, dist in zip(all_amp_OFF_delta_mean, all_ctrl_stim_lick_time_delta):
-        if not np.isnan(amp) and not np.isnan(dist):
+    for amp, time in zip(all_amp_OFF_delta_mean, all_ctrl_stim_lick_time_delta):
+        if not np.isnan(amp) and not np.isnan(time) and -400 < time < 1000 and -2 < amp < DELTA_THRES:
             all_amp_OFF_delta_mean_filt_time.append(amp)
-            all_ctrl_stim_lick_time_delta_filt.append(dist)
+            all_ctrl_stim_lick_time_delta_filt.append(time)
     
     # regression
     slope, intercept, r, p, _ = linregress(all_amp_OFF_delta_mean_filt_dist, all_ctrl_stim_lick_distance_delta_filt)
@@ -1269,7 +1279,7 @@ def main(paths, exp='HPCLC'):
     
     # scatter
     ax.scatter(all_amp_OFF_delta_mean_filt_dist, all_ctrl_stim_lick_distance_delta_filt,
-               color='firebrick', edgecolor='none', s=30, alpha=0.8)
+               color='purple', edgecolor='none', s=30, alpha=0.8)
     
     # regression line
     x_vals = np.linspace(min(all_amp_OFF_delta_mean_filt_dist), max(all_amp_OFF_delta_mean_filt_dist), 100)
@@ -1281,7 +1291,7 @@ def main(paths, exp='HPCLC'):
             transform=ax.transAxes, ha='left', va='top', fontsize=9)
     
     # labels and style
-    ax.set_xlabel('delta ON (Hz)', fontsize=10)
+    ax.set_xlabel('delta OFF (Hz)', fontsize=10)
     ax.set_ylabel('delta lick dist. (stim − ctrl)', fontsize=10)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -1290,7 +1300,7 @@ def main(paths, exp='HPCLC'):
     plt.show()
     
     for ext in ['.png', '.pdf']:
-        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_OFF_delta_amp_mean_dist{ext}',
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_remain_OFF_delta_amp_mean_dist{ext}',
                     dpi=300,
                     bbox_inches='tight')
         
@@ -1302,7 +1312,7 @@ def main(paths, exp='HPCLC'):
     
     # scatter
     ax.scatter(all_amp_OFF_delta_mean_filt_time, all_ctrl_stim_lick_time_delta_filt,
-               color='firebrick', edgecolor='none', s=30, alpha=0.8)
+               color='purple', edgecolor='none', s=30, alpha=0.8)
     
     # regression line
     x_vals = np.linspace(min(all_amp_OFF_delta_mean_filt_time), max(all_amp_OFF_delta_mean_filt_time), 100)
@@ -1314,7 +1324,7 @@ def main(paths, exp='HPCLC'):
             transform=ax.transAxes, ha='left', va='top', fontsize=9)
     
     # labels and style
-    ax.set_xlabel('delta ON (Hz)', fontsize=10)
+    ax.set_xlabel('delta OFF (Hz)', fontsize=10)
     ax.set_ylabel('delta lick time (stim − ctrl)', fontsize=10)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -1323,7 +1333,7 @@ def main(paths, exp='HPCLC'):
     plt.show()
     
     for ext in ['.png', '.pdf']:
-        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_OFF_delta_amp_mean_time{ext}',
+        fig.savefig(rf'Z:\Dinghao\code_dinghao\HPC_ephys\population_ctrl_stim\{exp}_remain_OFF_delta_amp_mean_time{ext}',
                     dpi=300,
                     bbox_inches='tight')
     

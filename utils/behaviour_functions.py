@@ -75,7 +75,10 @@ def process_behavioural_data(
         run_onsets, 
         upsampled_timestamps_ms, 
         upsampled_distance_cm, 
-        smoothed_speed
+        smoothed_speed,
+        non_stop_trials, # Jingyu, 9/30/2025
+        non_fullstop_trials # Jingyu, 9/30/2025
+        
     ) = process_locomotion(
         wheel_tuples,
         trial_start_times=trial_start_times,
@@ -223,6 +226,8 @@ def process_behavioural_data(
                 else:
                     full_stop = False
                 full_stops.append(full_stop)
+                
+                
         
                 is_bad_lick = np.any(lick_dists <= early_late_lick_cutoff)
                 if not np.isnan(onset) and not np.isnan(reward_time):
@@ -262,6 +267,8 @@ def process_behavioural_data(
         'new_trial_statements': data['new_trial_statements'],
         'full_stops': full_stops,
         'bad_trials': bad_trials,
+        'non_stop_trials': non_stop_trials, # Jingyu, 9/30/2025
+        'non_fullstop_trials': non_fullstop_trials, # Jingyu, 9/30/2025
         'frame_times': frame_times,
         'reward_omissions': data['reward_omissions'],
         'upsampled_timestamps_ms': upsampled_timestamps_ms,
@@ -827,6 +834,10 @@ def process_locomotion(wheel_tuples,
         distance trace including resets (in cm).
     speed_smoothed_cm_s : np.ndarray
         smoothed speed trace (in cm/s).
+    non_stop_trials: list (Jingyu, 9/30/2025)
+        list indicates none stop trials
+    non_fullstop_trials: list (Jingyu, 9/30/2025)
+        list indicates none full stop trials
     '''
     if not wheel_tuples:
         return [], np.array([]), np.array([]), np.array([])
@@ -875,7 +886,14 @@ def process_locomotion(wheel_tuples,
 
     # detect run onsets
     run_onset_times = [np.nan]  # first trial skipped
-
+    non_stop_trials = [np.nan]
+    non_fullstop_trials = [np.nan]
+    
+    # non_stop_trials = np.zeros(len(trial_start_times)) # Jingyu, 9/30/2025
+    # non_fullstop_trials = np.zeros(len(trial_start_times)) # Jingyu, 9/30/2025
+    # non_stop_trials[0] = np.nan
+    # non_fullstop_trials[0] = np.nan
+    
     for i in range(1, len(trial_start_times)):
         t_prev = trial_start_times[i-1]
         t0     = trial_start_times[i]
@@ -966,6 +984,8 @@ def process_locomotion(wheel_tuples,
             else:
                 # fallback: pick lowest-speed sample
                 onset_local = int(np.argmin(segment))
+                # non full stop Jingyu, 9/30/2025
+                ind_start = -3 # Jingyu, 9/30/2025
         else:
             # no full stop at all: pick min-speed in pre-trial window
             seg_pre = speed_all[:len_diff]
@@ -976,5 +996,15 @@ def process_locomotion(wheel_tuples,
             run_onset_times.append(np.nan)
         else:
             run_onset_times.append(upsampled_timestamps[int(true_idx)])
-
-    return run_onset_times, upsampled_timestamps, upsampled_distance_cm, speed_smoothed
+        
+        if ind_start ==-2:
+            non_stop_trials.append(1)
+        else:
+            non_stop_trials.append(0)
+        
+        if ind_start ==-3:
+            non_fullstop_trials.append(1)
+        else:
+            non_fullstop_trials.append(0)
+        
+    return run_onset_times, upsampled_timestamps, upsampled_distance_cm, speed_smoothed, non_stop_trials, non_fullstop_trials
