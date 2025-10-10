@@ -298,6 +298,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         wilc_p_str = '{:.2e}'.format(wilc_p)
         ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
+            print(f'\ndata 0 mean={np.nanmean(data0)}, sem={sem(data0)}')
+            print(f'data 1 mean={np.nanmean(data1)}, sem={sem(data1)}')
             print(f'wilc: {wilc_stat}, p={wilc_p_str}')
             print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
@@ -311,6 +313,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         wilc_p_str = '{:.2e}'.format(wilc_p)
         ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
+            print(f'\ndata 0 mean={np.nanmean(data0)}, sem={sem(data0)}')
+            print(f'data 1 mean={np.nanmean(data1)}, sem={sem(data1)}')
             print(f'ranksums: {wilc_stat}, p={wilc_p_str}')
             print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:

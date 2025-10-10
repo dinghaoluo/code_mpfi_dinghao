@@ -30,27 +30,71 @@ def lick_rate_last5s(lick_times, onset_time, window=5.0):
     n_licks = np.sum(mask)
     return n_licks / window if window > 0 else np.nan
 
-def time_since_last_reward(reward_times, onset_time):
-    """
-    compute time since the most recent reward before run-onset.
-    returns np.nan if no previous reward.
-    """
-    past_rewards = [rt for rt in reward_times if rt < onset_time]
-    if len(past_rewards) == 0:
-        return np.nan
-    return onset_time - past_rewards[-1]
-
-
-def stop_fraction_before_onset(timestamps_s, speeds, onset_time, window=3.0, thresh=5.0):
-    mask = (timestamps_s >= onset_time - window) & (timestamps_s < onset_time)
-    if not np.any(mask):
-        return np.nan
-    return np.mean(speeds[mask] < thresh)
-
-def mean_speed_last_trial(timestamps_s, speeds, run_onsets_s, ti):
+def first_lick_to_reward_last_trial(lick_times_trials, reward_times, ti):
     if ti == 0:
         return np.nan
-    start, end = run_onsets_s[ti-1], run_onsets_s[ti]
+    try:
+        last_first_lick = lick_times_trials[ti-1][0]
+    except IndexError:  # if no licks 
+        return np.nan
+    last_rew = reward_times[ti-1]
+    if np.isnan(last_rew): return np.nan
+    return (last_rew - last_first_lick) / 1000.0  # convert ms → s
+
+def time_since_last_reward(reward_times, onset_time, trial_index):
+    last_reward_time = reward_times[trial_index - 1]
+    if np.isnan(last_reward_time) or np.isnan(onset_time):
+        return np.nan
+    else:
+        last_reward_time /= 1000.0
+    return (onset_time - last_reward_time)
+
+def stop_duration_before_onset(timestamps_s, speeds_cm_s, reward_times, run_onsets, trial_idx, speed_thresh=10):
+    """
+    computes stop duration before run onset.
+
+    parameters:
+    - timestamps_s: 1d array of behavioural timestamps (s)
+    - speeds_cm_s: 1d array of running speed (cm/s)
+    - reward_times: list of reward times per trial (s)
+    - run_onsets: list or array of run-onset times (s)
+    - trial_idx: index of current trial
+    - speed_thresh: speed threshold for defining stop (cm/s), default 10
+
+    returns:
+    - stop_dur: duration (s) between first dip below threshold after previous reward
+                and the run onset of current trial. np.nan if not measurable.
+    """
+    try:
+        # time of last reward
+        if trial_idx == 0 or np.isnan(reward_times[trial_idx - 1]):
+            return np.nan
+        last_rew_t = reward_times[trial_idx - 1] / 1000.0  # last reward time of previous trial
+        onset_t = run_onsets[trial_idx] / 1000.0
+
+        # mask for post-reward to current onset
+        mask = (timestamps_s > last_rew_t) & (timestamps_s < onset_t)
+        if not np.any(mask):
+            return np.nan
+
+        post_rew_times = timestamps_s[mask]
+        post_rew_speeds = speeds_cm_s[mask]
+
+        # find first below-threshold time
+        below_idx = np.where(post_rew_speeds < speed_thresh)[0]
+        if len(below_idx) == 0:
+            return np.nan
+
+        first_below_t = post_rew_times[below_idx[0]]
+        stop_dur = onset_t - first_below_t
+        return stop_dur if stop_dur > 0 else np.nan
+
+    except Exception as e:
+        print(e)
+        return np.nan
+
+def mean_speed_curr_trial(timestamps_s, speeds, run_onsets_s, ti):
+    start, end = run_onsets_s[ti], run_onsets_s[ti+1]
     mask = (timestamps_s >= start) & (timestamps_s < end)
     if not np.any(mask):
         return np.nan

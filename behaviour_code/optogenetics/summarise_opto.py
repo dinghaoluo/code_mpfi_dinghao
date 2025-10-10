@@ -385,8 +385,9 @@ for i, pathname in enumerate(pathHPCopt):
 pf.plot_violin_with_scatter(
     ctrl_lick_times_020, stim_lick_times_020, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='first-lick time (s)',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='First-lick time (s)',
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_lick_times',
     dpi=300
@@ -395,8 +396,9 @@ pf.plot_violin_with_scatter(
 pf.plot_violin_with_scatter(
     ctrl_lick_distances_020, stim_lick_distances_020, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='first-lick distance (cm)',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='First-lick distance (cm)',
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_lick_distances',
     dpi=300
@@ -405,8 +407,9 @@ pf.plot_violin_with_scatter(
 pf.plot_violin_with_scatter(
     ctrl_mean_speeds_020, stim_mean_speeds_020, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='mean speed (cm/s)',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='Mean speed (cm/s)',
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_mean_speed',
     dpi=300
@@ -416,15 +419,16 @@ rmv = []
 for i in range(len(ctrl_perc_rew_020)):
     if ctrl_perc_rew_020[i] < 0.5 or stim_perc_rew_020[i] < 0.5:
         rmv.append(i)
-ctrl_perc_rew_020 = [trial for i, trial in enumerate(ctrl_perc_rew_020) if i not in rmv]
-stim_perc_rew_020 = [trial for i, trial in enumerate(stim_perc_rew_020) if i not in rmv]
+ctrl_perc_rew_020_cln = [trial for i, trial in enumerate(ctrl_perc_rew_020) if i not in rmv]
+stim_perc_rew_020_cln = [trial for i, trial in enumerate(stim_perc_rew_020) if i not in rmv]
 
 pf.plot_violin_with_scatter(
-    ctrl_perc_rew_020, stim_perc_rew_020, 
+    ctrl_perc_rew_020_cln, stim_perc_rew_020_cln, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='reward perc.',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='Reward perc.',
     ylim=(.5, 1.02),
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_perc_rew',
     dpi=300
@@ -785,8 +789,9 @@ for i, pathname in enumerate(pathHPCopt):
 pf.plot_violin_with_scatter(
     ctrl_lick_times_030, stim_lick_times_030, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='first-lick time (s)',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='First-lick time (s)',
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\030_lick_times',
     dpi=300
@@ -795,8 +800,9 @@ pf.plot_violin_with_scatter(
 pf.plot_violin_with_scatter(
     ctrl_lick_distances_030, stim_lick_distances_030, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='first-lick distance (cm)',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='First-lick distance (cm)',
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\030_lick_distances',
     dpi=300
@@ -805,8 +811,9 @@ pf.plot_violin_with_scatter(
 pf.plot_violin_with_scatter(
     ctrl_mean_speeds_030, stim_mean_speeds_030, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='mean speed (cm/s)',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='Mean speed (cm/s)',
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\030_mean_speed',
     dpi=300
@@ -814,7 +821,7 @@ pf.plot_violin_with_scatter(
 
 rmv = []
 for i in range(len(ctrl_perc_rew_030)):
-    if ctrl_perc_rew_030[i] < 0.5 or stim_perc_rew_030[i] < 0.5:
+    if ctrl_perc_rew_030[i] < 0.6 or stim_perc_rew_030[i] < 0.6:
         rmv.append(i)
 ctrl_perc_rew_030 = [trial for i, trial in enumerate(ctrl_perc_rew_030) if i not in rmv]
 stim_perc_rew_030 = [trial for i, trial in enumerate(stim_perc_rew_030) if i not in rmv]
@@ -822,9 +829,10 @@ stim_perc_rew_030 = [trial for i, trial in enumerate(stim_perc_rew_030) if i not
 pf.plot_violin_with_scatter(
     ctrl_perc_rew_030, stim_perc_rew_030, 
     'grey', 'royalblue',
-    xticklabels=['ctrl.', 'stim.'],
-    ylabel='reward perc.',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='Reward perc.',
     ylim=(.5, 1.03),
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\030_perc_rew',
     dpi=300
@@ -908,6 +916,7 @@ pf.plot_violin_with_scatter(
     'grey', 'royalblue',
     xticklabels=['ctrl.', 'stim.'],
     ylabel='num. licks aft. reward',
+    print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\040_lick_aft_rew',
     dpi=300)

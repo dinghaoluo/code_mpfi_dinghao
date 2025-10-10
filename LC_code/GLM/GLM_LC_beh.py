@@ -46,6 +46,8 @@ scaler = StandardScaler()
 
 #%% path stems
 all_sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions')
+LC_beh_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
+GLM_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/GLM')
 
 
 #%% load cell table
@@ -62,7 +64,7 @@ for path in paths:
     print(recname)
     
     # load behaviour
-    beh_path = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC') / f'{recname}.pkl'
+    beh_path = LC_beh_stem / f'{recname}.pkl'
     try:
         with open(beh_path, 'rb') as f:
             beh = pickle.load(f)
@@ -72,59 +74,47 @@ for path in paths:
     timestamps_ms = beh['upsampled_timestamps_ms']
     timestamps_s  = timestamps_ms / 1000.0
     speeds_cm_s   = beh['upsampled_speed_cm_s']
-    lick_times    = [lick[0] for trial in beh['lick_times'][1:] for lick in trial]
+    lick_times    = [[lick[0] for lick in trial] for trial in beh['lick_times'][1:]]
     cue_times     = beh['start_cue_times'][1:]
     reward_times  = beh['reward_times'][1:]
     run_onsets    = beh['run_onsets'][1:]
-    trials        = beh['trial_statements'][1:]
+    trials_sts    = beh['trial_statements'][1:]
     
     # find first opto trial
-    first_opto_idx = next((i for i, t in enumerate(trials) if t[15] != '0'), None)
-    if first_opto_idx is not None:
-        trial_range = np.arange(first_opto_idx)
-    else:
-        trial_range = np.arange(len(trials))
+    opto_idx = [i for i, t in enumerate(trials_sts) if t[15] != '0']
+    if not opto_idx:
+        trial_range = np.arange(len(trials_sts))
         
     # design matrix 
     beh_rows, kept_trials = [], []
     start_time = run_onsets[0] / SAMP_FREQ_BEH
     
     for ti, onset in enumerate(run_onsets[:trial_range[-1]]):
-        if np.isnan(onset):
+        if ti in opto_idx or ti-1 in opto_idx or np.isnan(onset):
             continue
-    
         onset_time = onset / SAMP_FREQ_BEH
-    
-        # reward history
-        reward_times_arr = np.array(reward_times) / SAMP_FREQ_BEH
-        reward_feat = gf.time_since_last_reward(reward_times_arr, onset_time)
-        if np.isnan(reward_feat):
-            continue
-    
-        # lick rate last 5s
-        lick_times_arr = np.array(lick_times) / SAMP_FREQ_BEH
-        lick_rate = gf.lick_rate_last5s(lick_times_arr, onset_time)
         
-        # time since start 
-        time_since_start = onset_time - start_time
+        # first-lick-to-reward
+        pred_err = gf.first_lick_to_reward_last_trial(lick_times, reward_times, ti)
+        
+        # time since last reward 
+        time_since_rew = gf.time_since_last_reward(reward_times, onset_time, ti)
         
         # speed features
-        mean_speed_trial = gf.mean_speed_last_trial(timestamps_s, speeds_cm_s,
+        mean_speed_trial = gf.mean_speed_curr_trial(timestamps_s, speeds_cm_s,
                                                     [r/SAMP_FREQ_BEH for r in run_onsets], ti)
-    
-        feats = [reward_feat,
-                 lick_rate,
-                 time_since_start,
-                 mean_speed_trial]
+        
+        feats = [mean_speed_trial,
+                 time_since_rew,
+                 pred_err]
         beh_rows.append(feats)
         kept_trials.append(ti)
     
     X_behav_base = np.vstack(beh_rows)
     beh_names_base = (
-        ['t. since last rew.',
-         'lick rate last 5 s',
-         't. since sess. start',
-         'mean speed last trial']
+        ['Mean speed',
+         'Time since last reward',
+         'Prediction error']
     )
     
     # single cell spiking data 
@@ -154,7 +144,7 @@ for path in paths:
         # make cell-specific X by adding prev_amp column
         prev_amp = np.concatenate([[np.nan], amp_rows[:-1]])
         X = np.column_stack([X_behav_base, base_rows, prev_amp])
-        beh_names = beh_names_base + ['baseline rate', 'prev. run-onset amp.']
+        beh_names = beh_names_base + ['Baseline FR', 'Prev. run-onset amp.']
     
         # align with y
         y = np.clip(amp_rows, eps, None)
@@ -190,19 +180,32 @@ for path in paths:
         r_val = np.corrcoef(y, y_pred)[0, 1]
         r2_val = r_val**2
         
-        # plot observed vs predicted amplitudes across trials
-        plt.figure(figsize=(6,3))
+        # plot single cell predictions vs observations 
+        fig, ax = plt.subplots(figsize=(6, 3))
         trials = np.arange(len(y))
         
-        plt.scatter(trials, y, color='k', label='Observed', alpha=0.7)
-        plt.scatter(trials, y_pred, color='red', label='Predicted', alpha=0.7)
+        for i, t in enumerate(trials):
+            ax.plot([t, t], [y[i], y_pred[i]], color='gray', lw=0.6, alpha=0.5, zorder=0)
         
-        plt.xlabel('Trial index')
-        plt.ylabel('Run-onset amplitude (Hz)')
-        plt.title(f'{recname} - {cluname}\nR²={r2_val:.2f}, r={r_val:.2f}')
-        plt.legend()
+        ax.scatter(trials, y, color='k', s=20, label='Observed', alpha=0.7, zorder=2)
+        ax.scatter(trials, y_pred, color='red', s=20, label='Predicted', alpha=0.7, zorder=3)
+        
+        ax.set(
+            xlabel='Trial index',
+            ylabel='Run-onset amplitude (Hz)',
+            title=f'{cluname}\nR²={r2_val:.2f}, r={r_val:.2f}'
+        )
+        ax.spines[['top', 'right']].set_visible(False)
+        ax.tick_params(axis='x', length=3, width=0.8)
+        ax.tick_params(axis='y', length=3, width=0.8)
+        ax.legend(frameon=False, fontsize=8, loc='best')
+        
         plt.tight_layout()
-        plt.show()
+        for ext in ['.pdf', '.png']:
+            fig.savefig(GLM_stem / f'single_cell_pred/{cluname}_pred_obs{ext}', 
+                        dpi=300, 
+                        bbox_inches='tight')
+        plt.close()
         
         # store coefficients (full model only)
         for name, coef in zip(beh_names, res_full.params[1:]):  # skip intercept
@@ -223,7 +226,13 @@ for path in paths:
                 print(f'{cluname}: reduced model failed for {drop_name}')
                 continue
             
+            y_pred_log_red = res_reduced.predict(sm.add_constant(X_reduced))
+            y_pred_red = np.exp(y_pred_log_red) - eps
+            r_val_red = np.corrcoef(y, y_pred_red)[0,1]
+            r2_red = r_val_red**2
+            
             # compare fit
+            delta_r2 = r2_val - r2_red
             llf_full = res_full.llf
             llf_red  = res_reduced.llf
             df_diff  = res_full.df_model - res_reduced.df_model
@@ -236,6 +245,7 @@ for path in paths:
                 'rec': recname,
                 'cell_id': cluname,
                 'dropped': drop_name,
+                'delta_r2': delta_r2,
                 'llf_full': llf_full,
                 'llf_reduced': llf_red,
                 'aic_full': res_full.aic,
@@ -254,7 +264,6 @@ lr_df = pd.DataFrame(all_results_lr)
 coef_mean = results_df.groupby('predictor')['coef'].mean()
 coef_sem  = results_df.groupby('predictor')['coef'].sem()
 
-# run simple one-sample t-tests vs 0
 stats_results = {}
 for pred, group in results_df.groupby('predictor'):
     coefs = group['coef'].dropna().values
@@ -264,50 +273,88 @@ for pred, group in results_df.groupby('predictor'):
     else:
         stats_results[pred] = np.nan
 
-# consistent order
-order = [p for p in [
-    't. since last rew.',
-    'lick rate last 5 s',
-    't. since sess. start',
-    'mean speed last trial',
-    'baseline rate',
-    'prev. run-onset amp.'
-] if p in coef_mean.index]
+# ordering from high to low 
+order = coef_mean.sort_values(ascending=False).index.tolist()
 
 coef_mean = coef_mean.loc[order]
 coef_sem  = coef_sem.loc[order]
 
-plt.figure(figsize=(8,4))
-ax = coef_mean.plot(kind='bar', yerr=coef_sem, capsize=3, color='lightgray', edgecolor='k')
+pvals = pd.Series(stats_results).loc[order]
 
-# add significance stars
-for i, pred in enumerate(coef_mean.index):
-    p = stats_results.get(pred, np.nan)
-    if np.isnan(p): 
-        continue
-    star = ''
-    if p < 0.001: star = '***'
-    elif p < 0.01: star = '**'
-    elif p < 0.05: star = '*'
+
+#%% plotting 
+fig, ax = plt.subplots(figsize=(4.5, 3))
+
+ax.barh(order, coef_mean, xerr=coef_sem, color='#d9d9d9', edgecolor='k', capsize=2, height=0.6)
+
+ax.axvline(0, color='k', lw=0.8)
+
+for i, pred in enumerate(order):
+    p = pvals[pred]
+    if p < 0.0001 : star = '****'
+    elif p < 0.001: star = '***'
+    elif p < 0.01 : star = '**'
+    elif p < 0.05 : star = '*'
+    else          : star = ''
     if star:
-        ax.text(i, coef_mean[pred] + coef_sem[pred] + 0.05, star,
-                ha='center', va='bottom', color='k', fontsize=12)
+        ax.text(coef_mean[pred] + np.sign(coef_mean[pred])*0.03,
+                i, star, va='center', ha='center',
+                fontsize=15, color='k')
 
-plt.ylabel('log-amplitude coefficient (mean ± SEM)')
-plt.xticks(rotation=45, ha='right')
-plt.axhline(0, color='k', lw=1)
-plt.tight_layout()
-plt.show()
+ax.set(xlabel='Log-amplitude coefficient', 
+       yticklabels=order,
+       title='Predictors of LC run-onset amplitude')
+
+ax.spines[['top','right']].set_visible(False)
+
+for ext in ['.pdf', '.png']:
+    fig.savefig(GLM_stem / f'predictor_coeff{ext}',
+                dpi=300,
+                bbox_inches='tight')
 
 
 #%% LR 
-plt.figure(figsize=(7,4))
+fig, ax = plt.subplots(figsize=(4,5))
 sns.boxplot(x='dropped', y='delta_aic', data=lr_df, color='lightgray')
-plt.axhline(0, color='k', ls='--')
-plt.ylabel('ΔAIC (reduced – full)')
-plt.xlabel('Dropped predictor')
-plt.title('Model improvement by predictor inclusion')
+ax.axhline(0, color='k', ls='--')
+
+ax.set(xlabel='Dropped predictor', 
+       ylabel='ΔAIC (reduced – full)',
+       title='Model AIC comparison')
+
 plt.xticks(rotation=45, ha='right')
-plt.ylim(-5,5)
+
+for ext in ['.pdf', '.png']:
+    fig.savefig(GLM_stem / f'model_AIC_comparison{ext}',
+                dpi=300,
+                bbox_inches='tight')
+
+
+#%% ΔR² plot
+mean_r2 = lr_df.groupby('dropped')['delta_r2'].mean().sort_values(ascending=False)
+sem_r2  = lr_df.groupby('dropped')['delta_r2'].sem().loc[mean_r2.index]
+
+fig, ax = plt.subplots(figsize=(4.5, 3))
+
+ax.barh(mean_r2.index, mean_r2.values,
+        xerr=sem_r2.values,
+        color='#d9d9d9',
+        edgecolor='k',
+        capsize=2,
+        height=0.6)
+
+ax.axvline(0, color='k', lw=0.8)
+
+ax.set(xlabel='unique variance explained (ΔR² ± SEM)',
+       ylabel='',
+       title='Drop-one-out variance explained by predictor')
+
+ax.spines[['top', 'right']].set_visible(False)
+
 plt.tight_layout()
 plt.show()
+
+for ext in ['.pdf', '.png']:
+    fig.savefig(GLM_stem / f'deltaR2_by_predictor{ext}', 
+                dpi=300, 
+                bbox_inches='tight')

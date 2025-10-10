@@ -1050,7 +1050,7 @@ def main(paths, exp='HPCLC'):
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)
     
-    ax.set(xlabel='Time from run-onset (s)', xticks=[0, 2, 4],
+    ax.set(xlabel='Time from run onset (s)', xticks=[0, 2, 4],
            ylabel='Firing rate (Hz)', yticks=[1, 2, 3, 4], ylim=(1, 4.1))
     ax.set_title(f'{exp}\nPyrDown (>3/2)', fontsize=10)
     ax.legend(fontsize=4, frameon=False)
@@ -1340,5 +1340,5 @@ def main(paths, exp='HPCLC'):
     
 #%% run 
 if __name__ == '__main__':
-    main(pathHPCLCopt, 'HPCLC')
+    # main(pathHPCLCopt, 'HPCLC')
     main(pathHPCLCtermopt, 'HPCLCterm')
