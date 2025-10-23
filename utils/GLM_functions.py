@@ -9,7 +9,6 @@ helper functions for GLM building
 
 #%% imports 
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
 import statsmodels.api as sm
 
 
@@ -93,12 +92,18 @@ def stop_duration_before_onset(timestamps_s, speeds_cm_s, reward_times, run_onse
         print(e)
         return np.nan
 
-def mean_speed_curr_trial(timestamps_s, speeds, run_onsets_s, ti):
-    start, end = run_onsets_s[ti], run_onsets_s[ti+1]
-    mask = (timestamps_s >= start) & (timestamps_s < end)
-    if not np.any(mask):
+def mean_speed_prev_trial(timestamps_s, speeds_cm_s, run_onsets_s, ti):
+    if ti == 0: 
         return np.nan
-    return np.nanmean(speeds[mask])
+    # trial boundaries defined by successive run onsets; last trial ends at this onset
+    t_start = run_onsets_s[ti-1]
+    t_end   = run_onsets_s[ti] if ti < len(run_onsets_s) else timestamps_s[-1]
+    if not np.isfinite(t_start) or not np.isfinite(t_end) or t_end <= t_start:
+        return np.nan
+    mask = (timestamps_s >= t_start) & (timestamps_s < t_end)
+    if not np.any(mask): 
+        return np.nan
+    return float(np.nanmean(speeds_cm_s[mask]))
 
 
 def prev_run_amp(amplitudes, ti):
@@ -117,13 +122,13 @@ def prev_run_amp(amplitudes, ti):
     return amplitudes[ti - 1]
 
 
-def baseline_rate(spk_rate, sr, onset_idx, window=(2.5, 1.5)):
+def preonset_rate(train, samp_freq=1250, onset_idx=3750, window=(2.5, 1.5)):
     """
     mean firing rate in [onset - window[0], onset - window[1]] (s).
     """
-    lo = int(onset_idx - window[0]*sr)
-    hi = int(onset_idx - window[1]*sr)
-    return float(np.nanmean(spk_rate[lo:hi]))
+    lo = int(onset_idx - window[0]*samp_freq)
+    hi = int(onset_idx - window[1]*samp_freq)
+    return float(np.nanmean(train[lo:hi]))
 
 
 #%% target (run onset rates)

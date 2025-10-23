@@ -2,17 +2,18 @@
 """
 Created on Thu Sep 25 16:39:47 2025
 
-GLM to try to tease apart the contributing factors to LC peak amplitude 
-    under unmanipulated conditions (baseline and recovery trials in stim.
-    sessions)
+GLM to test predictors of LC run-onset amplitude
+    (baseline & recovery trials, unmanipulated sessions)
 
 @author: Dinghao Luo
 """
 
 #%% imports 
 from pathlib import Path
+import warnings
 
 import pickle 
+import scipy.io as sio 
 import numpy as np 
 import pandas as pd 
 from sklearn.preprocessing import StandardScaler
@@ -21,17 +22,20 @@ from scipy import stats
 import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tools.sm_exceptions import PerfectSeparationError
-
 import matplotlib.pyplot as plt 
-import seaborn as sns
 
 from common import mpl_formatting
-mpl_formatting()
-
 import GLM_functions as gf
+mpl_formatting()
 
 import rec_list
 paths = rec_list.pathLC
+
+
+#%% path stems
+all_sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions')
+LC_beh_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
+GLM_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/GLM')
 
 
 #%% parameters 
@@ -42,12 +46,6 @@ RUN_ONSET_IDX = 3 * SAMP_FREQ
 eps = 1e-6
 
 scaler = StandardScaler()
-
-
-#%% path stems
-all_sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions')
-LC_beh_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
-GLM_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/GLM')
 
 
 #%% load cell table
@@ -75,24 +73,33 @@ for path in paths:
     timestamps_s  = timestamps_ms / 1000.0
     speeds_cm_s   = beh['upsampled_speed_cm_s']
     lick_times    = [[lick[0] for lick in trial] for trial in beh['lick_times'][1:]]
-    cue_times     = beh['start_cue_times'][1:]
     reward_times  = beh['reward_times'][1:]
     run_onsets    = beh['run_onsets'][1:]
     trials_sts    = beh['trial_statements'][1:]
     
     # find first opto trial
     opto_idx = [i for i, t in enumerate(trials_sts) if t[15] != '0']
-    if not opto_idx:
-        trial_range = np.arange(len(trials_sts))
-        
+    
+    # new--get run-onset aligned to full spike maps
+    rec_stem = Path(f'Z:/Dinghao/MiceExp/ANMD{recname[1:5]}') / recname[:14] / recname
+    aligned_run_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'
+    aligned_run = sio.loadmat(aligned_run_path)['trialsRun'][0][0]
+    run_onsets_spike = aligned_run['startLfpInd'][0]
+    
+    # get spike maps 
+    sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions') / recname
+    spike_maps = np.load(sess_stem / f'{recname}_smoothed_spike_map.npy', allow_pickle=True)
+    
     # design matrix 
     beh_rows, kept_trials = [], []
-    start_time = run_onsets[0] / SAMP_FREQ_BEH
     
-    for ti, onset in enumerate(run_onsets[:trial_range[-1]]):
+    for ti, onset in enumerate(run_onsets[:-1]):
         if ti in opto_idx or ti-1 in opto_idx or np.isnan(onset):
             continue
         onset_time = onset / SAMP_FREQ_BEH
+        
+        # trial index 
+        trial_index = ti/len(trials_sts)
         
         # first-lick-to-reward
         pred_err = gf.first_lick_to_reward_last_trial(lick_times, reward_times, ti)
@@ -101,21 +108,21 @@ for path in paths:
         time_since_rew = gf.time_since_last_reward(reward_times, onset_time, ti)
         
         # speed features
-        mean_speed_trial = gf.mean_speed_curr_trial(timestamps_s, speeds_cm_s,
+        mean_speed_trial = gf.mean_speed_prev_trial(timestamps_s, speeds_cm_s,
                                                     [r/SAMP_FREQ_BEH for r in run_onsets], ti)
         
-        feats = [mean_speed_trial,
-                 time_since_rew,
-                 pred_err]
+        feats = [
+            time_since_rew,
+            pred_err
+            ]
         beh_rows.append(feats)
         kept_trials.append(ti)
     
     X_behav_base = np.vstack(beh_rows)
-    beh_names_base = (
-        ['Mean speed',
-         'Time since last reward',
-         'Prediction error']
-    )
+    beh_names_base = ([
+        'Time since last reward',
+        'Prediction error'
+        ])
     
     # single cell spiking data 
     all_trains_path = all_sess_stem / recname / f'{recname}_all_trains.npy'
@@ -125,7 +132,7 @@ for path in paths:
     for cluname, row in curr_cell_prop.iterrows():
         if row['identity'] == 'other' or not row['run_onset_peak']:
             continue
-    
+        
         trains = all_trains[cluname]
     
         # compute amplitudes
@@ -134,16 +141,29 @@ for path in paths:
             amp = gf.run_onset_amplitude(trains[ti], SAMP_FREQ, RUN_ONSET_IDX)
             amp_rows.append(amp)
         amp_rows = np.array(amp_rows, dtype=float)
+    
+        # baseline rate 
+        # base_rows = []
+        # for ti in kept_trials:
+        #     base = gf.baseline_rate(trains[ti])
+        #     base_rows.append(base)
+        # base_rows = np.array(base_rows, dtype=float)
         
-        # baseline amp
-        base_rows = np.array([
-            gf.baseline_rate(trains[ti], SAMP_FREQ, RUN_ONSET_IDX)
-            for ti in kept_trials
-        ], dtype=float)
+        # new--get baseline rate for -30~-1 s
+        clu_idx = int(cluname.split('clu')[-1]) - 2  # for retrieving spike map
+        base_30_rows = [] 
+        for ti in kept_trials:
+            base_start = run_onsets_spike[ti] - SAMP_FREQ * 30
+            base_end   = run_onsets_spike[ti] + SAMP_FREQ * 30
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', category=RuntimeWarning)
+                base_30 = np.nanmean(spike_maps[clu_idx, base_start : base_end])
+            base_30_rows.append(base_30)
+        base_30_rows = np.array(base_30_rows, dtype=float)
         
         # make cell-specific X by adding prev_amp column
         prev_amp = np.concatenate([[np.nan], amp_rows[:-1]])
-        X = np.column_stack([X_behav_base, base_rows, prev_amp])
+        X = np.column_stack([X_behav_base, base_30_rows, prev_amp])
         beh_names = beh_names_base + ['Baseline FR', 'Prev. run-onset amp.']
     
         # align with y
@@ -260,7 +280,7 @@ results_df = pd.DataFrame(all_results)
 lr_df = pd.DataFrame(all_results_lr)
     
     
-#%% plotting 
+#%% statistics 
 coef_mean = results_df.groupby('predictor')['coef'].mean()
 coef_sem  = results_df.groupby('predictor')['coef'].sem()
 
@@ -284,77 +304,115 @@ pvals = pd.Series(stats_results).loc[order]
 
 #%% plotting 
 fig, ax = plt.subplots(figsize=(4.5, 3))
-
 ax.barh(order, coef_mean, xerr=coef_sem, color='#d9d9d9', edgecolor='k', capsize=2, height=0.6)
-
 ax.axvline(0, color='k', lw=0.8)
 
 for i, pred in enumerate(order):
-    p = pvals[pred]
-    if p < 0.0001 : star = '****'
-    elif p < 0.001: star = '***'
-    elif p < 0.01 : star = '**'
-    elif p < 0.05 : star = '*'
-    else          : star = ''
-    if star:
-        ax.text(coef_mean[pred] + np.sign(coef_mean[pred])*0.03,
-                i, star, va='center', ha='center',
-                fontsize=15, color='k')
+    m, s, p = coef_mean[pred], coef_sem[pred], pvals[pred]
+    ax.text(m + np.sign(m)*0.05, i+.3, f'{p:.1e}', va='center', ha='center', fontsize=8)
+    ax.text(m + np.sign(m)*0.05, i +.1, f'{m:.4f}±{s:.4f}', va='center', ha='center', fontsize=6)
 
-ax.set(xlabel='Log-amplitude coefficient', 
-       yticklabels=order,
+ax.set(xlabel='Log-amplitude coefficient', yticklabels=order,
        title='Predictors of LC run-onset amplitude')
-
 ax.spines[['top','right']].set_visible(False)
+plt.tight_layout()
 
-for ext in ['.pdf', '.png']:
-    fig.savefig(GLM_stem / f'predictor_coeff{ext}',
-                dpi=300,
-                bbox_inches='tight')
+for ext in ['.pdf','.png']:
+    fig.savefig(GLM_stem / f'predictor_coeff{ext}', dpi=300, bbox_inches='tight')
 
 
-#%% LR 
-fig, ax = plt.subplots(figsize=(4,5))
-sns.boxplot(x='dropped', y='delta_aic', data=lr_df, color='lightgray')
-ax.axhline(0, color='k', ls='--')
+#%% AIC
+mean_aic = lr_df.groupby('dropped')['delta_aic'].mean().sort_values(ascending=False)
+sem_aic  = lr_df.groupby('dropped')['delta_aic'].sem().loc[mean_aic.index]
 
-ax.set(xlabel='Dropped predictor', 
-       ylabel='ΔAIC (reduced – full)',
+pvals_aic = []
+for name in mean_aic.index:
+    vals = lr_df.loc[lr_df['dropped']==name, 'delta_aic']
+    if len(vals) > 3:
+        _, p = wilcoxon(vals, zero_method='pratt')
+    else:
+        p = np.nan
+    pvals_aic.append(p)
+
+fig, ax = plt.subplots(figsize=(4.5, 3))
+ax.barh(mean_aic.index, mean_aic.values, xerr=sem_aic.values,
+        color='#d9d9d9', edgecolor='k', capsize=2, height=0.6)
+ax.axvline(0, color='k', lw=0.8)
+
+for i, (m, s, p) in enumerate(zip(mean_aic.values, sem_aic.values, pvals_aic)):
+    ax.text(m + np.sign(m)*0.5, i + .3, f'{p:.1e}', va='center', ha='center', fontsize=8)
+    ax.text(m + np.sign(m)*0.5, i + .1, f'{m:.4f}±{s:.4f}', va='center', ha='center', fontsize=6)
+
+ax.set(xlabel='ΔAIC (reduced – full)', ylabel='',
        title='Model AIC comparison')
-
-plt.xticks(rotation=45, ha='right')
-
-for ext in ['.pdf', '.png']:
-    fig.savefig(GLM_stem / f'model_AIC_comparison{ext}',
-                dpi=300,
-                bbox_inches='tight')
+ax.spines[['top','right']].set_visible(False)
+plt.tight_layout()
+for ext in ['.pdf','.png']:
+    fig.savefig(GLM_stem / f'model_AIC_comparison{ext}', dpi=300, bbox_inches='tight')
 
 
 #%% ΔR² plot
 mean_r2 = lr_df.groupby('dropped')['delta_r2'].mean().sort_values(ascending=False)
 sem_r2  = lr_df.groupby('dropped')['delta_r2'].sem().loc[mean_r2.index]
 
+pvals_r2 = []
+for name in mean_r2.index:
+    vals = lr_df.loc[lr_df['dropped']==name, 'delta_r2']
+    if len(vals) > 3:
+        _, p = wilcoxon(vals, zero_method='pratt')
+    else:
+        p = np.nan
+    pvals_r2.append(p)
+
+fig, ax = plt.subplots(figsize=(4.5, 3))
+ax.barh(mean_r2.index, mean_r2.values, xerr=sem_r2.values,
+        color='#d9d9d9', edgecolor='k', capsize=2, height=0.6)
+ax.axvline(0, color='k', lw=0.8)
+
+for i, (m, s, p) in enumerate(zip(mean_r2.values, sem_r2.values, pvals_r2)):
+    ax.text(m + np.sign(m)*0.005, i + .3, f'{p:.1e}', va='center', ha='center', fontsize=8)
+    ax.text(m + np.sign(m)*0.005, i + .1, f'{m:.4f}±{s:.4f}', va='center', ha='center', fontsize=6)
+
+ax.set(xlabel='unique variance explained (ΔR²)', ylabel='',
+       title='Drop-one-out variance explained by predictor')
+ax.spines[['top','right']].set_visible(False)
+plt.tight_layout()
+for ext in ['.pdf','.png']:
+    fig.savefig(GLM_stem / f'deltaR2_by_predictor{ext}', dpi=300, bbox_inches='tight')
+
+
+#%% Likelihood-ratio statistic plot (deviance gain)
+mean_lr = lr_df.groupby('dropped')['lr_stat'].mean().sort_values(ascending=False)
+sem_lr  = lr_df.groupby('dropped')['lr_stat'].sem().loc[mean_lr.index]
+
 fig, ax = plt.subplots(figsize=(4.5, 3))
 
-ax.barh(mean_r2.index, mean_r2.values,
-        xerr=sem_r2.values,
-        color='#d9d9d9',
-        edgecolor='k',
-        capsize=2,
-        height=0.6)
+ax.barh(
+    mean_lr.index,
+    mean_lr.values,
+    xerr=sem_lr.values,
+    color='#d9d9d9',
+    edgecolor='k',
+    capsize=2,
+    height=0.6
+)
 
 ax.axvline(0, color='k', lw=0.8)
 
-ax.set(xlabel='unique variance explained (ΔR² ± SEM)',
-       ylabel='',
-       title='Drop-one-out variance explained by predictor')
+ax.set(
+    xlabel='2×Δlog-likelihood (Λ)',
+    ylabel='',
+    title='Likelihood-ratio statistic by predictor'
+)
 
 ax.spines[['top', 'right']].set_visible(False)
+ax.tick_params(axis='x', length=3, width=0.8)
+ax.tick_params(axis='y', length=0)
 
 plt.tight_layout()
 plt.show()
 
 for ext in ['.pdf', '.png']:
-    fig.savefig(GLM_stem / f'deltaR2_by_predictor{ext}', 
+    fig.savefig(GLM_stem / f'likelihood_ratio_stat{ext}', 
                 dpi=300, 
                 bbox_inches='tight')

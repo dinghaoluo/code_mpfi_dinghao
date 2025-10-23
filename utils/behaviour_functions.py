@@ -482,7 +482,7 @@ def lick_index(lick_map):
     compute post-vs-pre lick selectivity from a binary lick map.
     
     parameters:
-    - lick_map: binary 1d array indicating presence of licks at each distance bin.
+    - lick_map: binary 1d array indicating presence of licks at each distance bin->2200 bins
     
     returns:
     - float: selectivity index (nan if no licks present).

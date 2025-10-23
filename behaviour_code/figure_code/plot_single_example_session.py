@@ -14,17 +14,14 @@ import matplotlib.pyplot as plt
 from scipy.stats import sem
 import sys
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code\utils')
 import behaviour_functions as bf
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, replace_outlier, smooth_convolve
 mpl_formatting()
 
 
 #%% txt path
-# txt_path = r'Z:\Dinghao\MiceExp\ANMD029\AD29-20220616-01T.txt'
-txt_path = r'Z:\Dinghao\MiceExp\ANMD029r\A029r-20220627\A029r-20220627-02\A29r-20220627-02T.txt'
+txt_path = r'Z:\Dinghao\MiceExp\ANMD063r\A063r-20230713\A063r-20230713-01\A063r-20230713-01T.txt'
 
 
 #%% main

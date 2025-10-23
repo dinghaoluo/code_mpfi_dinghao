@@ -289,6 +289,7 @@ if comp_method == 'baseline':
                              xticklabels=('ctrl.', 'stim.'),
                              ylabel='Mean speed (m/s)',
                              save=True,
+                             print_statistics=True,
                              savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_HPC_LC_stim\summary_wilc_control_velocity')
 elif comp_method == 'stim_cont':
     plot_violin_with_scatter(all_mspeeds_non_stim, all_mspeeds_stim, 

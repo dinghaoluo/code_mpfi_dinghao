@@ -8,8 +8,9 @@ extract LC spike trains aligned to all behavioural landmarks
 """
 
 #%% imports 
+from pathlib import Path
+
 import h5py
-import os
 import scipy.io as sio 
 from tqdm import tqdm
 from time import time
@@ -54,7 +55,7 @@ SAMP_FREQ = 1250  # Hz
 SIGMA_SPIKE = int(SAMP_FREQ * 0.05)  # 50 ms
 GAUS_SPIKE = gaussian_kernel_unity(SIGMA_SPIKE, GPU_AVAILABLE)
 
-MAX_LENGTH = 12500  # samples ♣
+MAX_LENGTH = 12500  # samples
 
 BEF = 3  # seconds before 
 AFT = 7  # seconds after 
@@ -62,38 +63,25 @@ AFT = 7  # seconds after
 
 #%% main 
 def main(path):
-    recname = path[-17:]
+    recname = Path(path).name
+    
+    rec_stem = Path(f'Z:/Dinghao/MiceExp/ANMD{recname[1:5]}') / recname[:14] / recname
     
     # aligned behavioural landmarks 
-    aligned_run_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
-                                    recname[:14],  # till end of date
-                                    recname,
-                                    f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat')
-    aligned_cue_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',
-                                    recname[:14],
-                                    recname,
-                                    f'{recname}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat')
-    aligned_rew_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',
-                                    recname[:14],
-                                    recname,
-                                    f'{recname}_DataStructure_mazeSection1_TrialType1_alignRew_msess1.mat')
+    aligned_run_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'
+    aligned_cue_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat'
+    aligned_rew_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignRew_msess1.mat'
     
     # spike file paths 
-    clu_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}', 
-                            recname[:14],
-                            recname,
-                            f'{recname}.clu.1')
-    res_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}', 
-                            recname[:14],
-                            recname,
-                            f'{recname}.res.1')
+    clu_path = rec_stem / f'{recname}.clu.1'
+    res_path = rec_stem / f'{recname}.res.1'
     
     # check
-    if (not os.path.exists(aligned_run_path)
-        or not os.path.exists(aligned_cue_path)
-        or not os.path.exists(aligned_rew_path)
-        or not os.path.exists(clu_path)
-        or not os.path.exists(res_path)):
+    if (not aligned_run_path.exists()
+        or not aligned_cue_path.exists()
+        or not aligned_rew_path.exists()
+        or not clu_path.exists()
+        or not res_path.exists()):
         print(f'\nmissing data for {recname}; skipped')
     else:
         print(f'\n{recname}')
@@ -118,12 +106,10 @@ def main(path):
     spike_times = spike_times.astype(int)  # ensure integer indices for indexing
     
     unique_clus = [clu for clu in np.unique(clusters) if clu not in [0, 1]]
-    tot_clus = len(unique_clus)
     clu_to_row = {clu: i for i, clu in enumerate(unique_clus)}  # map cluster ID to row index
     
     max_time = spike_times.max() + 1  # +1 to make sure last time index is included
     spike_map = np.zeros((len(unique_clus), max_time), dtype=int)
-    spike_array = np.zeros((len(unique_clus), max_time))
     
     for t, clu in zip(spike_times, clusters):
         if clu in [0, 1]:
@@ -141,11 +127,10 @@ def main(path):
     all_rasters_cue = {}
     all_rasters_rew = {}
     
-    filename = os.path.join(path, f'{recname}_DataStructure_mazeSection1_TrialType1')
+    spikefile_name = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignedSpikesPerNPerT_msess1_Run0.mat'
+    spike_time_file = h5py.File(spikefile_name)['trialsRunSpikes']
     
-    spike_time_file = h5py.File(f'{filename}_alignedSpikesPerNPerT_msess1_Run0.mat')['trialsRunSpikes']
-    
-    time_bef = spike_time_file['TimeBef']; time_aft = spike_time_file['Time']
+    time_aft = spike_time_file['Time']
     tot_clu = time_aft.shape[1]
     tot_trial = time_aft.shape[0]-1  # trial 1 is empty
     
@@ -155,9 +140,6 @@ def main(path):
         rasters_cue_gpu = xp.zeros_like(rasters_run_gpu)
         
         for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
-            curr_clu_run = np.zeros((tot_trials, MAX_LENGTH))
-            curr_clu_rew = np.zeros((tot_trials, MAX_LENGTH))
-            curr_clu_cue = np.zeros((tot_trials, MAX_LENGTH))
             for trial in range(tot_trials):
                 run_x0 = max(run_onsets[trial] - BEF*SAMP_FREQ, 0)
                 run_x1 = min(run_onsets[trial] + AFT*SAMP_FREQ, max_time)
@@ -180,9 +162,6 @@ def main(path):
         rasters_cue = xp.zeros_like(rasters_run)
         
         for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
-            curr_clu_run = np.zeros((tot_trials, MAX_LENGTH))
-            curr_clu_rew = np.zeros((tot_trials, MAX_LENGTH))
-            curr_clu_cue = np.zeros((tot_trials, MAX_LENGTH))
             for trial in range(tot_trials):
                 run_x0 = max(run_onsets[trial] - BEF*SAMP_FREQ, 0)
                 run_x1 = min(run_onsets[trial] + AFT*SAMP_FREQ, max_time)
@@ -249,34 +228,51 @@ def main(path):
         
         all_trains_cue[cluname] = trains_cue[clu]
         all_rasters_cue[cluname] = rasters_cue[clu]
+        
+    # smooth entire spike map for all clusters
+    print('smoothing full spike maps...')
+    if GPU_AVAILABLE:
+        spike_map_gpu = cp.asarray(spike_map)
+        smoothed_spike_map = (cpss.fftconvolve(
+            spike_map_gpu, GAUS_SPIKE[None, :], mode='same'
+            ) * SAMP_FREQ).get()
+        del spike_map_gpu
+    else:
+        smoothed_spike_map = fftconvolve(
+            spike_map, GAUS_SPIKE[None, :], mode='same'
+            ) * SAMP_FREQ
     
     print('done; saving...')
-    sess_folder = rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions\{recname}'
+    sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions') / recname
     np.save(
-        rf'{sess_folder}\{recname}_all_trains_run.npy',
+        sess_stem / f'{recname}_all_trains_run.npy',
         all_trains_run
         )
     np.save(
-        rf'{sess_folder}\{recname}_all_rasters_run.npy',
+        sess_stem / f'{recname}_all_rasters_run.npy',
         all_rasters_run
         )
     np.save(
-        rf'{sess_folder}\{recname}_all_trains_rew.npy',
+        sess_stem / f'{recname}_all_trains_rew.npy',
         all_trains_rew
         )
     np.save(
-        rf'{sess_folder}\{recname}_all_rasters_rew.npy',
+        sess_stem / f'{recname}_all_rasters_rew.npy',
         all_rasters_rew
         )
     np.save(
-        rf'{sess_folder}\{recname}_all_trains_cue.npy',
+        sess_stem / f'{recname}_all_trains_cue.npy',
         all_trains_cue
         )
     np.save(
-        rf'{sess_folder}\{recname}_all_rasters_cue.npy',
+        sess_stem / '{recname}_all_rasters_cue.npy',
         all_rasters_cue
         )
-    print(f'saved to {sess_folder}'
+    np.save(
+        sess_stem / f'{recname}_smoothed_spike_map.npy',
+        smoothed_spike_map
+        )
+    print(f'saved to {str(sess_stem)}'
           f'({str(timedelta(seconds=int(time() - t0)))})\n')
         
 if __name__ == '__main__':

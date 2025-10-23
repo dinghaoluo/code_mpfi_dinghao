@@ -83,6 +83,13 @@ for path in paths:
                 releasing_rois[roi_id] = roi
 
     # per ROI, per window
+    # first we collect all pixel idx of all ROIs (for collision exclusion)
+    all_roi_y = [y for roi in releasing_rois.values() for y in roi['ypix']]
+    all_roi_x = [x for roi in releasing_rois.values() for x in roi['xpix']]
+    all_roi_mask = np.zeros((512, 512), dtype=bool)
+    all_roi_mask[all_roi_y, all_roi_x] = True
+    
+    # now we loop over all the rois with collision exclusion
     for roi_id, roi in releasing_rois.items():
         base_mask = np.zeros((512, 512), dtype=bool)
         base_mask[roi['ypix'], roi['xpix']] = True
@@ -95,6 +102,8 @@ for path in paths:
                 ring_masks[0] = base_mask
             else:
                 dilated_masks[dilation] = binary_dilation(base_mask, structure=STRUCT, iterations=dilation)
+                dilated_masks[dilation] = dilated_masks[dilation] & ~all_roi_mask  # collision exclusion
+                
                 ring_masks[dilation] = dilated_masks[dilation] & ~dilated_masks[dilation-DILATE_STEP]
 
             # now extract per-window medians
@@ -238,3 +247,124 @@ for r, roi_id in enumerate(example_ids):
 
 plt.tight_layout()
 plt.show()
+
+
+#%% plotting with Jingyu's median plot
+from statsmodels.stats.multitest import multipletests
+from scipy.stats import wilcoxon, mannwhitneyu
+
+for wname, results in dilation_results_all.items():
+    print(f'\nCurrent window: {wname}')
+
+    # build ROI × dilation matrix
+    roi_meds = {}
+    for roi_id, ring_dLight in results.items():
+        dvals = {d: np.median(vals) for d, vals in ring_dLight.items()}
+        if all(np.isfinite(val) for val in dvals.values()):
+            roi_meds[roi_id] = dvals
+
+    if not roi_meds:
+        print(f'No valid ROIs for {wname}, skipped.')
+        continue
+
+    dilations = sorted(next(iter(roi_meds.values())).keys())
+    roi_ids = list(roi_meds.keys())
+    roi_map = np.array([[roi_meds[roi_id][d] for d in dilations] for roi_id in roi_ids])
+    groups = [roi_map[:, i][~np.isnan(roi_map[:, i])] for i in range(len(dilations))]
+
+    # -----------------
+    # pairwise tests vs base (0 px)
+    # -----------------
+    pvals = {}
+    for i, d in enumerate(dilations):
+        if d == 0:
+            continue
+        vals0 = roi_map[:, 0]
+        valsk = roi_map[:, i]
+        common_mask = np.isfinite(vals0) & np.isfinite(valsk)
+        common_n = np.sum(common_mask)
+        if common_n > 5:
+            stat, p = wilcoxon(vals0[common_mask], valsk[common_mask], alternative='greater')
+            test_used = 'Wilcoxon'
+        else:
+            stat, p = mannwhitneyu(vals0, valsk, alternative='greater')
+            test_used = 'Mann–Whitney'
+        pvals[d] = (p, test_used, common_n)
+
+    # -----------------
+    # FDR correction
+    # -----------------
+    if len(pvals) > 0:
+        p_raw = np.array([p for p, _, _ in pvals.values()])
+        reject, p_corr, _, _ = multipletests(p_raw, method='fdr_bh')
+    else:
+        reject, p_corr = np.array([]), np.array([])
+
+    stats_out = {}
+    for (d, (p, test_used, n)), pc, rej in zip(pvals.items(), p_corr, reject):
+        line = f'dilation {d} vs 0: {test_used} p={p:.3e}, p_corr={pc:.3e}, sig={rej}, n={n}'
+        print(line)
+        stats_out[d] = {'text': line, 'rej': bool(rej)}
+
+    # -----------------
+    # plotting
+    # -----------------
+    fig, ax = plt.subplots(figsize=(4.5, 3.2), dpi=300)
+    bp = ax.boxplot(groups, labels=dilations, patch_artist=True, showfliers=False)
+
+    # colors & style (faithful to Jingyu’s)
+    for box in bp['boxes']:
+        box.set(facecolor='lightblue', edgecolor='none', alpha=0.7)
+    for median in bp['medians']:
+        median.set(color='teal', linewidth=1.5)
+    for whisker in bp['whiskers']:
+        whisker.set(color='gray', linewidth=1.5)
+    for cap in bp['caps']:
+        cap.set(color='gray', linewidth=1.5)
+
+    # jittered points overlay
+    rng = np.random.default_rng(0)
+    for i, vals in enumerate(groups, start=1):
+        if len(vals) == 0:
+            continue
+        x = rng.normal(i, 0.02, size=len(vals))
+        ax.plot(x, vals, '.', alpha=0.2, markersize=2, color='slategrey')
+
+    # cosmetics
+    ax.spines[['top', 'right']].set_visible(False)
+    ax.set(xlabel='dilation (px)', ylabel='median dLight (a.u.)')
+
+    # -----------------
+    # bracket annotation inline (no helper function)
+    # -----------------
+    ymax_per_group = [np.nanmax(v) if len(v) else np.nan for v in groups]
+    ymax = np.nanmax(ymax_per_group) if np.isfinite(np.nanmax(ymax_per_group)) else 1.0
+    ymin = np.nanmin([np.nanmin(v) for v in groups if len(v)]) if any(len(v) for v in groups) else 0.0
+    yrange = (ymax - ymin) if np.isfinite(ymax - ymin) and (ymax - ymin) > 0 else 1.0
+
+    base_gap = 0.1 * yrange
+    tick_h = 0.02 * yrange
+    level_gap = 0.15 * yrange
+    xpos = {lab: i for i, lab in enumerate(dilations, start=1)}
+
+    current_level = 0
+    for d in dilations:
+        if d == 0 or d not in stats_out:
+            continue
+        x1, x2 = xpos[0], xpos[d]
+        involved_max = np.nanmax([ymax_per_group[x1-1], ymax_per_group[x2-1]])
+        y = (involved_max if np.isfinite(involved_max) else ymax) + base_gap + current_level * level_gap
+
+        # draw bracket
+        ax.plot([x1, x1, x2, x2], [y, y+tick_h, y+tick_h, y], color='black', linewidth=1.0, clip_on=False)
+        ax.text((x1+x2)/2, y+tick_h + 0.006*yrange, stats_out[d]['text'],
+                ha='center', va='bottom', fontsize=6.5, color='black')
+
+        current_level += 1
+
+    ax.set_ylim(top=ymax + base_gap + (current_level+1)*level_gap + tick_h)
+    plt.tight_layout()
+
+    for ext in ['.png', '.pdf']:
+        fig.savefig(save_stem / f'dilation_boxplot_FDRbracket_{wname}{ext}', dpi=300, bbox_inches='tight')
+    plt.show()

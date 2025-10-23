@@ -224,7 +224,7 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     """
     
     fig, ax = plt.subplots(figsize=figsize)
-    
+
     vp = ax.violinplot([data0, data1],
                        positions=[1.1,1.9],
                        showmeans=showmeans, showmedians=showmedians, 
@@ -264,22 +264,29 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         vp['bodies'][i].set_edgecolor('none')
         vp['bodies'][i].set_alpha(.75)
         b = vp['bodies'][i]
-        # get the centre 
         m = np.mean(b.get_paths()[0].vertices[:,0])
-        # make paths not go further right/left than the centre 
         if i==0:
             b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], -np.inf, m)
         if i==1:
             b.get_paths()[0].vertices[:,0] = np.clip(b.get_paths()[0].vertices[:,0], m, np.inf)
 
     if showscatter:
-        ax.scatter([1.25]*len(data0), 
-                   data0, 
-                   s=10, c=colour0, ec='none', lw=.5, alpha=alpha)
-        ax.scatter([1.75]*len(data1), 
-                   data1, 
-                   s=10, c=colour1, ec='none', lw=.5, alpha=alpha)
-    
+        ax.scatter([1.25]*len(data0), data0, s=10, c=colour0, ec='none', lw=.5, alpha=alpha)
+        ax.scatter([1.75]*len(data1), data1, s=10, c=colour1, ec='none', lw=.5, alpha=alpha)
+
+    # --- NEW SECTION: print mean ± sem above violins ---
+    mean0, mean1 = np.nanmean(data0), np.nanmean(data1)
+    sem0, sem1   = sem(data0, nan_policy='omit'), sem(data1, nan_policy='omit')
+    y_max = max(np.nanmax(data0), np.nanmax(data1))
+    y_offset = (ylim[1] - ylim[0]) * 0.05 if ylim else 0.05 * (y_max - min(np.nanmin(data0), np.nanmin(data1)))
+
+    ax.text(1.1, y_max + y_offset,
+            f'{mean0:.2f} ± {sem0:.2f}', ha='center', va='bottom',
+            fontsize=7, color=colour0)
+    ax.text(1.9, y_max + y_offset,
+            f'{mean1:.2f} ± {sem1:.2f}', ha='center', va='bottom',
+            fontsize=7, color=colour1)
+
     if xlim is not None:
         ax.set(xlim=xlim)
     else:
@@ -292,14 +299,15 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         y_range = (max(max(data0), max(data1)), min(min(data0), min(data1)))
         y_range_tot = y_range[0]-y_range[1]
 
+    # [statistical tests below unchanged]
     if paired:
         wilc_stat, wilc_p = wilcoxon(data0, data1)
         ttest_stat, ttest_p = ttest_rel(data0, data1)
         wilc_p_str = '{:.2e}'.format(wilc_p)
         ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
-            print(f'\ndata 0 mean={np.nanmean(data0)}, sem={sem(data0)}')
-            print(f'data 1 mean={np.nanmean(data1)}, sem={sem(data1)}')
+            print(f'\ndata 0 mean={mean0}, sem={sem0}')
+            print(f'data 1 mean={mean1}, sem={sem1}')
             print(f'wilc: {wilc_stat}, p={wilc_p_str}')
             print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
@@ -313,8 +321,8 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         wilc_p_str = '{:.2e}'.format(wilc_p)
         ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
-            print(f'\ndata 0 mean={np.nanmean(data0)}, sem={sem(data0)}')
-            print(f'data 1 mean={np.nanmean(data1)}, sem={sem(data1)}')
+            print(f'\ndata 0 mean={mean0}, sem={sem0}')
+            print(f'data 1 mean={mean1}, sem={sem1}')
             print(f'ranksums: {wilc_stat}, p={wilc_p_str}')
             print(f'ttest: {ttest_stat}, p={ttest_p_str}')
         if plot_statistics:
@@ -322,21 +330,21 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
             ax.text(1.5, y_range[0]+y_range_tot*.05, 
                     f'ranksums_p={wilc_p_str}\nttest_p={ttest_p_str}', 
                     ha='center', va='bottom', color='k', fontsize=8)
-        
+
     ax.set(xticks=[1.1,1.9], xticklabels=xticklabels,
            ylabel=ylabel,
            title=title)
-    
+
     if yscale!=None:
         ax.set_yscale('symlog')
-    
+
     for s in ['top', 'right', 'bottom']:
         ax.spines[s].set_visible(False)
-        
+
     fig.tight_layout()
     plt.grid(False)
     plt.show()
-    
+
     if save:
         if pngonly:
             fig.savefig(f'{savepath}.png',
