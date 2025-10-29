@@ -71,25 +71,44 @@ def process_behavioural_data(
     trial_start_times = [float(x[1]) for x in data['trial_statements']]
     trial_end_times = [float(x[1]) for x in data['new_trial_statements']]
 
-    (
-        run_onsets, 
-        upsampled_timestamps_ms, 
-        upsampled_distance_cm, 
-        smoothed_speed,
-        non_stop_trials, # Jingyu, 9/30/2025
-        non_fullstop_trials # Jingyu, 9/30/2025
-        
-    ) = process_locomotion(
-        wheel_tuples,
-        trial_start_times=trial_start_times,
-        trial_end_times=trial_end_times,
-        encoder_to_dist=0.04,  # encoder tick-to-cm constant 
-        upsample_rate_hz=1000,  # upsample everything to 1 000 Hz 
-        smooth_window_ms=100,  # for smoothing speeds
-        min_speed1=run_onset_sustained,  # follows MATLAB naming conventions for easy debugging 
-        min_speed=run_onset_initial,
-        track_length_cm=180.0
-    )
+    try:
+        (
+            run_onsets, 
+            upsampled_timestamps_ms, 
+            upsampled_distance_cm, 
+            smoothed_speed,
+            non_stop_trials, # Jingyu, 9/30/2025
+            non_fullstop_trials # Jingyu, 9/30/2025
+        ) = process_locomotion(
+            wheel_tuples,
+            trial_start_times=trial_start_times,
+            trial_end_times=trial_end_times,
+            encoder_to_dist=0.04,  # encoder tick-to-cm constant 
+            upsample_rate_hz=1000,  # upsample everything to 1 000 Hz 
+            smooth_window_ms=100,  # for smoothing speeds
+            min_speed1=run_onset_sustained,  # follows MATLAB naming conventions for easy debugging 
+            min_speed=run_onset_initial,
+            track_length_cm=180.0
+        )
+    except ValueError:  # probably immobile session without non-stops
+        (
+            run_onsets, 
+            upsampled_timestamps_ms, 
+            upsampled_distance_cm, 
+            smoothed_speed
+        ) = process_locomotion(
+            wheel_tuples,
+            trial_start_times=trial_start_times,
+            trial_end_times=trial_end_times,
+            encoder_to_dist=0.04,  # encoder tick-to-cm constant 
+            upsample_rate_hz=1000,  # upsample everything to 1 000 Hz 
+            smooth_window_ms=100,  # for smoothing speeds
+            min_speed1=run_onset_sustained,  # follows MATLAB naming conventions for easy debugging 
+            min_speed=run_onset_initial,
+            track_length_cm=180.0
+        )
+        non_stop_trials = []
+        non_fullstop_trials = []
         
     # for distance accumulation 
     common_distance_base = np.linspace(
@@ -1006,5 +1025,5 @@ def process_locomotion(wheel_tuples,
             non_fullstop_trials.append(1)
         else:
             non_fullstop_trials.append(0)
-        
+    
     return run_onset_times, upsampled_timestamps, upsampled_distance_cm, speed_smoothed, non_stop_trials, non_fullstop_trials

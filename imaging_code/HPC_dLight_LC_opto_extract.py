@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np 
 import matplotlib.pyplot as plt 
-from matplotlib import cm
+from matplotlib import colormaps
 from matplotlib.colors import TwoSlopeNorm
 import tifffile
 
@@ -155,13 +155,13 @@ def main(path):
     tot_valid_pulses = len(valid_pulse_start_frames)
     
     # determine time bin mask
-    PMT_BUFFER_FRAMES = 10 # frames 
+    PMT_BUFFER_FRAMES = 10  # frames 
     PMT_BUFFER = PMT_BUFFER_FRAMES / SAMP_FREQ
     last_time_s = last_time / 1_000  # convert to seconds
     stim_start = last_time_s + PMT_BUFFER
     stim_end   = stim_start + 1
     
-    STIM_IDX = (TAXIS >= stim_start) & (TAXIS < stim_end)
+    STIM_IDX = (TAXIS >= stim_start) & (TAXIS < stim_end)  # note that this is the mask for extracting stim_mean
     
     # post-stim dispersion calculation, 10 Sept 2025
     BIN_START = stim_start
@@ -176,7 +176,7 @@ def main(path):
     if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
         Exception('\nWARNING:\ncheck $FM; halting processing for {}\n'.format(recname))
     
-    # block out opto artefact periods 
+    # filter for opto artefact periods 
     pulse_period_frames = np.concatenate(
         [np.arange(
             max(0, pulse_train[0]-3),
@@ -184,7 +184,12 @@ def main(path):
             )
         for pulse_train in pulse_frames]
         )
-    trace_dFF[pulse_period_frames] = np.nan
+    
+    # filtering
+    raw_trace[pulse_period_frames]  = np.nan
+    raw_trace2[pulse_period_frames] = np.nan
+    
+    trace_dFF[pulse_period_frames]  = np.nan
     trace2_dFF[pulse_period_frames] = np.nan
     
     # raw traces aligned
@@ -369,7 +374,7 @@ def main(path):
         stim_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
         baseline_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
         dFF = (stim_mean - baseline_mean) / np.abs(baseline_mean)
-        dFF[np.abs(dFF) > 10] = np.nan  # hard cap to ±2
+        dFF[np.abs(dFF) > 10] = np.nan  # hard cap
         pixel_dFF[:, :, i] = dFF
     
         stim_mean2 = np.mean(temp_F2[STIM_IDX, :, :], axis=0)
@@ -442,7 +447,7 @@ def main(path):
         )
         
     # save as tiff 
-    cmap = cm.get_cmap('RdBu_r')
+    cmap = colormaps('RdBu_r')
     release_map_rgba = cmap(norm(release_map))
     release_map_rgb = (release_map_rgba[..., :3] * 255).astype(np.uint8)
     
@@ -494,7 +499,7 @@ def main(path):
         )
     
     # save as tiff 
-    cmap = cm.get_cmap('RdBu_r')
+    cmap = colormaps('RdBu_r')
     release_map2_rgba = cmap(norm(release_map2))
     release_map2_rgb = (release_map2_rgba[..., :3] * 255).astype(np.uint8)
     

@@ -12,25 +12,29 @@ Modified on 16 July 2025:
 
 
 #%% imports
-import sys
-import os 
+from pathlib import Path 
 import pickle 
 import numpy as np 
 import matplotlib.pyplot as plt  
-from scipy.stats import ranksums, sem, ttest_rel
+from scipy.stats import sem, ttest_rel
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting
 from plotting_functions import plot_violin_with_scatter
 mpl_formatting()
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
-paths = rec_list.pathLC
+pathHPCLCopt = rec_list.pathHPCLCopt
+pathHPCLCtermopt = rec_list.pathHPCLCtermopt
+paths = pathHPCLCopt + pathHPCLCtermopt
 
 
 #%% parameters 
 XAXIS = np.arange(4000) / 1000
+
+
+#%% path stems 
+HPCLCstem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCLC')
+HPCLCtermstem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCLCterm')
 
 
 #%% main
@@ -44,15 +48,16 @@ early_acc = []
 late_acc = []
 
 for path in paths:
-    recname = path.split('\\')[-1]
+    recname = Path(path).name
     print(recname)
     
-    beh_path = os.path.join(
-        r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LC',
-        f'{recname}.pkl'
-        )
-    with open(beh_path, 'rb') as f:
-        beh = pickle.load(f)
+    beh_paths = [HPCLCstem / f'{recname}.pkl', HPCLCtermstem / f'{recname}.pkl']
+    try:
+        with open(beh_paths[0], 'rb') as f:
+            beh = pickle.load(f)
+    except FileNotFoundError:
+        with open(beh_paths[1], 'rb') as f:
+            beh = pickle.load(f)
     
     lick_times = beh['lick_times_aligned'][1:]
     tot_trials = len(lick_times)
@@ -163,16 +168,17 @@ ax.fill_between(XAXIS, late_mean_prof - late_sem, late_mean_prof + late_sem, alp
 
 ax.legend(frameon=False)
 
-ax.set(xlabel='time from run onset (s)', xlim=(0, 4),
-       ylabel='speed (cm/s)')
+ax.set(xlabel='Time from run onset (s)', xlim=(0, 4),
+       ylabel='Speed (cm/s)')
 
 
 #%% stats 
 plot_violin_with_scatter(early_means, late_means, 
                          colour0='grey', colour1=(0.20, 0.35, 0.65),
                          showscatter=False,
-                         xlabel='speed (cm/s)',
-                         savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\all_run_onset_speed_violin')
+                         xlabel='Speed (cm/s)',
+                         save=True,
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\all_run_onset_speed_violin')
 
 stat, p = ttest_rel(early_means, late_means)
 print(
@@ -183,10 +189,11 @@ print(
 
 
 plot_violin_with_scatter(early_acc, late_acc, 
-                      colour0='grey', colour1=(0.20, 0.35, 0.65),
-                      showscatter=False,
-                      xlabel='init. acc. (cm/s2)',
-                      savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\first_lick_analysis\all_run_onset_acc_boxplot')
+                         colour0='grey', colour1=(0.20, 0.35, 0.65),
+                         showscatter=False,
+                         save=True,
+                         xlabel='init. acc. (cm/s2)',
+                         savepath=r'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\all_run_onset_acc_boxplot')
 
 stat, p = ttest_rel(early_acc, late_acc)
 print(

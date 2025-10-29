@@ -16,7 +16,8 @@ from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt 
-from scipy.stats import ttest_1samp, friedmanchisquare, wilcoxon 
+from scipy.stats import ttest_1samp, friedmanchisquare, wilcoxon, mannwhitneyu
+from statsmodels.stats.multitest import multipletests
 from scipy.ndimage import binary_dilation
 
 from common import mpl_formatting
@@ -47,10 +48,14 @@ MAX_DILATE = 10
 EDGE = 6
 
 WINDOW_BINS = {
-    '0-1s': range(0, 10),
-    '1-2s': range(10, 20),
-    '2-3s': range(20, 30),
-    '3-4s': range(30, 40),
+    '0-0.5 s': range(0, 5),
+    '0.5-1 s': range(5, 10),
+    '1-1.5 s': range(10, 15),
+    '1.5-2 s': range(15, 20),
+    '2-2.5 s': range(20, 25),
+    '2.5-3 s': range(25, 30),
+    '3-3.5 s': range(30, 35),
+    '3.5-4 s': range(35, 40)
 }
 
 
@@ -136,94 +141,94 @@ for path in paths:
 
 
 #%% statistics + plotting
-for wname, results in dilation_results_all.items():
-    print(f'\nCurrent window: {wname}')
+# for wname, results in dilation_results_all.items():
+#     print(f'\nCurrent window: {wname}')
 
-    # collapse to medians per ROI × dilation
-    roi_meds = {}
-    for roi_id, ring_dLight in results.items():
-        dvals = {d: np.median(vals) for d, vals in ring_dLight.items()}
-        if all(np.isfinite(val) for val in dvals.values()):
-            roi_meds[roi_id] = dvals
+#     # collapse to medians per ROI × dilation
+#     roi_meds = {}
+#     for roi_id, ring_dLight in results.items():
+#         dvals = {d: np.median(vals) for d, vals in ring_dLight.items()}
+#         if all(np.isfinite(val) for val in dvals.values()):
+#             roi_meds[roi_id] = dvals
 
-    # collect per-dilation values
-    per_dilation = {d: [] for d in sorted(next(iter(roi_meds.values())).keys())}
-    for roi_id, dvals in roi_meds.items():
-        for d, val in dvals.items():
-            per_dilation[d].append(val)
+#     # collect per-dilation values
+#     per_dilation = {d: [] for d in sorted(next(iter(roi_meds.values())).keys())}
+#     for roi_id, dvals in roi_meds.items():
+#         for d, val in dvals.items():
+#             per_dilation[d].append(val)
 
-    dilations = sorted(per_dilation.keys())
-    data = [np.array(per_dilation[d]).ravel() for d in dilations]
+#     dilations = sorted(per_dilation.keys())
+#     data = [np.array(per_dilation[d]).ravel() for d in dilations]
 
-    # Friedman test across dilations
-    vals_matrix = np.array([[dvals[d] for d in dilations] for dvals in roi_meds.values()])
-    friedman_stat, friedman_p = friedmanchisquare(
-        *[vals_matrix[:, j] for j in range(vals_matrix.shape[1])]
-    )
-    print(f'Friedman test across dilations ({wname}): χ²={friedman_stat:.2f}, p={friedman_p:.3e}')
+#     # Friedman test across dilations
+#     vals_matrix = np.array([[dvals[d] for d in dilations] for dvals in roi_meds.values()])
+#     friedman_stat, friedman_p = friedmanchisquare(
+#         *[vals_matrix[:, j] for j in range(vals_matrix.shape[1])]
+#     )
+#     print(f'Friedman test across dilations ({wname}): χ²={friedman_stat:.2f}, p={friedman_p:.3e}')
 
-    # pairwise Wilcoxon tests vs base (0 px)
-    pvals = {}
-    for j, d in enumerate(dilations[1:], start=1):
-        stat, p = wilcoxon(vals_matrix[:,0], vals_matrix[:,j], alternative='greater')
-        pvals[d] = p
-        print(f'd=0 vs d={d} ({wname}): Wilcoxon W={stat}, p={p:.3e}')
+#     # pairwise Wilcoxon tests vs base (0 px)
+#     pvals = {}
+#     for j, d in enumerate(dilations[1:], start=1):
+#         stat, p = wilcoxon(vals_matrix[:,0], vals_matrix[:,j], alternative='greater')
+#         pvals[d] = p
+#         print(f'd=0 vs d={d} ({wname}): Wilcoxon W={stat}, p={p:.3e}')
 
-    # plotting 
-    fig, ax = plt.subplots(figsize=(4,3))
-    parts = ax.violinplot(data, positions=dilations, widths=1.2,
-                          showmeans=False, showextrema=False)
+#     # plotting 
+#     fig, ax = plt.subplots(figsize=(4,3))
+#     parts = ax.violinplot(data, positions=dilations, widths=1.2,
+#                           showmeans=False, showextrema=False)
 
-    # style violins
-    for pc in parts['bodies']:
-        pc.set_facecolor('darkgreen')
-        pc.set_edgecolor('none')
-        pc.set_alpha(0.6)
+#     # style violins
+#     for pc in parts['bodies']:
+#         pc.set_facecolor('darkgreen')
+#         pc.set_edgecolor('none')
+#         pc.set_alpha(0.6)
 
-    # thin ROI trajectories
-    for roi_id, dvals in roi_meds.items():
-        xs = dilations
-        ys = [dvals[d] for d in xs]
-        ax.plot(xs, ys, color='gray', alpha=0.08, linewidth=0.8)
-        ax.scatter(xs, ys, color='black', s=1, alpha=0.07)
+#     # thin ROI trajectories
+#     for roi_id, dvals in roi_meds.items():
+#         xs = dilations
+#         ys = [dvals[d] for d in xs]
+#         ax.plot(xs, ys, color='gray', alpha=0.08, linewidth=0.8)
+#         ax.scatter(xs, ys, color='black', s=1, alpha=0.07)
         
-    # cosmetics
-    ax.set_xticks(dilations)
-    ax.set_xlabel('dilation (px)')
-    ax.set_ylabel('median dLight (a.u.)')
-    ax.set_ylim((-.05, .8))
-    ax.set_title(f'ROI-median dLight per dilation ring ({wname})\n'
-                 f'Friedman χ²={friedman_stat:.2f}, p={friedman_p:.3e}')
+#     # cosmetics
+#     ax.set_xticks(dilations)
+#     ax.set_xlabel('dilation (px)')
+#     ax.set_ylabel('median dLight (a.u.)')
+#     ax.set_ylim((-.05, .8))
+#     ax.set_title(f'ROI-median dLight per dilation ring ({wname})\n'
+#                  f'Friedman χ²={friedman_stat:.2f}, p={friedman_p:.3e}')
     
-    for s in ['top', 'right', 'bottom']:
-        ax.spines[s].set_visible(False)
+#     for s in ['top', 'right', 'bottom']:
+#         ax.spines[s].set_visible(False)
     
-    # annotate
-    y_max = max([max(vals) for vals in data if len(vals) > 0])
-    y_step = 0.02
-    for i, d in enumerate(dilations[1:], start=1):
-        p = pvals[d]
-        y = y_max + i*y_step
-        if p < 0.0001:
-            star = '****'
-        elif p < 0.001:
-            star = '***'
-        elif p < 0.01:
-            star = '**'
-        elif p < 0.05:
-            star = '*'
-        else:
-            star = 'n.s.'
-        ax.text((dilations[0]+d)/2, y + 0.01*y_max, star,
-                ha='center', va='bottom', fontsize=10)
+#     # annotate
+#     y_max = max([max(vals) for vals in data if len(vals) > 0])
+#     y_step = 0.02
+#     for i, d in enumerate(dilations[1:], start=1):
+#         p = pvals[d]
+#         y = y_max + i*y_step
+#         if p < 0.0001:
+#             star = '****'
+#         elif p < 0.001:
+#             star = '***'
+#         elif p < 0.01:
+#             star = '**'
+#         elif p < 0.05:
+#             star = '*'
+#         else:
+#             star = 'n.s.'
+#         ax.text((dilations[0]+d)/2, y + 0.01*y_max, star,
+#                 ha='center', va='bottom', fontsize=10)
 
-    plt.tight_layout()
-    plt.show()
+#     plt.tight_layout()
+#     plt.show()
     
-    for ext in ['.png', '.pdf']:
-        fig.savefig(save_stem / f'dilation_analysis_{wname}{ext}',
-                    dpi=300,
-                    bbox_inches='tight')
+#     for ext in ['.png', '.pdf']:
+#         fig.savefig(save_stem / f'dilation_analysis_{wname}{ext}',
+#                     dpi=300,
+#                     bbox_inches='tight')
 
     
 #%% inspect example ring masks 
@@ -250,8 +255,8 @@ plt.show()
 
 
 #%% plotting with Jingyu's median plot
-from statsmodels.stats.multitest import multipletests
-from scipy.stats import wilcoxon, mannwhitneyu
+# global y range for plotting 
+global_ymin, global_ymax = -0.05, 0.5
 
 for wname, results in dilation_results_all.items():
     print(f'\nCurrent window: {wname}')
@@ -272,9 +277,7 @@ for wname, results in dilation_results_all.items():
     roi_map = np.array([[roi_meds[roi_id][d] for d in dilations] for roi_id in roi_ids])
     groups = [roi_map[:, i][~np.isnan(roi_map[:, i])] for i in range(len(dilations))]
 
-    # -----------------
-    # pairwise tests vs base (0 px)
-    # -----------------
+    # pairwise tests vs base
     pvals = {}
     for i, d in enumerate(dilations):
         if d == 0:
@@ -291,9 +294,7 @@ for wname, results in dilation_results_all.items():
             test_used = 'Mann–Whitney'
         pvals[d] = (p, test_used, common_n)
 
-    # -----------------
     # FDR correction
-    # -----------------
     if len(pvals) > 0:
         p_raw = np.array([p for p, _, _ in pvals.values()])
         reject, p_corr, _, _ = multipletests(p_raw, method='fdr_bh')
@@ -302,17 +303,16 @@ for wname, results in dilation_results_all.items():
 
     stats_out = {}
     for (d, (p, test_used, n)), pc, rej in zip(pvals.items(), p_corr, reject):
-        line = f'dilation {d} vs 0: {test_used} p={p:.3e}, p_corr={pc:.3e}, sig={rej}, n={n}'
+        line = f'dilation {d} vs 0: {test_used} p={p:.3e}, p_corr={pc:.3e}, n={n}'
         print(line)
         stats_out[d] = {'text': line, 'rej': bool(rej)}
 
-    # -----------------
+
     # plotting
-    # -----------------
     fig, ax = plt.subplots(figsize=(4.5, 3.2), dpi=300)
     bp = ax.boxplot(groups, labels=dilations, patch_artist=True, showfliers=False)
 
-    # colors & style (faithful to Jingyu’s)
+    # Jingyu style
     for box in bp['boxes']:
         box.set(facecolor='lightblue', edgecolor='none', alpha=0.7)
     for median in bp['medians']:
@@ -333,18 +333,14 @@ for wname, results in dilation_results_all.items():
     # cosmetics
     ax.spines[['top', 'right']].set_visible(False)
     ax.set(xlabel='dilation (px)', ylabel='median dLight (a.u.)')
+    ax.set_ylim(global_ymin, global_ymax)
 
-    # -----------------
-    # bracket annotation inline (no helper function)
-    # -----------------
-    ymax_per_group = [np.nanmax(v) if len(v) else np.nan for v in groups]
-    ymax = np.nanmax(ymax_per_group) if np.isfinite(np.nanmax(ymax_per_group)) else 1.0
-    ymin = np.nanmin([np.nanmin(v) for v in groups if len(v)]) if any(len(v) for v in groups) else 0.0
-    yrange = (ymax - ymin) if np.isfinite(ymax - ymin) and (ymax - ymin) > 0 else 1.0
-
+    # bracket annotation inline
+    yrange = global_ymax - global_ymin
     base_gap = 0.1 * yrange
-    tick_h = 0.02 * yrange
-    level_gap = 0.15 * yrange
+    tick_h = 0.03 * yrange
+    level_gap = 0.08 * yrange
+    ymax_per_group = [np.nanmax(v) if len(v) else np.nan for v in groups]
     xpos = {lab: i for i, lab in enumerate(dilations, start=1)}
 
     current_level = 0
@@ -353,18 +349,19 @@ for wname, results in dilation_results_all.items():
             continue
         x1, x2 = xpos[0], xpos[d]
         involved_max = np.nanmax([ymax_per_group[x1-1], ymax_per_group[x2-1]])
-        y = (involved_max if np.isfinite(involved_max) else ymax) + base_gap + current_level * level_gap
+        y = global_ymax + current_level * level_gap
 
         # draw bracket
         ax.plot([x1, x1, x2, x2], [y, y+tick_h, y+tick_h, y], color='black', linewidth=1.0, clip_on=False)
-        ax.text((x1+x2)/2, y+tick_h + 0.006*yrange, stats_out[d]['text'],
-                ha='center', va='bottom', fontsize=6.5, color='black')
+        ax.text((x1+x2)/2, y + tick_h * 3, stats_out[d]['text'],
+                ha='center', va='top', fontsize=6.5, color='black')
 
         current_level += 1
 
-    ax.set_ylim(top=ymax + base_gap + (current_level+1)*level_gap + tick_h)
+    ax.set_ylim(global_ymin, global_ymax + base_gap + (current_level+1)*level_gap + tick_h)
     plt.tight_layout()
 
     for ext in ['.png', '.pdf']:
-        fig.savefig(save_stem / f'dilation_boxplot_FDRbracket_{wname}{ext}', dpi=300, bbox_inches='tight')
+        fig.savefig(save_stem / f'dilation_boxplot_FDRbracket_{wname}{ext}',
+                    dpi=300, bbox_inches='tight')
     plt.show()
