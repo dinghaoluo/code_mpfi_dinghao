@@ -126,6 +126,7 @@ if __name__ == '__main__':
             rec_list.pathHPCGRABNE,
             rec_list.pathLCHPCGCaMP,
             rec_list.pathdLightLCOpto,
+            rec_list.pathdLightLCOptoInh,
             rec_list.pathHPC_Raphi
             ]
         for i in range(8):

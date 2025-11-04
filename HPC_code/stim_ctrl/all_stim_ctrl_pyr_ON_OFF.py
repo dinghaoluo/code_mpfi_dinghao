@@ -39,21 +39,27 @@ XAXIS = np.arange(-1*1250, 4*1250) / 1250
 DELTA_THRES = 0.5  # Hz
 
 bin_edges = np.arange(3750 + int(-0.5*1250), 3750 + int(3.5*1250) + 1, 1250)
-bin_labels = ['-0.5–0.5s', '0.5–1.5s', '1.5–2.5s', '2.5–3.5s']
+bin_labels = ['-0.5–0.5s', '0.5–1.5s', '1.5–2.5s', '2.5-3.5s']
 
 
 #%% helpers
-def _annotate_pvals(ax, pvals, y_level=4.05, star=True):
+def _annotate_pvals(ax, pvals, y_level=4.05, star=True, print_pvals=True):
     mids = (bin_edges[:-1] + bin_edges[1:]) / 2
-    for mid, p in zip(mids, pvals):
+    
+    for b, (mid, p) in enumerate(zip(mids, pvals)):
         if star:
-            if p < 0.001: text = '***'
-            elif p < 0.01: text = '**'
-            elif p < 0.05: text = round(p, 4)
-            else: text = 'n.s.'
+            if p < 0.001:
+                text = '***'
+            elif p < 0.01:
+                text = '**'
+            elif p < 0.05:
+                text = '*'
+            else:
+                text = 'n.s.'
         else:
             text = f'{p:.3f}'
-        ax.text((mid-3750)/1250, y_level, text,
+
+        ax.text((mid - 3750) / 1250, y_level, text,
                 ha='center', va='bottom', fontsize=6, color='k')
 
 
@@ -64,9 +70,13 @@ def _binwise_test(ctrl_traces, stim_traces, label):
         start, end = bin_edges[b], bin_edges[b+1]
         ctrl_bin = [np.mean(tr[start:end]) for tr in ctrl_traces]
         stim_bin = [np.mean(tr[start:end]) for tr in stim_traces]
+        ctrl_mean = np.mean(ctrl_bin)
+        ctrl_sem  = sem(ctrl_bin)
+        stim_mean = np.mean(stim_bin)
+        stim_sem  = sem(stim_bin)
         stat, p = ttest_rel(ctrl_bin, stim_bin, nan_policy='omit')
         pvals.append(p)
-        print(f'  {bin_labels[b]}: t = {stat:.2f}, p = {p:.3g}')
+        print(f'  {bin_labels[b]}: {ctrl_mean}±{ctrl_sem}, {stim_mean}±{stim_sem}, p = {p:.3g}')
     return pvals
 
 
@@ -387,4 +397,5 @@ def main(paths, exp='HPCLC'):
 
 #%% run
 if __name__ == '__main__':
+    main(pathHPCLCopt, 'HPCLC')
     main(pathHPCLCtermopt, 'HPCLCterm')

@@ -117,17 +117,18 @@ def process_behavioural_data(
         )
     
     # now we start constructing aligned data structures
-    speed_times_aligned = []
-    speed_distances_aligned = []
-    lick_distances_aligned = []
-    lick_times_aligned = []
-    lick_maps = []
-    lick_selectivities = []
-    start_cue_times = []
-    reward_times = []
+    speed_times_aligned      = []
+    speed_distances_aligned  = []
+    lick_distances_aligned   = []
+    lick_times_aligned       = []
+    lick_maps                = []
+    lick_selectivities       = []
+    start_cue_times          = []
+    reward_times             = []
+    reward_times_aligned     = []
     reward_distances_aligned = []
-    full_stops = []
-    bad_trials = []
+    full_stops               = []
+    bad_trials               = []
 
     # iterate through the trials to put together the data structures
     for trial_idx, onset in enumerate(run_onsets):
@@ -140,6 +141,7 @@ def process_behavioural_data(
             lick_selectivities.append(np.nan)
             start_cue_times.append(np.nan)
             reward_times.append(np.nan)
+            reward_times_aligned.append(np.nan)
             reward_distances_aligned.append(np.nan)
             full_stops.append(np.nan)
             bad_trials.append(np.nan)
@@ -169,6 +171,7 @@ def process_behavioural_data(
                 lick_selectivities.append(np.nan)
                 start_cue_times.append(np.nan)
                 reward_times.append(np.nan)
+                reward_times_aligned.append(np.nan)
                 reward_distances_aligned.append(np.nan)
                 full_stops.append(False)
                 bad_trials.append(True)
@@ -223,6 +226,10 @@ def process_behavioural_data(
                                if data['pump_times'][trial_idx] 
                                else np.nan)
                 reward_times.append(reward_time)
+                if not np.isnan(reward_time):
+                    reward_times_aligned.append(reward_time-onset)
+                else:
+                    reward_times_aligned.append(np.nan)
                 
                 if not np.isnan(reward_time):
                     reward_dist = np.interp(
@@ -264,6 +271,7 @@ def process_behavioural_data(
                 lick_selectivities.append(np.nan)
                 start_cue_times.append(np.nan)
                 reward_times.append(np.nan)
+                reward_times_aligned.append(np.nan)
                 reward_distances_aligned.append(np.nan)
                 full_stops.append(np.nan)
                 bad_trials.append(np.nan)
@@ -277,6 +285,7 @@ def process_behavioural_data(
         'lick_maps': lick_maps,
         'start_cue_times': start_cue_times,
         'reward_times': reward_times,
+        'reward_times_aligned': reward_times_aligned,
         'reward_distances_aligned': reward_distances_aligned,
         'run_onsets': run_onsets,
         'lick_selectivities': lick_selectivities,

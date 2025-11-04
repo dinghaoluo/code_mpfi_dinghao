@@ -94,6 +94,8 @@ def plot_bar_with_paired_scatter(
     annotate(ax, 0, 1, y2, f"t-test p={t_p:.3g} ({sigstars(t_p)})", yrange)
     ax.set_ylim(ylims[0], max(ylims[1], y2 + 0.08 * yrange))
 
+    print(f'Wilc p = {w_p}\nttest p = {t_p}')
+
     return {'wilcoxon': {'stat': w_stat, 'p': w_p, 'n': int(len(ctrl))},
             'ttest_rel': {'stat': t_stat, 'p': t_p, 'n': int(len(ctrl))}}
 

@@ -1,13 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Mar 31 13:02:49 2025
-Modified on Tue 24 June 16:24:15 2025
-
-extract opto-LC stimulation + dLight imaging data 
-modification notes:
-    - 24 June 2025: removed pixel-wise dFF calculation and replaced it with a 
-        simplified dFF (stim. / baseline for raw F) that is easy to compute 
-        and produces the exact same desideratum (the release map)
+Modified on Tue 4 Nov 2025 to be used on GRABNE data 
 
 @author: Dinghao Luo
 """
@@ -28,10 +22,7 @@ from common import mpl_formatting, get_GPU_availability
 mpl_formatting()
 
 import rec_list
-paths = rec_list.pathdLightLCOpto + \
-        rec_list.pathdLightLCOptoCtrl + \
-        rec_list.pathdLightLCOptoInh + \
-        rec_list.pathdLightLCOptoDbhBlock
+paths = rec_list.pathGRABNELCOpto
         
 # GPU acceleration
 cp, GPU_AVAILABLE = get_GPU_availability()
@@ -45,7 +36,7 @@ BIN_WIDTH = 0.1
 
 # path stems 
 mice_exp_stem = Path(r'Z:\Dinghao\MiceExp')
-all_sess_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions')
+all_sess_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_GRABNE_LC_opto\all_sessions')
 
 
 #%% main 
@@ -61,8 +52,7 @@ def main(path):
     opspath = plane_stem / 'ops.npy'
     txtpath = mice_exp_stem / f'ANMD{recname[1:4]}' / f'{sessname}T.txt'
     
-    whether_ctrl = '_ctrl' if path in rec_list.pathdLightLCOptoCtrl else ''
-    savepath = all_sess_stem / f'{recname}{whether_ctrl}'
+    savepath = all_sess_stem / f'{recname}'
     savepath.mkdir(exist_ok=True)
     
     # check for repeated processing 
@@ -253,7 +243,7 @@ def main(path):
     
     axs[0].plot(TAXIS, trace_dFF_aligned_mean, color='green', linewidth=2)
     axs[0].plot(TAXIS, trace_dFF_aligned.T, color='green', alpha=.05)
-    axs[0].text(-2, ymin-.01, 'dLight', ha='left', va='center', color='green', fontsize=10)
+    axs[0].text(-2, ymin-.01, 'GRABNE', ha='left', va='center', color='green', fontsize=10)
     
     axs[1].plot(TAXIS, trace2_dFF_aligned_mean, color='darkred', linewidth=2)
     axs[1].plot(TAXIS, trace2_dFF_aligned.T, color='darkred', alpha=.05)
@@ -326,7 +316,7 @@ def main(path):
     plot_violin_with_scatter(
         dFF2_valid, dFF_valid, 
         'darkred', 'green',
-        xticklabels=['ref.', 'dLight'],
+        xticklabels=['ref.', 'GRABNE'],
         ylabel='ΔF/F',
         title=recname,
         save=True,
