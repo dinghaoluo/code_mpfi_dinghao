@@ -772,6 +772,7 @@ def process_txt_nobeh(txtfile):
     frame_times       = []
     shutter_ON_times  = []
     shutter_OFF_times = []
+    buzzer_times      = []
     wheel_dummy = 0
     
     while line[0].find('$') == 0:
@@ -787,6 +788,8 @@ def process_txt_nobeh(txtfile):
             shutter_ON_times.append(float(line[1]))
         if line[0] == '$SO':
             shutter_OFF_times.append(float(line[1]))
+        if line[0] == '$BZ':
+            buzzer_times.append(float(line[1]))
         line = get_next_line(file)
         
     curr_logfile['pulse_times']       = pulse_times
@@ -794,6 +797,7 @@ def process_txt_nobeh(txtfile):
     curr_logfile['frame_times']       = frame_times
     curr_logfile['shutter_on_times']  = shutter_ON_times
     curr_logfile['shutter_off_times'] = shutter_OFF_times
+    curr_logfile['buzzer_times']      = buzzer_times
     
     # flag for 'well, actually this one HAS behaviour', 24 June 2025
     curr_logfile['behaviour'] = False

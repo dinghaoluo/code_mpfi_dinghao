@@ -80,7 +80,7 @@ for i, pathname in enumerate(pathNEblocker):
         
         if i == 0:
             mean_speeds_baseline.append(np.mean(speed_dist, axis=0)*1.8)
-        elif i >= 1:
+        elif i == 1:
             mean_speeds_drug.append(np.mean(speed_dist, axis=0)*1.8)
         
         # licks (spatial)
@@ -93,8 +93,14 @@ for i, pathname in enumerate(pathNEblocker):
         
         if i == 0:
             mean_licks_baseline.append(np.mean(lick_dist, axis=0))
-        elif i >= 1:
+        elif i == 1:
             mean_licks_drug.append(np.mean(lick_dist, axis=0))
+        
+# convert to arrays 
+mean_speeds_baseline = np.array(mean_speeds_baseline)
+mean_speeds_drug     = np.array(mean_speeds_drug)
+mean_licks_baseline  = np.array(mean_licks_baseline)
+mean_licks_drug      = np.array(mean_licks_drug)
         
 
 #%% speed plot
@@ -104,6 +110,12 @@ ms_baseline = np.mean(mean_speeds_baseline, axis=0)
 ms_drug = np.mean(mean_speeds_drug, axis=0)
 ss_baseline = sem(mean_speeds_baseline, axis=0)
 ss_drug = sem(mean_speeds_drug, axis=0)
+
+t, p = ttest_rel(
+    np.mean(mean_speeds_baseline[:,:], axis=1),
+    np.mean(mean_speeds_drug[:,:], axis=1)
+    )
+print(f'speeds p = {p}')
 
 lp, = ax.plot(x_speed, ms_baseline, color='grey')
 ax.fill_between(x_speed, ms_baseline+ss_baseline,
@@ -132,6 +144,12 @@ ml_baseline = np.mean(mean_licks_baseline, axis=0)/10
 ml_drug = np.mean(mean_licks_drug, axis=0)/10
 sl_baseline = sem(mean_licks_baseline, axis=0)/10
 sl_drug = sem(mean_licks_drug, axis=0)/10
+
+t, p = ttest_rel(
+    np.mean(mean_licks_baseline[:, 1200:1800], axis=1),
+    np.mean(mean_licks_drug[:, 1200:1800], axis=1)
+    )
+print(f'licks p = {p}')
 
 lp, = ax.plot(x_lick, ml_baseline, color='grey')
 ax.fill_between(x_lick, ml_baseline+sl_baseline,

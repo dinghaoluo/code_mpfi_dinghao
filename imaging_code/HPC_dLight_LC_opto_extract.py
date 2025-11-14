@@ -318,6 +318,12 @@ def main(path):
             bbox_inches='tight'
             )
         
+    # saving 
+    np.save(savepath / f'processed_data/{recname}_wholefield_dFF_stim.npy',
+            trace_dFF_aligned_mean)
+    np.save(savepath / f'processed_data/{recname}_wholefield_dFF2_stim.npy',
+            trace2_dFF_aligned_mean)
+        
     # statistics and plotting 
     # clean both arrays before plotting
     valid_mask = (~np.isnan(dFF)) & (~np.isnan(dFF2))

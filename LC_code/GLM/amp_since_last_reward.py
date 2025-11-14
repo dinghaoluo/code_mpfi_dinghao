@@ -39,24 +39,33 @@ BURST_WINDOW  = (-.5, .5)  # for amplitude
 
 PERMS = 1000  # permutate for 1000 times (per session) for signif test 
 
+# colours 
+greens = ['#b9e4c9',  # light
+          '#4fb66d',  # mid
+          '#145a32']  # dark
+
 
 #%% load cell properties
 cell_prop = pd.read_pickle('Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profiles.pkl')
 
 
 #%% iterate recordings
-low_prof_list   = []
-high_prof_list  = []
+# grand list 
+all_t_since = []
+
+# containers 
+low_prof_list      = []
+high_prof_list     = []
+low_prof_rew_list  = []
+high_prof_rew_list = []
 
 regress_r      = []
 regress_shuf_r = []
 
 # aligned to rewards 
-prof_rew_list_1 = []
-prof_rew_list_2 = []
-prof_rew_list_3 = []
-prof_rew_list_4 = []
-prof_rew_list_5 = []
+all_prof_rew_list_low = []
+all_prof_rew_list_mid = []
+all_prof_rew_list_hi  = []
 
 # per cell 
 all_cell_rate_dict = {}
@@ -64,7 +73,7 @@ all_cell_time_dict = {}
 
 for path in paths:
     recname = Path(path).name
-    print(recname)
+    print(f'\n{recname}')
 
     # load behaviour
     with open(LC_beh_stem / f'{recname}.pkl', 'rb') as f:
@@ -82,10 +91,6 @@ for path in paths:
     aligned_rew_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignRew_msess1.mat'
     aligned_rew = sio.loadmat(aligned_rew_path)['trialsRew'][0][0]
     rew_spike = aligned_rew['startLfpInd'][0][1:]
-    
-    # aligned_run_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat'
-    # aligned_run = sio.loadmat(aligned_run_path)['trialsRun'][0][0]
-    # run_spike = aligned_run['startLfpInd'][0][1:]
 
     # get spike maps 
     sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions') / recname
@@ -102,9 +107,16 @@ for path in paths:
         if row['identity'] != 'other' and row['run_onset_peak']
     ]
     if not eligible_cells:
-        print(f'No eligible cells for {recname}. Skipping.')
+        print('No eligible cells. Skipping.')
         continue
 
+    # per-session containers 
+    prof_rew_list_low = []
+    prof_rew_list_mid = []
+    prof_rew_list_hi  = []
+    
+    trial_counts = [0] * 3
+    
     # collect per-trial data
     valid_trials = [t for t, ro in enumerate(run_onsets[:-1])
                     if t not in opto_idx and t-1 not in opto_idx and not np.isnan(ro)]
@@ -117,8 +129,17 @@ for path in paths:
 
         # time since last reward
         t_since = gf.time_since_last_reward(reward_times, onset_time, ti)
+        all_t_since.append(t_since)
+        
         if np.isnan(t_since) or t_since < 0 or t_since > 5:  # filter out invalid (<0) and extreme (>5) values
             continue
+        
+        if .5 < t_since < 1:
+            trial_counts[0] += 1
+        elif 1 <= t_since < 1.5:
+            trial_counts[1] += 1
+        elif 1.5 <= t_since < 2:
+            trial_counts[2] += 1
 
         # mean FR across all eligibles 
         curr_rates = []
@@ -136,26 +157,73 @@ for path in paths:
             cell_time_dict[cluname].append(t_since)
             
             # last-rew-aligned
-            train_rew = spike_maps[clu_idx][rew_spike[ti] - 3*SAMP_FREQ : rew_spike[ti] + 7*SAMP_FREQ]
-            
+            train_rew = spike_maps[clu_idx][
+                rew_spike[ti] - 3 * SAMP_FREQ : rew_spike[ti] + 7 * SAMP_FREQ
+                ]
             if t_since < 1.5:
                 low_prof_list.append(train)
+                low_prof_rew_list.append(train_rew)
             else:
                 high_prof_list.append(train)
-                
-            if t_since < 1:
-                prof_rew_list_1.append(train_rew)
-            elif t_since < 2:
-                prof_rew_list_2.append(train_rew)
-            elif t_since < 3:
-                prof_rew_list_3.append(train_rew)
-            elif t_since < 4:
-                prof_rew_list_4.append(train_rew)
-            else:
-                prof_rew_list_5.append(train_rew)
+                high_prof_rew_list.append(train_rew)
+            
+            # for multi-trace plot 
+            train_rew = spike_maps[clu_idx][
+                rew_spike[ti] - 1 * SAMP_FREQ : rew_spike[ti] + int(t_since * SAMP_FREQ)
+                ]
+            if .5 < t_since < 1:
+                prof_rew_list_low.append(train_rew)
+            elif 1 <= t_since < 1.5:
+                prof_rew_list_mid.append(train_rew)
+            elif 1.5 <= t_since < 2:
+                prof_rew_list_hi.append(train_rew)
         
         trial_times.append(t_since)
-        trial_rates.append(np.mean(curr_rates))
+        trial_rates.append(np.mean(curr_rates))    
+    
+    if sum(x < 5 for x in trial_counts) > 1:
+        print('Not enough trials. Skipping')
+        continue 
+    
+    # plot one mean trace plot per session 
+    fig, ax = plt.subplots(figsize=(3,2))
+    
+    if trial_counts[0] > 5:
+        low_min = min([len(trial) for trial in prof_rew_list_low])
+        xaxis_low = np.arange(low_min) / SAMP_FREQ - 1
+        prof_rew_array_low = np.array([trial[:low_min] for trial in prof_rew_list_low])
+        
+        all_prof_rew_list_low.extend(prof_rew_list_low)
+        mean_prof_rew_low = np.mean(prof_rew_array_low, axis=0)
+        ax.plot(xaxis_low, mean_prof_rew_low, color=greens[0])
+    if trial_counts[1] > 5:
+        mid_min = min([len(trial) for trial in prof_rew_list_mid])
+        xaxis_mid = np.arange(mid_min) / SAMP_FREQ - 1
+        prof_rew_array_mid = np.array([trial[:mid_min] for trial in prof_rew_list_mid])
+        
+        all_prof_rew_list_mid.extend(prof_rew_list_mid)
+        mean_prof_rew_mid = np.mean(prof_rew_array_mid, axis=0)
+        ax.plot(xaxis_mid, mean_prof_rew_mid, color=greens[1])
+        
+    if trial_counts[2] > 5:
+        hi_min = min([len(trial) for trial in prof_rew_list_hi])
+        xaxis_hi = np.arange(hi_min) / SAMP_FREQ - 1
+        prof_rew_array_hi = np.array([trial[:hi_min] for trial in prof_rew_list_hi])
+        
+        all_prof_rew_list_hi.extend(prof_rew_list_hi)
+        mean_prof_rew_hi = np.mean(prof_rew_array_hi, axis=0)
+        ax.plot(xaxis_hi, mean_prof_rew_hi, color=greens[2])
+    
+    fig.suptitle(recname)
+    plt.tight_layout()
+    plt.show()
+    
+    for ext in ['.pdf', '.png']:
+        fig.savefig(
+            GLM_stem / 'rew_to_run_single_session_split' /  f'{recname}{ext}',
+            dpi=300,
+            bbox_inches='tight'
+            )
         
     # store in big dictionaries 
     all_cell_rate_dict.update(cell_rate_dict)
@@ -212,27 +280,52 @@ low_prof_list   = np.array(low_prof_list)
 high_prof_list  = np.array(high_prof_list)
 
 
+#%% plot all t_since 
+fig, ax = plt.subplots(figsize=(3,3))
+ax.hist(all_t_since, bins=1000)
+ax.set(xlim=(0, 20))
+plt.show()
+
+fig, ax = plt.subplots(figsize=(3,3))
+ax.hist(all_t_since, bins=1000)
+ax.set(xlim=(0, 10))
+plt.show()
+
+fig, ax = plt.subplots(figsize=(3,3))
+ax.hist(all_t_since, bins=1500)
+ax.set(xlim=(0, 5))
+plt.show()
+
+fig, ax = plt.subplots(figsize=(3,3))
+ax.hist(all_t_since, bins=1500)
+ax.set(xlim=(0, 3))
+plt.show()
+
+
 #%% population summary
 mean_low_prof  = np.mean(low_prof_list, axis=0)
 sem_low_prof   = sem(low_prof_list, axis=0)
 mean_high_prof = np.mean(high_prof_list, axis=0)
 sem_high_prof  = sem(high_prof_list, axis=0)
 
-mean_prof_rew_1  = np.mean(prof_rew_list_1, axis=0)
-sem_prof_rew_1   = sem(prof_rew_list_1, axis=0)
-mean_prof_rew_2  = np.mean(prof_rew_list_2, axis=0)
-sem_prof_rew_2   = sem(prof_rew_list_2, axis=0)
-mean_prof_rew_3  = np.mean(prof_rew_list_3, axis=0)
-sem_prof_rew_3   = sem(prof_rew_list_3, axis=0)
-mean_prof_rew_4  = np.mean(prof_rew_list_4, axis=0)
-sem_prof_rew_4   = sem(prof_rew_list_4, axis=0)
-mean_prof_rew_5  = np.mean(prof_rew_list_5, axis=0)
-sem_prof_rew_5   = sem(prof_rew_list_5, axis=0)
+low_min = min([len(trial) for trial in all_prof_rew_list_low])
+xaxis_low = np.arange(low_min) / SAMP_FREQ - 1
+all_prof_rew_array_low = np.array([trial[:low_min] for trial in all_prof_rew_list_low])
 
-mean_prof_rew_0_3 = np.mean(prof_rew_list_1+prof_rew_list_2+prof_rew_list_3, axis=0)
-sem_prof_rew_0_3 = sem(prof_rew_list_1+prof_rew_list_2+prof_rew_list_3, axis=0)
-mean_prof_rew_3_5 = np.mean(prof_rew_list_4+prof_rew_list_5, axis=0)
-sem_prof_rew_3_5 = sem(prof_rew_list_4+prof_rew_list_5, axis=0)
+mid_min = min([len(trial) for trial in all_prof_rew_list_mid])
+xaxis_mid = np.arange(mid_min) / SAMP_FREQ - 1
+all_prof_rew_array_mid = np.array([trial[:mid_min] for trial in all_prof_rew_list_mid])
+
+hi_min = min([len(trial) for trial in all_prof_rew_list_hi])
+xaxis_hi = np.arange(hi_min) / SAMP_FREQ - 1
+all_prof_rew_array_hi = np.array([trial[:hi_min] for trial in all_prof_rew_list_hi])
+
+mean_prof_rew_low  = np.mean(all_prof_rew_array_low, axis=0)
+sem_prof_rew_low   = sem(all_prof_rew_array_low, axis=0)
+mean_prof_rew_mid  = np.mean(all_prof_rew_array_mid, axis=0)
+sem_prof_rew_mid   = sem(all_prof_rew_array_mid, axis=0)
+mean_prof_rew_hi   = np.mean(all_prof_rew_array_hi, axis=0)
+sem_prof_rew_hi    = sem(all_prof_rew_array_hi, axis=0)
 
 
 #%% plotting 
@@ -355,40 +448,24 @@ plot_violin_with_scatter(low_rates_cells, high_rates_cells,
 
     
 #%% reward train 
-XAXIS = np.arange(len(mean_prof_rew_1)) / SAMP_FREQ - 3
+fig, ax = plt.subplots(figsize=(4, 3))
 
-greens = ['#b9e4c9',
-          '#7fd199',
-          '#4fb66d',
-          '#2d914d',
-          '#145a32']
-
-fig, ax = plt.subplots(figsize=(2.4, 2.0))
-
-ax.plot(XAXIS, mean_prof_rew_1, color=greens[0], label='0-1 s')
-ax.fill_between(XAXIS, mean_prof_rew_1-sem_prof_rew_1,
-                       mean_prof_rew_1+sem_prof_rew_1,
+ax.plot(xaxis_low, mean_prof_rew_low, color=greens[0], label='Low')
+ax.fill_between(xaxis_low, mean_prof_rew_low-sem_prof_rew_low,
+                           mean_prof_rew_low+sem_prof_rew_low,
                 color=greens[0], edgecolor='none', alpha=.3)
-ax.plot(XAXIS, mean_prof_rew_2, color=greens[1], label='1-2 s')
-ax.fill_between(XAXIS, mean_prof_rew_2-sem_prof_rew_2,
-                       mean_prof_rew_2+sem_prof_rew_2,
+ax.plot(xaxis_mid, mean_prof_rew_mid, color=greens[1], label='Mid')
+ax.fill_between(xaxis_mid, mean_prof_rew_mid-sem_prof_rew_mid,
+                           mean_prof_rew_mid+sem_prof_rew_mid,
                 color=greens[1], edgecolor='none', alpha=.3)
-ax.plot(XAXIS, mean_prof_rew_3, color=greens[2], label='2-3 s')
-ax.fill_between(XAXIS, mean_prof_rew_3-sem_prof_rew_3,
-                       mean_prof_rew_3+sem_prof_rew_3,
+ax.plot(xaxis_hi, mean_prof_rew_hi, color=greens[2], label='High')
+ax.fill_between(xaxis_hi, mean_prof_rew_hi-sem_prof_rew_hi,
+                          mean_prof_rew_hi+sem_prof_rew_hi,
                 color=greens[2], edgecolor='none', alpha=.3)
-ax.plot(XAXIS, mean_prof_rew_4, color=greens[3], label='3-4 s')
-ax.fill_between(XAXIS, mean_prof_rew_4-sem_prof_rew_4,
-                       mean_prof_rew_4+sem_prof_rew_4,
-                color=greens[3], edgecolor='none', alpha=.3)
-ax.plot(XAXIS, mean_prof_rew_5, color=greens[4], label='4-5 s')
-ax.fill_between(XAXIS, mean_prof_rew_5-sem_prof_rew_5,
-                       mean_prof_rew_5+sem_prof_rew_5,
-                color=greens[4], edgecolor='none', alpha=.3)
 
 ax.set(xlabel='Time from run onset (s)',
        ylabel='Firing rate (Hz)')
-ax.legend(frameon=False)
+# ax.legend(frameon=False)
 
 ax.spines[['top', 'right']].set_visible(False)
 
@@ -401,9 +478,3 @@ for ext in ['.pdf', '.png']:
         dpi=300,
         bbox_inches='tight'
         )
-
-
-#%% 
-fig, ax = plt.subplots(figsize=(3,3))
-ax.plot(mean_prof_rew_0_3)
-ax.plot(mean_prof_rew_3_5)

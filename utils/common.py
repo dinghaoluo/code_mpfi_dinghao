@@ -111,18 +111,62 @@ def mpl_formatting():
 
 #%% normalisation
 def normalise(data, axis=1):
-    if data.size==0:
+    """
+    normalises an array along a specified axis while ignoring NaN values.
+
+    parameters:
+    - data: np.ndarray
+        input array to be normalised
+    - axis: int, optional
+        axis along which to apply normalisation (default: 1)
+
+    returns:
+    - normalised_data: np.ndarray
+    """
+    if data.size == 0:
         print('array size is not valid')
         return None 
     
-    if len(data.shape)>1:
-        return np.apply_along_axis(lambda x: (x - np.min(x))/(np.max(x) - np.min(x)), axis=axis, arr=data)
+    if len(data.shape) > 1:
+        return np.apply_along_axis(
+            lambda x: (x - np.nanmin(x)) / (np.nanmax(x) - np.nanmin(x))
+                      if np.nanmax(x) != np.nanmin(x)
+                      else np.full_like(x, np.nan),
+            axis=axis, arr=data
+        )
     else:
-        return (data - np.min(data)) / (np.max(data) - np.min(data))
+        if np.nanmax(data) == np.nanmin(data):
+            return np.full_like(data, np.nan)
+        return (data - np.nanmin(data)) / (np.nanmax(data) - np.nanmin(data))
     
-def normalise_to_all(data, alldata):  # data needs to be a 1-d vector/list
-    norm_data = (data - min(alldata))/(max(alldata) - min(alldata))
-    return norm_data
+def normalise_to_all(data, alldata):
+    """
+    normalises a 1-d vector relative to the global min and max of another array,
+    while ignoring NaN values.
+
+    parameters:
+    - data: np.ndarray or list
+        1-d vector to be normalised
+    - alldata: np.ndarray or list
+        reference array used to compute global min and max
+
+    returns:
+    - norm_data: np.ndarray
+    """
+    data = np.asarray(data, dtype=float)
+    alldata = np.asarray(alldata, dtype=float)
+
+    if np.all(np.isnan(alldata)):
+        print('alldata contains only NaNs')
+        return np.full_like(data, np.nan)
+
+    amin = np.nanmin(alldata)
+    amax = np.nanmax(alldata)
+
+    if amax == amin:
+        return np.full_like(data, np.nan)
+
+    return (data - amin) / (amax - amin)
 
 
 #%% statistics 

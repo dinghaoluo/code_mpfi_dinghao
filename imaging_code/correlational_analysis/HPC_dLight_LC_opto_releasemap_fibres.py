@@ -34,14 +34,13 @@ bg_means = []
 
 for path in paths:
     recname = os.path.basename(path)
-    print(f'analysing {recname}...')
-
+    
     proc_dir = os.path.join(
         r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions',
         recname,
         'processed_data'
     )
-    tmap_path = os.path.join(proc_dir, f'{recname}_tmap.npy')
+    tmap_path = os.path.join(proc_dir, f'{recname}_release_map.npy')
     roi_dict_path = os.path.join(proc_dir, f'{recname}_ROI_dict.npy')
     ref2_path = os.path.join(proc_dir, f'{recname}_ref_mat_ch2.npy')
 
@@ -50,6 +49,8 @@ for path in paths:
             and os.path.exists(ref2_path)):
         print(f'missing data for {recname} — skipped')
         continue
+    
+    print(f'analysing {recname}...')
 
     tmap = np.load(tmap_path)
     roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
