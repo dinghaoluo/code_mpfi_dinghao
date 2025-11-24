@@ -8,18 +8,17 @@ controls for LC run-onset peaks
 """
 
 #%% imports 
+from pathlib import Path
+
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pickle 
-import sys 
 import pandas as pd 
-from scipy.stats import sem 
+from scipy.stats import sem, pearsonr, wilcoxon 
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathLC
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 import plotting_functions as pf
 from common import mpl_formatting
 mpl_formatting()
@@ -31,8 +30,6 @@ cell_prop = pd.read_pickle(
     r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
     )
 
-
-#%% get keys for different categories of cells 
 clu_keys = list(cell_prop.index)
 
 tagged_keys = []; putative_keys = []
@@ -50,6 +47,11 @@ for clu in cell_prop.itertuples():
             putative_RO_keys.append(clu.Index)
             RO_keys.append(clu.Index)
 RO_keys = tagged_RO_keys + putative_RO_keys
+
+
+#%% session stems 
+all_sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions')
+LC_beh_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
 
 
 #%% parameters for processing
@@ -85,20 +87,21 @@ all_high_accel_amp = []
 all_low_accel_amp = []
 
 for path in paths:
-    recname = path[-17:]
+    recname = Path(path).name
     print(f'\n{recname}')
     
-    trains = np.load(
-        rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions\{recname}\{recname}_all_trains_run.npy',
-        allow_pickle=True
-        ).item()
+    trains_path = all_sess_stem / recname / f'{recname}_all_trains_run.npy'
+    trains = np.load(trains_path, allow_pickle=True).item()
     
-    with open(
-            rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LC\{recname}.pkl',
-            'rb'
-            ) as f:
+    # break if no RO cells
+    if not [clu for clu in trains.keys() if clu in RO_keys]:
+        print('session has no RunOn cell; skipped')
+        continue
+    
+    with open(LC_beh_stem / f'{recname}.pkl', 'rb') as f:
         beh = pickle.load(f)
     
+    # trial filtering (ignore bad trials & stim trials)
     stim_conds = [t[15] for t in beh['trial_statements']][1:]
     stim_idx = [trial for trial, cond in enumerate(stim_conds)
                 if cond!='0']
@@ -107,6 +110,7 @@ for path in paths:
     valid_trial_idx = [trial for trial in np.arange(len(stim_conds)) 
                        if trial not in stim_idx and trial not in bad_idx]
     
+    # get speed, init. speed and accel.
     speed_trials = [[t[1] for t in trial]
                     for trial in beh['speed_times_aligned'][1:]]
     mean_speed_trials = [np.mean(trial) for trial in speed_trials]
@@ -114,6 +118,8 @@ for path in paths:
                       if 45<speed<55]
     low_speed_idx = [trial for trial, speed in enumerate(mean_speed_trials)
                      if 35<speed<45]
+    
+    init_speed_trials = [np.mean(trial[:1000]) for trial in speed_trials]
     
     acceleration_trials = [np.mean(np.diff(trial[:500])) * 1_000
                            for trial in speed_trials]
@@ -241,6 +247,43 @@ for path in paths:
     if not np.isnan(mean_high_accel_amp) and not np.isnan(mean_low_accel_amp):
         all_high_accel_amp.append(np.mean(curr_high_accel_amp))
         all_low_accel_amp.append(np.mean(curr_low_accel_amp))
+    
+    
+    ## ---- correlations with bootstrap ---- ##
+    session_mean_FR_per_trial = []
+    session_init_speed_per_trial = []
+    
+    for trial in valid_trial_idx:
+        session_init_speed_per_trial.append(init_speed_trials[trial])
+    
+        fr_list = []
+        for clu in trains.keys():
+            if clu in RO_keys:
+                fr_list.append(
+                    np.mean(trains[clu][trial][RO_WINDOW[0]:RO_WINDOW[1]])
+                )
+        if len(fr_list) > 0:
+            session_mean_FR_per_trial.append(np.mean(fr_list))
+    
+    session_init_speed_per_trial = np.array(session_init_speed_per_trial, float)
+    session_mean_FR_per_trial = np.array(session_mean_FR_per_trial, float)
+    
+    if len(session_init_speed_per_trial) > 3:
+        # real r
+        r_real, p_real = pearsonr(session_init_speed_per_trial,
+                                  session_mean_FR_per_trial)
+    
+        print(f'init-speed vs FR: r={r_real:.3f}')
+    
+    else:
+        r_real, p_real = np.nan, np.nan
+        print('not enough trials: skipped')
+    
+    # store per-session results
+    try:
+        all_session_r.append(r_real)
+    except NameError:
+        all_session_r = [r_real]
 
 
 #%% plotting - speed 
@@ -270,10 +313,10 @@ ax.fill_between(XAXIS_SPEED_TIME, low_speed_speed_mean+low_speed_speed_sem,
                                   low_speed_speed_mean-low_speed_speed_sem,
                 alpha=.25, color='lightsteelblue', edgecolor='none')
 
-ax.set(xlabel='time from run onset (s)', 
-       ylabel='speed (cm·s$^{-1}$)', ylim=(0,75),
-       title='high v low speed')
-ax.legend([hsln, lsln], ['high', 'low'], frameon=False)
+ax.set(xlabel='Time from run onset (s)', 
+       ylabel='Speed (cm·s$^{-1}$)', ylim=(0,75),
+       title='High v low speed')
+ax.legend([hsln, lsln], ['High', 'Low'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
     
@@ -308,10 +351,10 @@ ax.fill_between(XAXIS_SPEED_TIME, low_accel_speed_mean+low_accel_speed_sem,
                                   low_accel_speed_mean-low_accel_speed_sem,
                 alpha=.25, color='lightcoral', edgecolor='none')
 
-ax.set(xlabel='time from run onset (s)', 
-       ylabel='speed (cm·s$^{-1}$)', ylim=(0,75),
-       title='high v low accel')
-ax.legend([hsln, lsln], ['high', 'low'], frameon=False)
+ax.set(xlabel='Time from run onset (s)', 
+       ylabel='Speed (cm·s$^{-1}$)', ylim=(0,75),
+       title='High v low accel')
+ax.legend([hsln, lsln], ['High', 'Low'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
     
@@ -337,10 +380,10 @@ ax.fill_between(XAXIS_SPIKE_TIME, low_speed_curve_mean+low_speed_curve_sem,
                                   low_speed_curve_mean-low_speed_curve_sem,
                 alpha=.25, color='lightsteelblue', edgecolor='none')
 
-ax.set(xlabel='time from run onset (s)', 
-       ylabel='spike rate (Hz)', ylim=(1.5,5.7),
-       title='high v low speed')
-ax.legend([hsln, lsln], ['high', 'low'], frameon=False)
+ax.set(xlabel='Time from run onset (s)', 
+       ylabel='Firing rate (Hz)', ylim=(1.5,5.7),
+       title='High v low speed')
+ax.legend([hsln, lsln], ['High', 'Low'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
     
@@ -365,10 +408,10 @@ ax.fill_between(XAXIS_SPIKE_TIME, low_accel_curve_mean+low_accel_curve_sem,
                                   low_accel_curve_mean-low_accel_curve_sem,
                 alpha=.25, color='lightcoral', edgecolor='none')
 
-ax.set(xlabel='time from run onset (s)', 
-       ylabel='spike rate (Hz)', ylim=(1.5,5.7),
-       title='high v low accel')
-ax.legend([hsln, lsln], ['high', 'low'], frameon=False)
+ax.set(xlabel='Time from run onset (s)', 
+       ylabel='Firing rate (Hz)', ylim=(1.5,5.7),
+       title='High v low accel')
+ax.legend([hsln, lsln], ['High', 'low'], frameon=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
     
@@ -380,17 +423,81 @@ for ext in ['.png', '.pdf']:
 #%% plotting - amp
 pf.plot_violin_with_scatter(all_low_speed_amp, all_high_speed_amp, 
                             'lightsteelblue', 'royalblue',
-                            xticklabels=['low speed', 'high speed'],
-                            ylabel='spike rate (Hz)',
+                            xticklabels=['Low speed', 'High speed'],
+                            ylabel='Firing rate (Hz)',
                             ylim=(1, 9.8),
                             save=True,
                             savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\speed_controls\speed_35_45_55'
                             )
 pf.plot_violin_with_scatter(all_low_accel_amp, all_high_accel_amp, 
                             'lightcoral', 'firebrick',
-                            xticklabels=['low accel.', 'high accel.'],
-                            ylabel='spike rate (Hz)',
+                            xticklabels=['Low accel.', 'High accel.'],
+                            ylabel='Firing rate (Hz)',
                             ylim=(1, 9.8),
                             save=True,
                             savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\speed_controls\init_accel_60_80'
                             )
+
+
+#%% corr between init speed and FR
+rvals = np.array(all_session_r, float)
+rvals = rvals[~np.isnan(rvals)]
+n_sess = len(rvals)
+
+median_r = np.median(rvals)
+mean_r   = np.mean(rvals)
+sem_r    = np.std(rvals, ddof=1) / np.sqrt(n_sess)
+
+# stats
+w_stat, p_w = wilcoxon(rvals, alternative='two-sided')
+
+print(f'N sessions = {n_sess}')
+print(f'Median r = {median_r:.3f}')
+print(f'Mean r ± SEM = {mean_r:.3f} ± {sem_r:.3f}')
+print(f'Wilcoxon vs 0: W = {w_stat:.3f}, p = {p_w:.3g}')
+
+fig, ax = plt.subplots(figsize=(2.0, 2.2))
+
+parts = ax.violinplot(rvals, positions=[1],
+                      showmeans=False, showmedians=True,
+                      showextrema=False)
+
+for pc in parts['bodies']:
+    pc.set_facecolor('orange')
+    pc.set_edgecolor('none')
+    pc.set_alpha(0.35)
+
+parts['cmedians'].set_color('k')
+parts['cmedians'].set_linewidth(1.2)
+
+# scatter of session r
+ax.scatter(np.ones(n_sess), rvals,
+           s=12, color='orange', ec='none', alpha=0.55, zorder=3)
+
+# zero line
+ax.axhline(0, color='gray', lw=1, ls='--')
+
+ax.text(
+    1.35, np.max(rvals),
+    f'Median = {median_r:.2f}\n'
+    f'{mean_r:.2f} ± {sem_r:.2f}\n'
+    f'Wilc {p_w:.2e}',
+    ha='left', va='top', fontsize=7, color='forestgreen'
+)
+
+ax.set(
+    xlim=(0.5, 1.5),
+    xticks=[1],
+    xticklabels=['corr(init. speed, RO FR)'],
+    ylabel='Correlation (r)',
+    title='Across-session corr.'
+)
+
+ax.spines[['top', 'right', 'bottom']].set_visible(False)
+plt.tight_layout()
+
+for ext in ['.pdf', '.png']:
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_ephys\speed_controls\init_speed_FR_corr{ext}',
+        dpi=300, bbox_inches='tight'
+    )

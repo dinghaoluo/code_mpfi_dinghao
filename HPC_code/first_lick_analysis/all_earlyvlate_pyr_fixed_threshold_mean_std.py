@@ -16,9 +16,9 @@ import pandas as pd
 import pickle
 import scipy.io as sio
 import matplotlib.pyplot as plt
-from scipy.stats import sem, ttest_ind, ttest_ind
+from scipy.stats import sem, ranksums
 
-from plotting_functions import plot_violin_with_scatter
+# from plotting_functions import plot_violin_with_scatter
 from decay_time_analysis import detect_peak, compute_tau
 from common import mpl_formatting
 mpl_formatting()
@@ -49,7 +49,7 @@ first_lick_stem = Path('Z:/Dinghao/code_dinghao/HPC_ephys/first_lick_analysis')
 
 #%% helper 
 def _annotate_pvals(ax, pvals,
-                    start=-0.5, bin_size=1.0,
+                    start=-0.5, bin_size=1.0, fontsize=5,
                     y_level=None, star=True):
     if y_level is None:
         ymin, ymax = ax.get_ylim()
@@ -63,16 +63,17 @@ def _annotate_pvals(ax, pvals,
 
         # decide text
         if star:
-            if p < 0.001: text = '***'
+            if p < 0.0001: text = '****'
+            elif p < 0.001: text = '***'
             elif p < 0.01: text = '**'
             elif p < 0.05: text = '*'
             else: text = 'n.s.'
         else:
-            text = f'{p:.5f}'
+            text = f'{p:.2e}'
 
-        ax.hlines(y_level, lo+0.05, hi-0.05, color='k', lw=1)
+        ax.hlines(y_level, lo+0.05, hi-0.05, color='k', lw=.75)
         ax.text(mid, y_level, text,
-                ha='center', va='bottom', fontsize=6, color='k')
+                ha='center', va='bottom', fontsize=fontsize, color='k')
 
 def _binwise_test(early_profiles, late_profiles,
                   SAMP_FREQ=1250, BEF=1,
@@ -91,9 +92,9 @@ def _binwise_test(early_profiles, late_profiles,
         e_means = np.mean(early_profiles[:, lo_idx:hi_idx], axis=1)
         l_means = np.mean(late_profiles[:, lo_idx:hi_idx], axis=1)
 
-        t, p = ttest_ind(e_means, l_means, nan_policy='omit')
+        _, p = ranksums(e_means, l_means, nan_policy='omit')
         pvals.append(p)
-        print(f'  {lo:.1f}–{hi:.1f} s: t={t:.3f}, p={p:.4f}')
+        print(f'  {lo:.1f}–{hi:.1f} s: p={p:.4e}')
 
     return pvals
 
@@ -276,7 +277,7 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
             l_mu = L_bins.mean(axis=0)
             l_sd = L_bins.std(axis=0, ddof=0)
             l_low, l_high = l_mu - k*l_sd, l_mu + k*l_sd
-        
+            
             # masks
             l_mask_in_early_bounds = np.all((L_bins >= e_low) & (L_bins <= e_high), axis=1)
             e_mask_in_late_bounds  = np.all((E_bins >= l_low) & (E_bins <= l_high), axis=1)
@@ -288,7 +289,7 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
             matched_early, matched_late = [], []
         
         print(f'{len(matched_early)} early and {len(matched_late)} late trials passed 7-bin speed filtering')
-
+        
         # collect session means for later plotting 
         e_mean_sp = _session_mean_speed(matched_early, speed_times, n=4000)
         l_mean_sp = _session_mean_speed(matched_late, speed_times, n=4000)
@@ -311,7 +312,7 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
         E_b = _trial_bin_means(matched_early)  # shape: nE x 7
         L_b = _trial_bin_means(matched_late)   # shape: nL x 7
         
-        # per-bin Welch t-test (independent, unequal variances)
+        # per-bin t test for sanity check 
         n_bins = 7
         bin_size = 500
         pvals = np.ones(n_bins)
@@ -319,8 +320,13 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
             e = E_b[:, i] if E_b.size else np.array([])
             l = L_b[:, i] if L_b.size else np.array([])
             if e.size >= 2 and l.size >= 2:
-                t, p = ttest_ind(e, l, equal_var=False, nan_policy='omit')
+                t, p = ttest_ind(e, l, equal_var=False)
                 pvals[i] = p
+        
+        # skip session if any bin differs
+        if np.any(pvals < 0.05):
+            print('Session rejected for unequal speeds (binwise t-test)')
+            continue
         
         # annotate bars + p-values above each 500 ms bin
         ymin, ymax = ax.get_ylim()
@@ -513,8 +519,11 @@ for ext in ['.png', '.pdf']:
 early_win_means = np.mean(np.array(early_profiles_ON)[:, 1250+625:1250+1825], axis=1)
 late_win_means  = np.mean(np.array(late_profiles_ON)[:, 1250+625:1250+1825], axis=1)
 
+_, p_val = ranksums(early_win_means, late_win_means, nan_policy='omit')
+
 print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
 print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
+print(f'ranksums test (0.5–1.5 s window): p = {p_val:.4e}')
 
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 
@@ -535,11 +544,12 @@ ax.fill_between(XAXIS, late_mean+late_sem, late_mean-late_sem,
 pvals = _binwise_test(np.array(early_profiles_ON),
                       np.array(late_profiles_ON),
                       SAMP_FREQ=SAMP_FREQ, BEF=BEF,
-                      label='ON cells')
+                      label='ON cells',
+                      bin_size=1.0)
 _annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.24, 3.4),
+ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.28, 3.42),
        ylabel='Firing rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -559,12 +569,11 @@ for ext in ['.png', '.pdf']:
 early_win_means = np.mean(np.array(early_profiles_OFF)[:, 1250+625:1250+1825], axis=1)
 late_win_means  = np.mean(np.array(late_profiles_OFF)[:, 1250+625:1250+1825], axis=1)
 
-# paired t-test
-t_stat, p_val = ttest_ind(early_win_means, late_win_means, nan_policy='omit')
+_, p_val = ranksums(early_win_means, late_win_means, nan_policy='omit')
 
 print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
 print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
-print(f'Paired t-test (0.5–1.5 s window): t = {t_stat:.3f}, p = {p_val:.4f}')
+print(f'ranksums (0.5–1.5 s window): p = {p_val:.4e}')
 
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 
@@ -585,11 +594,12 @@ ax.fill_between(XAXIS, late_mean+late_sem, late_mean-late_sem,
 pvals = _binwise_test(np.array(early_profiles_OFF),
                       np.array(late_profiles_OFF),
                       SAMP_FREQ=SAMP_FREQ, BEF=BEF,
-                      label='OFF cells')
-_annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False)
+                      label='OFF cells',
+                      bin_size=1.0)
+_annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False, fontsize=5)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='Time from run-onset (s)', xlim=(-1, 4), ylim=(1.24, 3.4),
+ax.set(xlabel='Time from run-onset (s)', xlim=(-1, 4), ylim=(1.15, 2.6),
        ylabel='Firing rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -599,6 +609,6 @@ plt.show()
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        rf'Z:\Dinghao\code_dinghao\HPC_ephys\first_lick_analysis\all_run_onset_OFF_mean_profiles{ext}',
+        first_lick_stem / f'all_run_onset_OFF_mean_profiles{ext}',
         dpi=300,
         bbox_inches='tight')

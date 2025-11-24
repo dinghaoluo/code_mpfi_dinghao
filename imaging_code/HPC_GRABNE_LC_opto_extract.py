@@ -22,7 +22,7 @@ from common import mpl_formatting, get_GPU_availability
 mpl_formatting()
 
 import rec_list
-paths = rec_list.pathGRABNELCOpto
+paths = rec_list.pathGRABNELCOpto + rec_list.pathGRABNELCOptoDbhBlock
         
 # GPU acceleration
 cp, GPU_AVAILABLE = get_GPU_availability()

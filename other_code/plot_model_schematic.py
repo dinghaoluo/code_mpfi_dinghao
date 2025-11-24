@@ -68,7 +68,7 @@ ax.set(xlim=(-1, 5), xticks=[],
 plt.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_LC_stim_HPC_diversity_response.pdf',
+fig.savefig(r'Z:\Dinghao\trace_LC_DA_HPC.png',
             dpi=300,
             bbox_inches='tight')
 

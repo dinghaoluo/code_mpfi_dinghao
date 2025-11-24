@@ -1036,3 +1036,79 @@ def process_locomotion(wheel_tuples,
             non_fullstop_trials.append(0)
     
     return run_onset_times, upsampled_timestamps, upsampled_distance_cm, speed_smoothed, non_stop_trials, non_fullstop_trials
+
+
+def detect_run_onsets_teensy(we_time,
+                             we_counts,
+                             trial_id_per_we=None,
+                             trial_start_times=None,
+                             trial_end_times=None,
+                             threshold_speed_cm_s=10.0,
+                             threshold_time_bins=4,
+                             dt_check_s=0.02):
+    """
+    teensy-style run onset detection based on wheel encoder events.
+
+    parameters:
+    - we_time: 1d array, timestamps of $WE events (same units everywhere)
+    - we_counts: 1d array, encoder ticks in each 20 ms bin
+    - trial_id_per_we: 1d int array of same length as we_time giving trial index (0-based)
+    - trial_start_times: 1d array of trial start times (if trial_id_per_we is not given)
+    - trial_end_times: 1d array of trial end times (same length as trial_start_times)
+    - threshold_speed_cm_s: speed threshold in cm/s (teensy uses 10)
+    - threshold_time_bins: how many *previous* bins must have passed threshold before we say 'run started'.
+      teensy uses '>' comparison, so threshold_speed_counts > threshold_time => 5 bins if threshold_time=4.
+    - dt_check_s: sampling interval of encoder checks (20 ms)
+
+    returns:
+    - run_onsets: 1d array of length n_trials, with run onset time per trial (nan if not found)
+    """
+    we_time = np.asarray(we_time)
+    we_counts = np.asarray(we_counts)
+
+    # infer trial mapping
+    if trial_id_per_we is not None:
+        trial_id_per_we = np.asarray(trial_id_per_we, int)
+        n_trials = trial_id_per_we.max() + 1
+        trial_masks = [trial_id_per_we == tr for tr in range(n_trials)]
+    else:
+        # use time-based trial windows
+        trial_start_times = np.asarray(trial_start_times)
+        trial_end_times = np.asarray(trial_end_times)
+        n_trials = trial_start_times.size
+        trial_masks = [
+            (we_time >= trial_start_times[tr]) & (we_time < trial_end_times[tr])
+            for tr in range(n_trials)
+        ]
+
+    run_onsets = np.full(n_trials, np.nan, dtype=float)
+
+    # teensy logic: speed = counts * 0.04 cm / 0.02 s = 2 * counts
+    # condition: speed > threshold_speed_cm_s in > threshold_time_bins consecutive samples
+    for tr in range(n_trials):
+        mask = trial_masks[tr]
+        if not np.any(mask):
+            continue
+
+        t_tr = we_time[mask]
+        c_tr = we_counts[mask]
+
+        thresh_count = threshold_speed_cm_s / (2.0)  # because speed = 2 * counts
+        consec = 0
+        onset_time = np.nan
+
+        for t, c in zip(t_tr, c_tr):
+            # treat negative or zero counts as no movement
+            if c * 2.0 > threshold_speed_cm_s:
+                consec += 1
+            else:
+                consec = 0
+
+            # mimic teensy condition: threshold_speed_counts > threshold_time
+            if consec > threshold_time_bins:
+                onset_time = float(t)
+                break
+
+        run_onsets[tr] = onset_time
+
+    return run_onsets

@@ -40,6 +40,14 @@ all_pooled_run = []
 all_pooled_cue = []
 all_pooled_rew = []
 
+# per-session peaks (indices)
+sess_tagged_peaks_run = {}
+sess_tagged_peaks_cue = {}
+sess_tagged_peaks_rew = {}
+sess_put_peaks_run = {}
+sess_put_peaks_cue = {}
+sess_put_peaks_rew = {}
+
 for path in paths:
     recname = path[-17:]
     print(recname)
@@ -77,18 +85,33 @@ for path in paths:
             curr_trains_run = trains_run[clu][:stim_start, 3750-1250:3750+1250*4]
             curr_trains_cue = trains_cue[clu][:stim_start, 3750-1250:3750+1250*4]
             curr_trains_rew = trains_rew[clu][:stim_start, 3750-1250:3750+1250*4]
-            all_pooled_run.append(np.mean(curr_trains_run, axis=0))
-            all_pooled_cue.append(np.mean(curr_trains_cue, axis=0))
-            all_pooled_rew.append(np.mean(curr_trains_rew, axis=0))
-            
+
+            mean_run = np.mean(curr_trains_run, axis=0)
+            mean_cue = np.mean(curr_trains_cue, axis=0)
+            mean_rew = np.mean(curr_trains_rew, axis=0)
+
+            all_pooled_run.append(mean_run)
+            all_pooled_cue.append(mean_cue)
+            all_pooled_rew.append(mean_rew)
+
+            # per-session peak indices
             if clu in tag_list:
-                all_tagged_run.append(np.mean(curr_trains_run, axis=0))
-                all_tagged_cue.append(np.mean(curr_trains_cue, axis=0))
-                all_tagged_rew.append(np.mean(curr_trains_rew, axis=0))
+                sess_tagged_peaks_run.setdefault(recname, []).append(np.argmax(mean_run))
+                sess_tagged_peaks_cue.setdefault(recname, []).append(np.argmax(mean_cue))
+                sess_tagged_peaks_rew.setdefault(recname, []).append(np.argmax(mean_rew))
+
+                all_tagged_run.append(mean_run)
+                all_tagged_cue.append(mean_cue)
+                all_tagged_rew.append(mean_rew)
+
             if clu in put_list:
-                all_putative_run.append(np.mean(curr_trains_run, axis=0))
-                all_putative_cue.append(np.mean(curr_trains_cue, axis=0))
-                all_putative_rew.append(np.mean(curr_trains_rew, axis=0))
+                sess_put_peaks_run.setdefault(recname, []).append(np.argmax(mean_run))
+                sess_put_peaks_cue.setdefault(recname, []).append(np.argmax(mean_cue))
+                sess_put_peaks_rew.setdefault(recname, []).append(np.argmax(mean_rew))
+
+                all_putative_run.append(mean_run)
+                all_putative_cue.append(mean_cue)
+                all_putative_rew.append(mean_rew)
             
 # sorting
 pooled_run_argmax = [np.argmax(clu) for clu in all_pooled_run]
@@ -443,24 +466,116 @@ labels = ['run', 'cue', 'rew']
 x = np.arange(len(labels))
 
 
+#%% per-session proportions
+sess_p_tagged_run = []
+sess_p_tagged_cue = []
+sess_p_tagged_rew = []
+sess_p_put_run = []
+sess_p_put_cue = []
+sess_p_put_rew = []
+
+for recname in paths:
+    recname = recname[-17:]  # same as above
+    # tagged
+    peaks = np.array(sess_tagged_peaks_run.get(recname, []))
+    if peaks.size > 0:
+        sess_p_tagged_run.append(np.mean((peaks >= center - window) & (peaks <= center + window)))
+    # skip sessions with no tagged cells
+    peaks = np.array(sess_tagged_peaks_cue.get(recname, []))
+    if peaks.size > 0:
+        sess_p_tagged_cue.append(np.mean((peaks >= center - window) & (peaks <= center + window)))
+    peaks = np.array(sess_tagged_peaks_rew.get(recname, []))
+    if peaks.size > 0:
+        sess_p_tagged_rew.append(np.mean((peaks >= center - window) & (peaks <= center + window)))
+
+    # putative
+    peaks = np.array(sess_put_peaks_run.get(recname, []))
+    if peaks.size > 0:
+        sess_p_put_run.append(np.mean((peaks >= center - window) & (peaks <= center + window)))
+    peaks = np.array(sess_put_peaks_cue.get(recname, []))
+    if peaks.size > 0:
+        sess_p_put_cue.append(np.mean((peaks >= center - window) & (peaks <= center + window)))
+    peaks = np.array(sess_put_peaks_rew.get(recname, []))
+    if peaks.size > 0:
+        sess_p_put_rew.append(np.mean((peaks >= center - window) & (peaks <= center + window)))
+
+
 #%% plot
+colour_tag = (70/255, 101/255, 175/255)
+colour_put = (101/255, 82/255, 163/255)
+
 fig, ax = plt.subplots(figsize=(2, 3))
 height = 0.35
 
 for i in range(len(labels)):
     ax.barh(y=i - height/2, width=proportions[i][0], height=height,
-            label='tagged' if i == 0 else "", color='royalblue')
+            label='tagged' if i == 0 else "", color=colour_tag)
     ax.barh(y=i + height/2, width=proportions[i][1], height=height,
-            label='putative' if i == 0 else "", color='darkorange')
+            label='putative' if i == 0 else "", color=colour_put)
+    
+ytag_run = 0 - height/2
+yput_run = 0 + height/2
+
+ytag_cue = 1 - height/2
+yput_cue = 1 + height/2
+
+ytag_rew = 2 - height/2
+yput_rew = 2 + height/2
+
+bump = 0.02   # how far to move zero-points off the axis
+
+# --- run ---
+if len(sess_p_tagged_run) > 0:
+    vals = np.array(sess_p_tagged_run, float)
+    vals[vals == 0] = bump    # inline fix
+    ax.scatter(vals,
+               np.full(len(vals), ytag_run),
+               s=8, color=colour_tag, edgecolors='k')
+
+if len(sess_p_put_run) > 0:
+    vals = np.array(sess_p_put_run, float)
+    vals[vals == 0] = bump
+    ax.scatter(vals,
+               np.full(len(vals), yput_run),
+               s=8, color=colour_put, edgecolors='k')
+
+# --- cue ---
+if len(sess_p_tagged_cue) > 0:
+    vals = np.array(sess_p_tagged_cue, float)
+    vals[vals == 0] = bump
+    ax.scatter(vals,
+               np.full(len(vals), ytag_cue),
+               s=8, color=colour_tag, edgecolors='k')
+
+if len(sess_p_put_cue) > 0:
+    vals = np.array(sess_p_put_cue, float)
+    vals[vals == 0] = bump
+    ax.scatter(vals,
+               np.full(len(vals), yput_cue),
+               s=8, color=colour_put, edgecolors='k')
+
+# --- rew ---
+if len(sess_p_tagged_rew) > 0:
+    vals = np.array(sess_p_tagged_rew, float)
+    vals[vals == 0] = bump
+    ax.scatter(vals,
+               np.full(len(vals), ytag_rew),
+               s=8, color=colour_tag, edgecolors='k')
+
+if len(sess_p_put_rew) > 0:
+    vals = np.array(sess_p_put_rew, float)
+    vals[vals == 0] = bump
+    ax.scatter(vals,
+               np.full(len(vals), yput_rew),
+               s=8, color=colour_put, edgecolors='k')
 
 ax.set_yticks(x)
 ax.set_yticklabels(labels)
-ax.set_xlim(0, 1)
-ax.set_xlabel('prop. with peak ±0.25 s')
+# ax.set_xlim(0, 1)
+ax.set_xlabel('prop. with peak ±0.25 s')
 ax.set_title('Peak proximity to alignment')
 ax.legend(frameon=False, loc='upper right')
 
-# remove top, right, bottom spines
 for spine in ['top', 'right', 'bottom']:
     ax.spines[spine].set_visible(False)
 
