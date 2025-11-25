@@ -15,54 +15,35 @@ Modified to work on any directory list and as a general-purpose batch registra-
 
 
 #%% imports 
-import sys
-import os
+from pathlib import Path
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import suite2p_functions as s2f
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 
-which = input('''
-    Process which experiment?
-    1. GRABNE,
-    2. HPCdLightLCOpto,
-    3. HPCdLightLCOptoCtrl,
-    4. HPCdLightLCOptoInh, 
-    5. PROCESS ALL\n
-    ''')
-
-if which == '1':
-    paths = rec_list.pathHPCGRABNE
-    prefix = 'HPCGRABNE'
-elif which == '2':
-    paths = rec_list.pathdLightLCOpto
-    prefix = 'HPCdLightLCOpto'
-elif which == '3':
-    paths = rec_list.pathdLightLCOptoCtrl
-    prefix = 'HPCdLightLCOptoCtrl'
-elif which == '4':
-    paths = rec_list.pathdLightLCOptoInh
-    prefix = 'HPCdLightLCOptoInh'
-elif which == '5':
-    paths = (
-        rec_list.pathHPCGRABNE + 
-        rec_list.pathdLightLCOpto +
-        rec_list.pathdLightLCOptoCtrl + 
-        rec_list.pathdLightLCOptoInh
-        )
+# modified to automatically process all
+paths = (
+    rec_list.pathHPCGRABNE + 
+    rec_list.pathGRABNELCOpto + 
+    rec_list.pathGRABNELCOptoDbhBlock + 
+    rec_list.pathGRABNETone + 
+    rec_list.pathGRABNEToneDbhBlock + 
+    rec_list.pathdLightLCOpto +
+    rec_list.pathdLightLCOptoDbhBlock + 
+    rec_list.pathdLightLCOptoCtrl + 
+    rec_list.pathdLightLCOptoInh
+    )
     
 
 #%% run all sessions
 for path in paths:
-    sessname = path[-17:]
-    print('\n{}'.format(sessname))
+    recname = Path(path).name
+    print(f'\n{recname}')
     
-    reg_path = os.path.join(path, 'suite2p')
-    reg_path_alt = os.path.join(path, 'processed')  # in some older recordings
-    if os.path.exists(reg_path) or os.path.exists(reg_path_alt):  # if registed
-        print('session already registered; skip')
+    reg_path = Path(path) / 'suite2p'
+    reg_path_alt = Path(path) / 'processed'  # in some older recordings
+    if reg_path.exists() or reg_path_alt.exists():  # if registed
+        print('Session already registered; skipped')
         continue
     else:
         s2f.register(path)

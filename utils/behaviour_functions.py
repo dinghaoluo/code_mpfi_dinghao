@@ -571,7 +571,7 @@ def process_txt(txtfile):
         if line[0] == '$WE':
             wt_trial.append(
                 [float(line[1]), 
-                 float(line[2])*.04*50,  # the number of clicks per 20 ms, and each click corresponds to .04 cm, Dinghao, 20240625
+                 float(line[2])*.04*50,  # the number of clicks per 20 us, and each click corresponds to .04 cm, Dinghao, 20240625
                  float(line[3])]  # distance accumulation
                 )  
         if line[0] == '$LE' and line[3] == '1':
@@ -1038,77 +1038,64 @@ def process_locomotion(wheel_tuples,
     return run_onset_times, upsampled_timestamps, upsampled_distance_cm, speed_smoothed, non_stop_trials, non_fullstop_trials
 
 
-def detect_run_onsets_teensy(we_time,
-                             we_counts,
-                             trial_id_per_we=None,
-                             trial_start_times=None,
-                             trial_end_times=None,
+def detect_run_onsets_teensy(speed_times,
                              threshold_speed_cm_s=10.0,
                              threshold_time_bins=4,
-                             dt_check_s=0.02):
+                             dt_check_ms=20.0):
     """
-    teensy-style run onset detection based on wheel encoder events.
+    detect run onset times using teensy-like logic from process_txt output.
 
     parameters:
-    - we_time: 1d array, timestamps of $WE events (same units everywhere)
-    - we_counts: 1d array, encoder ticks in each 20 ms bin
-    - trial_id_per_we: 1d int array of same length as we_time giving trial index (0-based)
-    - trial_start_times: 1d array of trial start times (if trial_id_per_we is not given)
-    - trial_end_times: 1d array of trial end times (same length as trial_start_times)
+    - speed_times: list of trials; each trial is a list of [time_ms, speed_cm_s, distance_accum]
     - threshold_speed_cm_s: speed threshold in cm/s (teensy uses 10)
-    - threshold_time_bins: how many *previous* bins must have passed threshold before we say 'run started'.
-      teensy uses '>' comparison, so threshold_speed_counts > threshold_time => 5 bins if threshold_time=4.
-    - dt_check_s: sampling interval of encoder checks (20 ms)
+    - threshold_time_bins: number of *previous* bins above threshold required
+      teensy uses 'threshold_speed_counts > threshold_time' with threshold_time=4
+    - dt_check_ms: nominal encoder check interval (20 ms)
 
     returns:
-    - run_onsets: 1d array of length n_trials, with run onset time per trial (nan if not found)
+    - run_onsets_ms: 1d array of length n_trials with run onset time per trial in ms (nan if none)
     """
-    we_time = np.asarray(we_time)
-    we_counts = np.asarray(we_counts)
+    n_trials = len(speed_times)
+    run_onsets_ms = np.full(n_trials, np.nan, dtype=float)
 
-    # infer trial mapping
-    if trial_id_per_we is not None:
-        trial_id_per_we = np.asarray(trial_id_per_we, int)
-        n_trials = trial_id_per_we.max() + 1
-        trial_masks = [trial_id_per_we == tr for tr in range(n_trials)]
-    else:
-        # use time-based trial windows
-        trial_start_times = np.asarray(trial_start_times)
-        trial_end_times = np.asarray(trial_end_times)
-        n_trials = trial_start_times.size
-        trial_masks = [
-            (we_time >= trial_start_times[tr]) & (we_time < trial_end_times[tr])
-            for tr in range(n_trials)
-        ]
-
-    run_onsets = np.full(n_trials, np.nan, dtype=float)
-
-    # teensy logic: speed = counts * 0.04 cm / 0.02 s = 2 * counts
-    # condition: speed > threshold_speed_cm_s in > threshold_time_bins consecutive samples
     for tr in range(n_trials):
-        mask = trial_masks[tr]
-        if not np.any(mask):
+        trial_st = speed_times[tr]
+        if not trial_st:
             continue
 
-        t_tr = we_time[mask]
-        c_tr = we_counts[mask]
+        # convert to arrays, just in case
+        t = np.array([row[0] for row in trial_st], dtype=float)  # ms
+        v = np.array([row[1] for row in trial_st], dtype=float)  # cm/s
 
-        thresh_count = threshold_speed_cm_s / (2.0)  # because speed = 2 * counts
+        # sort just to be safe
+        order = np.argsort(t)
+        t = t[order]
+        v = v[order]
+
         consec = 0
-        onset_time = np.nan
+        prev_t = None
+        onset_t = np.nan
 
-        for t, c in zip(t_tr, c_tr):
-            # treat negative or zero counts as no movement
-            if c * 2.0 > threshold_speed_cm_s:
+        for ti, vi in zip(t, v):
+            if prev_t is not None:
+                dt = ti - prev_t
+                # if there is a gap bigger than ~1 encoder tick, treat it as a break in continuity
+                if dt > 1.5 * dt_check_ms:
+                    consec = 0
+
+            # teensy logic: counts*2 > 10  <=> speed_cm_s > 10
+            if vi > threshold_speed_cm_s:
                 consec += 1
             else:
                 consec = 0
 
-            # mimic teensy condition: threshold_speed_counts > threshold_time
+            # teensy uses '>' comparison: threshold_speed_counts > threshold_time
             if consec > threshold_time_bins:
-                onset_time = float(t)
+                onset_t = float(ti)
                 break
 
-        run_onsets[tr] = onset_time
+            prev_t = ti
 
-    return run_onsets
+        run_onsets_ms[tr] = onset_t
+
+    return run_onsets_ms

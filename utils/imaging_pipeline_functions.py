@@ -441,21 +441,12 @@ def run_grid(
             
     return gridded
 
-def plot_reference(
-        mov, 
-        outpath=r'', 
-        recname='',
-        grids=-1, 
-        stride=-1, 
-        dim=512, 
-        channel=1,
-        GPU_AVAILABLE=False
-        ): 
+def plot_reference(mov, outpath=r'', recname='',
+        grids=-1, stride=-1, dim=512, channel=1, frames=1000, GPU_AVAILABLE=False): 
     """
     plot a reference image (mean Z-projection) with optional grid annotations
     
-    parameters
-    ----------
+    parameters:
     mov : np.ndarray or cupy.ndarray
         imaging data as a 3D array (frames x height x width)
     grids : list[int] or int, optional
@@ -471,19 +462,9 @@ def plot_reference(
     GPU_AVAILABLE : bool, optional
         flag to enable GPU processing using cupy (default: False)
     
-    returns
-    -------
+    returns:
     ref_im : np.ndarray
         processed reference image (mean Z-projection)
-    
-    notes
-    -----
-    - If `grids` is not -1, the function will annotate the reference image with
-      vertical and horizontal grid lines based on the provided positions and stride.
-    - If `GPU_AVAILABLE` is True, the function uses cupy to process data on the GPU,
-      otherwise it defaults to numpy for CPU-based processing.
-    - The function saves the reference image and the numpy array (`ref_im`) to the
-      specified `outpath`.
     """
     proc_path = rf'{outpath}\processed_data'
     os.makedirs(proc_path, exist_ok=True)
@@ -492,44 +473,55 @@ def plot_reference(
         boundary_low = grids[0]
         boundary_high = grids[-1]+stride
 
-    # plot the mean image (Z-projection)
+    # choose how many frames to use
+    n_frames = min(frames, mov.shape[0])
+
+    # compute mean z-projection over subset of frames
     if GPU_AVAILABLE:
-        mov_gpu = cp.array(mov)  # move to VRAM
+        mov_gpu = cp.array(mov[:n_frames])  # move only the needed frames to vram
         ref_im_gpu = cp.mean(mov_gpu, axis=0)
-        ref_im = ref_im_gpu.get()  # move back to RAM
+        ref_im = ref_im_gpu.get()
     else:
-        ref_im = np.mean(mov, axis=0)
+        ref_im = np.mean(mov[:n_frames], axis=0)
 
     ref_im = post_processing_suite2p_gui(ref_im)
+
     fig, ax = plt.subplots(figsize=(4,4))
     ax.imshow(ref_im, aspect='auto', cmap='gist_gray', interpolation='none',
               extent=[0, dim, dim, 0])
-    if grids!=-1:
-        for i in range(len(grids)):  # vertical lines 
-            ax.plot([grids[i], grids[i]], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)
-            ax.plot([boundary_low, boundary_high], [grids[i], grids[i]], color='grey', linewidth=1, alpha=.5)
-        ax.plot([grids[-1]+stride, grids[-1]+stride], [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)  # last vertical line 
-        ax.plot([boundary_low, boundary_high], [grids[-1]+stride, grids[-1]+stride], color='grey', linewidth=1, alpha=.5)  # last horizontal line
-    ax.set(xlim=(0,dim), ylim=(0,dim))
+
+    if grids != -1:
+        for i in range(len(grids)):
+            ax.plot([grids[i], grids[i]], [boundary_low, boundary_high],
+                    color='grey', linewidth=1, alpha=.5)
+            ax.plot([boundary_low, boundary_high], [grids[i], grids[i]],
+                    color='grey', linewidth=1, alpha=.5)
+
+        ax.plot([grids[-1]+stride, grids[-1]+stride],
+                [boundary_low, boundary_high], color='grey', linewidth=1, alpha=.5)
+        ax.plot([boundary_low, boundary_high],
+                [grids[-1]+stride, grids[-1]+stride], color='grey', linewidth=1, alpha=.5)
+
+    ax.set(xlim=(0, dim), ylim=(0, dim))
 
     fig.suptitle(f'ref ch{channel}')
     fig.tight_layout()
-    if grids!=-1:  # grid-analysis 
+
+    if grids != -1:
         fig.savefig(rf'{outpath}\{recname}_ref_ch{channel}_{stride}.png',
-                    dpi=300,
-                    bbox_inches='tight')
-    else:  # regular 
+                    dpi=300, bbox_inches='tight')
+    else:
         fig.savefig(rf'{outpath}\{recname}_ref_ch{channel}.png',
-                    dpi=300,
-                    bbox_inches='tight')
+                    dpi=300, bbox_inches='tight')
+
     np.save(rf'{proc_path}\{recname}_ref_mat_ch{channel}.npy', ref_im)
     plt.close(fig)
 
-    # explicitly clear VRAM
     if GPU_AVAILABLE:
         del mov_gpu, ref_im_gpu
         gc.collect()
         cp.get_default_memory_pool().free_all_blocks()
+
     return ref_im
 
 
@@ -960,3 +952,43 @@ def fast_in_a_row(speed_value, count, threshold):
     else:
         count=0
     return count
+
+
+def detect_step_pairs(trace, zthr=100, min_interval_frames=30):
+    """
+    detect shutter/PMT step onset & offset pairs.
+    works even if step directions flip across recordings.
+    
+    returns:
+        onsets  : list of frame indices
+        offsets : list of frame indices
+    """
+    d = np.diff(trace)
+
+    # MAD noise estimate
+    m = np.nanmedian(d)
+    mad = np.nanmedian(np.abs(d - m)) + 1e-12
+    z = (d - m) / mad
+
+    # detect all large steps (ignore sign)
+    cand = np.where(np.abs(z) > zthr)[0] + 1
+
+    if len(cand) == 0:
+        return [], []
+
+    # find edges
+    gaps = np.where(np.diff(cand) > min_interval_frames)[0] + 1
+    
+    # split into separate trains
+    trains = np.split(cand, gaps)
+
+    onsets = []
+    offsets = []
+
+    for t in trains:
+        if len(t) < 2:
+            continue
+        onsets.append(t[0])
+        offsets.append(t[-1])
+
+    return onsets, offsets

@@ -364,9 +364,10 @@ def plot_ecdfs(data0, data1,
                xlabel=' ', ylabel='cumulative probability',
                legend_labels=[' ', ' '],
                colours=['lightcoral', 'firebrick'],
-               save=False, savepath=' ', dpi=300, figsize=(2, 2.5)):
+               save=False, savepath=' ', dpi=300, figsize=(2.4, 3.0),
+               stats_text=None):
     """
-    plot ECDFs for two datasets.
+    plot ECDFs for two datasets with optional stats annotation.
 
     parameters:
     - data0, data1: arrays of data values
@@ -374,9 +375,8 @@ def plot_ecdfs(data0, data1,
     - legend_labels: list of str, legend entries for data0 and data1
     - colours: list of str or colour tuples, colours for the two curves
     - save: bool, if true, saves plot to savepath
-    - savepath: str, path + base filename (no extension)
-    - dpi: int, resolution
-    - figsize: tuple, size of the figure
+    - stats_text: str, optional stats annotation printed inside the plot
+    - dpi, figsize: plot formatting
 
     returns:
     - none
@@ -398,8 +398,14 @@ def plot_ecdfs(data0, data1,
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.legend(frameon=False, fontsize=6)
-    # ax.grid(alpha=0.3)
-    
+
+    # Add stats annotation if provided
+    if stats_text is not None:
+        ax.text(0.97, 0.03, stats_text,
+            transform=ax.transAxes,
+            ha='right', va='bottom',
+            fontsize=7)
+
     for s in ['top', 'right']:
         ax.spines[s].set_visible(False)
 

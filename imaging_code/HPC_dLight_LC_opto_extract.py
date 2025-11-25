@@ -2,12 +2,15 @@
 """
 Created on Mon Mar 31 13:02:49 2025
 Modified on Tue 24 June 16:24:15 2025
+Modified on Tue 25 Nov 2025
 
 extract opto-LC stimulation + dLight imaging data 
 modification notes:
     - 24 June 2025: removed pixel-wise dFF calculation and replaced it with a 
         simplified dFF (stim. / baseline for raw F) that is easy to compute 
         and produces the exact same desideratum (the release map)
+    - 25 Nov 2025: changed stim.-alignment method to be detection based on 
+        channel 2 (more stable than before)
 
 @author: Dinghao Luo
 """
@@ -65,11 +68,11 @@ def main(path):
     savepath = all_sess_stem / f'{recname}{whether_ctrl}'
     savepath.mkdir(exist_ok=True)
     
-    # check for repeated processing 
-    if ((savepath / f'processed_data/{recname}_pixel_dFF_stim.npy').exists() and
-        (savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy').exists()):
-        print(f'processed... skipping {recname}')
-        return
+    # # check for repeated processing 
+    # if ((savepath / f'processed_data/{recname}_pixel_dFF_stim.npy').exists() and
+    #     (savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy').exists()):
+    #     print(f'processed... skipping {recname}')
+    #     return
     
     # load data 
     ops = np.load(opspath, allow_pickle=True).item()
@@ -82,6 +85,7 @@ def main(path):
     
     tot_frames = mov.shape[0]  # once loaded, update tot_frames to be the max frame number, 16 June 2025
     
+    
     ref = ipf.plot_reference(mov, recname=recname, outpath=savepath, channel=1)
     ref2 = ipf.plot_reference(mov2, recname=recname, outpath=savepath, channel=2)
     
@@ -91,97 +95,116 @@ def main(path):
     raw_trace = np.sum(mov, axis=(1,2))
     raw_trace2 = np.sum(mov2, axis=(1,2))
     
-    # dFF traces are ONLY used for plotting figure 1 now
+    # dFF traces are ONLY used for▲ plotting figure 1 now
     print('computing dFF traces...')
     trace_dFF = ipf.calculate_dFF(raw_trace, sigma=300, t_axis=0,
                                   GPU_AVAILABLE=GPU_AVAILABLE)
     trace2_dFF = ipf.calculate_dFF(raw_trace2, sigma=300, t_axis=0,
                                    GPU_AVAILABLE=GPU_AVAILABLE)
     
-    # behaviour
-    print('processing .txt file...')
+    
+    # ---------------------------
+    # determine stim. timestamps
+    # ---------------------------
+    # we now use as the primary method derivatives of channel 2 signals to 
+    #   determine where step changes happened (both up and down), and only fall
+    #   back to the text files for timestamps if this fails 
+    
+    ## we first read the .txt file to figure out how long the pulse trains are 
+    ##  in this recording and to plot the example pulse trace 
+    print('retrieving stim. parameters...')
     txt = ipf.process_txt_nobeh(txtpath)
     frame_times = txt['frame_times']
-    pulse_times = txt['pulse_times']
-    pulse_parameters = txt['pulse_parameters']
+    pulse_times = np.array(txt['pulse_times'])
+    pulse_params = txt['pulse_parameters'][-1]  # final set of stim params
     
-    # extract pulse parameters 
-    pulse_width_ON = float(pulse_parameters[-1][2])/1000000  # in s
-    pulse_width = float(pulse_parameters[-1][3])/1000000  # in s
-    pulse_number = int(pulse_parameters[-1][4])
-    taper_enabled = int(pulse_parameters[-1][7])
+    pulse_width_ON = float(pulse_params[2]) / 1e6  # s
+    pulse_width    = float(pulse_params[3]) / 1e6  # s
+    pulse_number   = int(pulse_params[4])
+    taper_enabled  = int(pulse_params[7])
+    taper_raw      = int(pulse_params[8])
+    taper_duration = taper_raw if taper_raw > 1000 else 0
     
-    taper_dur_dummy = int(pulse_parameters[-1][8])
-    taper_duration = taper_dur_dummy if taper_dur_dummy > 1000 else 0  # real duration 
+    duty_cycle = f'{int(round(100 * pulse_width_ON / pulse_width))}%'
     
-    duty_cycle = f'{int(round(100 * pulse_width_ON/pulse_width, 0))}%'
-    
-    print(f'\npulse ON time: {pulse_width_ON}')
-    print(f'pulse width: {pulse_width}')
-    print(f'pulse number: {pulse_number}')
-    
-    if taper_enabled:
-        print(f'taper duration: {taper_duration}')
-    
-    tot_pulses = int(len(pulse_times) / pulse_number)
-    
-    pulse_times = np.array(pulse_times)
-    diffs = np.diff(pulse_times)
-    split_idx = np.where(diffs >= 1000)[0] + 1
+    # split by >=1 s gaps (1000 ms) since pulse trains are always separated 
+    #   at least by a few seconds
+    pulse_diffs = np.diff(pulse_times)
+    split_idx = np.where(pulse_diffs >= 1000)[0] + 1
     pulse_trains = np.split(pulse_times, split_idx)
     
-    # pulse format printout
+    # compute total train duration (ms)
     eg_train = pulse_trains[0]
     t0 = eg_train[0]
-    train_rel = eg_train - t0  # align first pulse to 0
-    last_time = round(train_rel[-1] + pulse_width*1000)
-    print(f'pulse count: {len(eg_train)}')
-    print(f'total train duration: {last_time} ms')
-    print(f'predicted PMT shut-off at {last_time + 100} ms')
+    train_rel = eg_train - t0                       # ms
+    total_train_duration_ms = round(train_rel[-1] + pulse_width*1000)
     
+    # convert all of this to frames
+    total_train_duration_s = total_train_duration_ms / 1000
+    total_train_duration_frames = int(total_train_duration_s * SAMP_FREQ)
+    
+    # use 2 × train duration as min interval
+    min_interval_frames = 2 * total_train_duration_frames
+    if min_interval_frames < 15:
+        min_interval_frames = 15  # hard safety floor
+        
+    ## now we detect stim onsets by step changes in trace2_dFF
+    detected_onsets_raw, detected_offsets_raw = ipf.detect_step_pairs(
+        trace2_dFF, 
+        zthr=100,
+        min_interval_frames=min_interval_frames
+        )
+    detected_onsets  = [f - 1 for f in detected_onsets_raw]  # 1-frame buffer for envelope 
+    detected_offsets = [f + 1 for f in detected_offsets_raw]  # same as above
+    detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
+    max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
+    
+    detection_printout = (f'''detected based on channel 2:
+        {len(detected_onsets)} candidate stim. onset-offset pairs
+        max stim. duration: {max(detected_stim_durations)} frames ({max_stim_duration_s} s)''')
+    print(detection_printout)
+    
+    ## now we either use detected_onsets or when that fails fall back to txt
+    if len(detected_onsets) == 0:
+        print('no detected onset-offset pairs; falling back to .txt pulse_times')
+        pulse_frames = [
+            [ipf.find_nearest(p, frame_times) for p in train]
+            for train in pulse_trains
+        ]
+        detected_onsets  = [pf[0] for pf in pulse_frames]
+        detected_offsets = [pf[-1] for pf in pulse_frames]
+    if len(detected_onsets) != len(pulse_trains):
+        print('\n\n\n\n******')
+        print('WARNING: detection mismatch with text log')
+        print(f'    detected {len(detected_onsets)} trains; text log shows {len(pulse_trains)} trains')
+        print('******\n\n\n\n')
+        
     ## -- PARAMETER DEFINITIONS
     # now defined within the function scope, since we reassign them later in an if statement
     BEF = 2
     AFT = 10
     TAXIS = np.arange(-BEF*SAMP_FREQ, AFT*SAMP_FREQ) / SAMP_FREQ
-    BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS <= -0.15)
+    BASELINE_IDX = (TAXIS >= -1.0) & (TAXIS < 0)
+    STIM_IDX = (TAXIS > max_stim_duration_s) & (TAXIS <= max_stim_duration_s + 1.0)  # note that this is the mask for extracting stim_mean
     ## -- END PARAMETER DEFINITIONS
     
-    # determine time bin mask
-    # NOTE: stim_start means the start of the STIM_IDX period, which comes AFTER the stim
-    PMT_BUFFER_FRAMES = 18  # frames 
-    PMT_BUFFER = PMT_BUFFER_FRAMES / SAMP_FREQ
-    last_time_s = last_time / 1_000  # convert to seconds
-    if last_time_s >= 5:  # for long stimulation attempts to elicit NE release, 30 Oct 2025
-        stim_start = last_time_s + PMT_BUFFER
-        stim_end   = stim_start + 10  # extract 10 s of activity for NE mean 
-        # reset BEF and AFT, along with TAXIS
-        BEF = 10  # s
-        AFT = 30
-        TAXIS = np.arange(-BEF*SAMP_FREQ, AFT*SAMP_FREQ) / SAMP_FREQ
-        BASELINE_IDX = (TAXIS >= -10.0) & (TAXIS <= -0.15)
-    else:
-        stim_start = last_time_s + PMT_BUFFER
-        stim_end   = stim_start + 1
-    
-    STIM_IDX = (TAXIS >= stim_start) & (TAXIS < stim_end)  # note that this is the mask for extracting stim_mean
-    
-    pulse_frames = [
-        [ipf.find_nearest(p, frame_times) for p in train]
-        for train in pulse_trains
-    ]
-    pulse_start_frames = [p[0] for p in pulse_frames]
+    ## finally we filter out valid start frames
     valid_pulse_start_frames = [
-        p for p in pulse_start_frames
-        if (p - BEF * SAMP_FREQ >= 0) and (p + AFT * SAMP_FREQ <= tot_frames)
-        ]
+        on for on, off in zip(detected_onsets, detected_offsets)
+        if on - BEF*SAMP_FREQ >= 0 and off + AFT*SAMP_FREQ <= tot_frames
+    ]
     tot_valid_pulses = len(valid_pulse_start_frames)
+    print(f'valid stim. events for alignment: {tot_valid_pulses}')
     
     # post-stim dispersion calculation, 10 Sept 2025
-    BIN_START = stim_start
-    BIN_END   = stim_start + 4
+    BIN_START = max_stim_duration_s
+    BIN_END   = max_stim_duration_s + 4
     bin_edges = np.arange(BIN_START, BIN_END + BIN_WIDTH, BIN_WIDTH)
     n_bins = len(bin_edges) - 1
+    # ---------------------------
+    # end
+    # ---------------------------
+    
     
     # pulse processing 
     print('extracting data...')
@@ -191,13 +214,9 @@ def main(path):
         Exception('\nWARNING:\ncheck $FM; halting processing for {}\n'.format(recname))
     
     # filter for opto artefact periods 
-    pulse_period_frames = np.concatenate(
-        [np.arange(
-            max(0, pulse_train[0]-3),
-            min(pulse_train[-1]+int(pulse_width)*SAMP_FREQ+PMT_BUFFER_FRAMES, tot_frames)  # +15 as a buffer, half a second 
-            )
-        for pulse_train in pulse_frames]
-        )
+    pulse_period_frames = np.concatenate([
+        np.arange(on, off+1) for on, off in zip(detected_onsets, detected_offsets)
+        ])
     
     # filtering
     raw_trace[pulse_period_frames]  = np.nan
@@ -296,7 +315,7 @@ def main(path):
             f'duty cycle = {duty_cycle}\n'
             f'pulse width = {pulse_width} s\n'
             f'pulse(s) per pulse train = {pulse_number}\n'
-            f'total pulse trains = {tot_pulses}\n'
+            f'total pulse trains = {len(detected_onsets)}\n'
             f'taper duration = {taper_duration}'
             )
     else:
@@ -305,7 +324,7 @@ def main(path):
             f'duty cycle = {duty_cycle}\n'
             f'pulse width = {pulse_width} s\n'
             f'pulse(s) per pulse train = {pulse_number}\n'
-            f'total pulse trains = {tot_pulses}\n'
+            f'total pulse trains = {len(detected_onsets)}\n'
             )
     
     fig.suptitle(title_str)
