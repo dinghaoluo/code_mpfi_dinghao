@@ -306,5 +306,5 @@ def main(path):
           f'({str(timedelta(seconds=int(time() - t0)))})\n')
     
 if __name__ == '__main__':
-    for path in paths[35:]:
+    for path in paths[41:]:
         main(path)

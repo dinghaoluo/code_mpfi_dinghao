@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from behaviour_functions import process_txt, detect_run_onsets_teensy
-from plotting_functions import plot_ecdfs
+from plotting_functions import plot_ecdfs, plot_violin_with_scatter
 from common import mpl_formatting
 mpl_formatting()
 
@@ -43,6 +43,8 @@ MAX_LENGTH = (BEF + AFT) * SAMP_FREQ
 
 XAXIS = np.arange(MAX_LENGTH) / SAMP_FREQ - BEF
 
+OF_CONSTANT = (2**32-1)/1000  # overflow constant; this can only be hard-coded
+
 # for single cell stats 
 ALPHA = 0.05
 BIN_MS   = 50  # ms
@@ -50,6 +52,26 @@ BIN_SIZE = int((BIN_MS/1000) * SAMP_FREQ)
 N_BINS = MAX_LENGTH // BIN_SIZE
 BIN_CENTRES = (np.arange(N_BINS) * BIN_SIZE + BIN_SIZE/2) / SAMP_FREQ - BEF
 SIGNAL_START_BIN = int((BEF * SAMP_FREQ) / BIN_SIZE)
+
+
+#%% functions
+def _correct_overflow(times, of_constant=OF_CONSTANT):
+    times = np.array(times, dtype=float)
+
+    correction_flag = 0
+    correction_time = None
+    corrected = [times[0]]
+    for i in range(1, len(times)):
+        if correction_flag == 1:
+            corrected.append(times[i] + of_constant)
+        elif times[i] >= times[i-1] and correction_flag == 0:
+            corrected.append(times[i])
+        else:
+            correction_flag = 1
+            correction_time = i
+            corrected.append(times[i] + of_constant)
+
+    return corrected, correction_time
 
 
 #%% load data
@@ -73,6 +95,26 @@ for path in paths:
     txtpath = mice_exp_stem / f'ANMD{recname[1:4]}r' / recname[:-3] / recname / f'{recname}T.txt'
     beh = process_txt(txtpath)
     
+    ## ---- conversion fit ---- ##
+    # we need to determine a linear mapping between teensy time and spike time
+    # using cue time to align due to least variability 
+    rec_stem = Path(f'Z:/Dinghao/MiceExp/ANMD{recname[1:5]}') / recname[:14] / recname
+    aligned_cue_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat'
+    aligned_cue = sio.loadmat(aligned_cue_path)['trialsCue'][0][0]
+    
+    cue_spike_time  = aligned_cue['startLfpInd'][0]
+    cue_teensy_time = [trial[0][0] if trial else np.nan for trial in beh['movie_times']]
+    cue_teensy_time, correction_time = _correct_overflow(cue_teensy_time)  # we note the correction time 
+    spike_teensy_offset = cue_teensy_time[0] - cue_spike_time[0]
+    
+    # linear map
+    a, b = np.polyfit(cue_teensy_time, cue_spike_time, 1)
+    
+    def _teensy_to_spike(t_teensy):
+        return a*t_teensy + b
+    ## ---- conversion fit ends ---- ##
+    
+    
     # get stim and ctrl idx
     stim_conds = [t[15] for t in beh['trial_statements']][1:]
     stim_idx = [trial for trial, cond in enumerate(stim_conds) if cond != '0']
@@ -83,6 +125,7 @@ for path in paths:
     run_onset_online = detect_run_onsets_teensy(speed_times)
     run_onset_online = [run for trial, run in enumerate(run_onset_online) 
                         if trial in ctrl_idx]
+    run_onset_online, _ = _correct_overflow(run_onset_online)
     
     # get stim times and truncate pulses 
     pulse_times = np.array(beh['pulse_times'])
@@ -90,6 +133,7 @@ for path in paths:
     split_idx = np.where(diffs >= 1000)[0] + 1
     pulse_trains = np.split(pulse_times, split_idx)
     stim_times = [pulse_train[0] for pulse_train in pulse_trains]  # actual stim times 
+    stim_times, _ = _correct_overflow(stim_times)
     
     # get spike maps 
     spike_map_path = all_sess_stem / recname / f'{recname}_smoothed_spike_map.npy'
@@ -98,20 +142,18 @@ for path in paths:
     
     
     ## ---- conversion (teensy-time to spike-time) ---- ##
-    # using cue time to align due to least variability 
-    rec_stem = Path(f'Z:/Dinghao/MiceExp/ANMD{recname[1:5]}') / recname[:14] / recname
-    aligned_cue_path = rec_stem / f'{recname}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat'
-    aligned_cue = sio.loadmat(aligned_cue_path)['trialsCue'][0][0]
-    
-    cue_spike_time  = aligned_cue['startLfpInd'][0]
-    cue_teensy_time = [trial[0][0] if trial else np.nan for trial in beh['movie_times']]
-    spike_teensy_offset = cue_teensy_time[0] - cue_spike_time[0]
-    
-    # linear map
-    a, b = np.polyfit(cue_teensy_time, cue_spike_time, 1)
-    
-    def _teensy_to_spike(t_teensy):
-        return a*t_teensy + b
+    # IMPORTANT: if cue times needed to be corrected for overflow, we use that 
+    #    correction_time to determine if the other variables need to be forced 
+    #    to correct
+    if correction_time is not None:  # correction for cue times; otherwise move forwards as normal 
+        if correction_time <= stim_idx[0]:  # earlier than first stim 
+            print('Force correction for stim. times.')
+            stim_times = [t + OF_CONSTANT for t in stim_times]
+        if correction_time <= ctrl_idx[0]:  # earlier than first run 
+            print('Force correction for run onsets.')
+            run_onset_online = [t + OF_CONSTANT for t in run_onset_online]
+    # we only need to do this if correction_time is BEFORE stim. or run onsets
+    # if AFTER, then we don't need to worry
     
     # actual conversions
     stim_times_converted       = [int(_teensy_to_spike(t)) for t in stim_times]
@@ -233,6 +275,35 @@ for path in paths:
             )
             
         plt.close()
+        
+        
+        # single-trial heatmap--shared min and max 
+        vmin = np.nanmin([run_aligned.min(),  stim_aligned.min()])
+        vmax = np.nanmax([run_aligned.max(),  stim_aligned.max()])
+        
+        fig, axs = plt.subplots(2,1, figsize=(3, 4), sharex=True)
+        
+        axs[0].imshow(run_aligned, aspect='auto', interpolation='none',
+                      extent=[-1,4,len(run_onset_online_converted)+1,1],
+                      vmin=vmin, vmax=vmax)
+        
+        axs[1].imshow(stim_aligned, aspect='auto', interpolation='none',
+                      extent=[-1,4,len(stim_times_converted)+1,1],
+                      vmin=vmin, vmax=vmax)
+        
+        axs[0].set(title='Run-aligned')
+        axs[1].set(xlabel='Time from run/stim. onset (s)',
+                   title='Stim.-aligned')
+        
+        for i in range(2):
+            axs[i].set(ylabel='Trial #')
+        
+        fig.suptitle(cluname)
+        fig.tight_layout()
+        
+        fig.savefig(single_cell_stem / f'{cluname}_single_trial.png',
+                    dpi=300, bbox_inches='tight')
+        plt.close()
     ## ---- processing ends ---- ##
     
 
@@ -270,7 +341,7 @@ axs[1].set(title=f'Inhibition med={inh_median:.3g} s',
            xlabel='Time from run/stim. onset (s)')
 for i in range(2):
     axs[i].set(xlim=(0,max(max(onset_times_act), max(onset_times_inh))), 
-               yticks=[0,1], ylim=(0,1), ylabel='Density')
+               yticks=[0,1], ylim=(0,1.2), ylabel='Density')
 
 fig.tight_layout()
 
@@ -306,7 +377,7 @@ axs[1].set(title=f'Inhibition med={inh_median:.3g} s',
            xlabel='Time from run/stim. onset (s)')
 for i in range(2):
     axs[i].set(xlim=(0,1), 
-               yticks=[0,1], ylim=(0,1), ylabel='Density')
+               yticks=[0,1], ylim=(0,1.2), ylabel='Density')
 
 fig.tight_layout()
 
@@ -318,7 +389,7 @@ for ext in ['.png', '.pdf']:
         )
     
     
-#%% cdfs
+#%% other plots 
 ks_stat, ks_p = ks_2samp(onset_times_act, onset_times_inh)
 
 stats_label = (
@@ -334,8 +405,20 @@ plot_ecdfs(
     legend_labels=['activation', 'inhibition'],
     colours=['indianred', 'steelblue'],
     save=True,
-    savepath=str(stim_effect_stem / 'HPCLC_latency_ecdf'),
+    savepath=stim_effect_stem / 'HPCLC_latency_ecdf',
     dpi=300,
     figsize=(2.4, 3.0),
     stats_text=stats_label
 )
+
+
+plot_violin_with_scatter(
+    onset_times_act, onset_times_inh, 
+    'indianred', 'steelblue',
+    paired=False,
+    showscatter=True,
+    xticklabels=['Act.', 'Inh.'],
+    ylabel='Time from stim. onset (s)',
+    save=True,
+    savepath=stim_effect_stem / 'HPCLC_latency_violin'
+    )

@@ -26,6 +26,7 @@ paths = rec_list.pathdLightLCOpto
 
 #%% parameters 
 EDGE = 6  # pixels (to remove)
+ALPHA = 0.05
 
 
 #%% helper 
@@ -42,48 +43,60 @@ save_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\dispersion_analysi
 all_roi_vals_binned = []
 all_shuff_roi_vals_binned = []
 
-for path in paths:
+for path in paths[:15]:
     recname = Path(path).name
 
     pixel_dFF_bins_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_dFF_bins.npy'
     roi_dict_path = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
 
-    if not pixel_dFF_bins_path.exists() or not roi_dict_path.exists():
-        print(f'\n{recname} does not have the required data arrays; skipped')
+    if not pixel_dFF_bins_path.exists():
+        print('No pixel_dFF_bins; skipped')
         continue
-    else:
-        print(f'\n{recname}')
+    if not roi_dict_path.exists():
+        print('No roi_dict; skipped')
+        continue
 
-    pixel_dFF_bins = np.load(pixel_dFF_bins_path, allow_pickle=True)
+    # load data
+    print('loading data...')
+    pixel_dFF_bins = np.load(pixel_dFF_bins_path, allow_pickle=True)  # (512,512,40)
+    roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
+    
+    # remove edges 
     pixel_dFF_bins_edge_removed = pixel_dFF_bins[EDGE:-EDGE, EDGE:-EDGE, :]
     
-    slices = np.arange(20)
+    # binning
+    bins = np.arange(40)
     
-    global_min = pixel_dFF_bins_edge_removed[:, :, slices].min()
-    global_max = pixel_dFF_bins_edge_removed[:, :, slices].max()
-    
-    fig, axes = plt.subplots(4, 5 , figsize=(10, 8))
+    global_min = pixel_dFF_bins_edge_removed[:, :, bins].min()
+    global_max = pixel_dFF_bins_edge_removed[:, :, bins].max()
+
+    # plot binned pixel dFF maps
+    fig, axes = plt.subplots(5, 8 , figsize=(14, 10))
     axes = axes.ravel()
     norm = TwoSlopeNorm(vcenter=0, vmin=global_min, vmax=global_max)
     
-    for ax, idx in zip(axes, slices):
+    for ax, idx in zip(axes, bins):
         im = ax.imshow(pixel_dFF_bins_edge_removed[:, :, idx],
                        norm=norm, cmap='RdBu_r')
         ax.set_title(f'stim. + {round(idx*.2, 1)} s')
         ax.axis('off')
     
     fig.suptitle(recname)
-    fig.colorbar(im, ax=axes.ravel().tolist(), shrink=0.25)
+    
+    cbar = fig.colorbar(
+        im,
+        ax=axes.ravel().tolist(),
+        shrink=0.25,
+        ticks=[global_min, 0, global_max]
+    )
     
     for ext in ['.png', '.pdf']:
         fig.savefig(
             save_stem / 'all_sessions' / f'{recname}_pixel_dFF_bins{ext}',
             dpi=300,
             bbox_inches='tight'
-            )
+        )
     plt.close(fig)
-        
-    roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
     
     # take the first bin as the peak release map to detect releasing ROIs
     releasing_rois = {}
@@ -92,13 +105,15 @@ for path in paths:
     roi_mask = np.zeros_like(release_map_peak, dtype=bool)
     releasing_mask = np.zeros_like(release_map_peak, dtype=bool)
 
+    # identify releasing ROIs (using whole 0–4 s median just as before)
+    print(f'identifying releasing ROIs with alpha={ALPHA}...')
+    pixel_dFF_med = np.median(pixel_dFF_bins, axis=2)
+    releasing_rois = {}
     for roi_id, roi in roi_dict.items():
-        roi_mask[roi['ypix'], roi['xpix']] = True
-
-        roi_vals = releasing_mask[roi['ypix'], roi['xpix']]
+        roi_vals = pixel_dFF_med[roi['ypix'], roi['xpix']]
         if np.all(np.isfinite(roi_vals)) and len(roi_vals) > 2:
-            t_stat, p_val = ttest_1samp(roi_vals, popmean=0, alternative='greater')
-            if p_val < 0.05:
+            _, p_val = ttest_1samp(roi_vals, popmean=0, alternative='greater')
+            if p_val < ALPHA:
                 releasing_rois[roi_id] = roi
                 releasing_mask[roi['ypix'], roi['xpix']] = True
     
@@ -106,7 +121,7 @@ for path in paths:
     shuff_roi_vals_binned = []
     
     # compute true ROI traces
-    for tbin in range(20):
+    for tbin in range(40):
         roi_vals_binned.append(np.nanmean(pixel_dFF_bins[:, :, tbin][roi_mask]))
     
     # compute shuffled ROI traces

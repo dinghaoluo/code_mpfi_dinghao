@@ -47,6 +47,8 @@ DILATE_STEP = 2
 MAX_DILATE = 10
 EDGE = 6
 
+ALPHA = 0.05
+
 WINDOW_BINS = {
     '0-0.5 s': range(0, 5),
     '0.5-1 s': range(5, 10),
@@ -63,28 +65,34 @@ WINDOW_BINS = {
 # initialise containers
 dilation_results_all = {w: {} for w in WINDOW_BINS.keys()}
 
-for path in paths:
+for path in paths[:20]:
     recname = Path(path).name
     print(f'\n{recname}')
 
     pixel_dFF_bins_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_dFF_bins.npy'
     roi_dict_path = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
 
-    if not pixel_dFF_bins_path.exists() or not roi_dict_path.exists():
-        print('missing arrays, skipped')
+    if not pixel_dFF_bins_path.exists():
+        print('No pixel_dFF_bins; skipped')
+        continue
+    if not roi_dict_path.exists():
+        print('No roi_dict; skipped')
         continue
 
+    # load data
+    print('loading data...')
     pixel_dFF_bins = np.load(pixel_dFF_bins_path, allow_pickle=True)  # (512,512,40)
     roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
-
-    # identify releasing ROIs (using whole 0–4 s median just as before)
+    
+    # identify releasing ROIs (using whole 0–4 s median)
+    print(f'identifying releasing ROIs with alpha={ALPHA}...')
     pixel_dFF_med = np.median(pixel_dFF_bins, axis=2)
     releasing_rois = {}
     for roi_id, roi in roi_dict.items():
         roi_vals = pixel_dFF_med[roi['ypix'], roi['xpix']]
         if np.all(np.isfinite(roi_vals)) and len(roi_vals) > 2:
             _, p_val = ttest_1samp(roi_vals, popmean=0, alternative='greater')
-            if p_val < 0.05:
+            if p_val < ALPHA:
                 releasing_rois[roi_id] = roi
 
     # per ROI, per window
@@ -95,6 +103,7 @@ for path in paths:
     all_roi_mask[all_roi_y, all_roi_x] = True
     
     # now we loop over all the rois with collision exclusion
+    print(f'looping over {len(releasing_rois)} ROIs...')
     for roi_id, roi in releasing_rois.items():
         base_mask = np.zeros((512, 512), dtype=bool)
         base_mask[roi['ypix'], roi['xpix']] = True

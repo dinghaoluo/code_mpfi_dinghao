@@ -86,8 +86,8 @@ def main(path):
     tot_frames = mov.shape[0]  # once loaded, update tot_frames to be the max frame number, 16 June 2025
     
     
-    ref = ipf.plot_reference(mov, recname=recname, outpath=savepath, channel=1)
-    ref2 = ipf.plot_reference(mov2, recname=recname, outpath=savepath, channel=2)
+    ref = ipf.plot_reference(mov, recname=recname, frames=tot_frames, outpath=savepath, channel=1)
+    ref2 = ipf.plot_reference(mov2, recname=recname, frames=tot_frames, outpath=savepath, channel=2)
     
     # raw traces, which now replace the trace_dFF we used before
     # due to concerns of dFF baselines covering the stim (PMT-off) period
@@ -97,10 +97,12 @@ def main(path):
     
     # dFF traces are ONLY used for▲ plotting figure 1 now
     print('computing dFF traces...')
-    trace_dFF = ipf.calculate_dFF(raw_trace, sigma=300, t_axis=0,
-                                  GPU_AVAILABLE=GPU_AVAILABLE)
-    trace2_dFF = ipf.calculate_dFF(raw_trace2, sigma=300, t_axis=0,
-                                   GPU_AVAILABLE=GPU_AVAILABLE)
+    trace_dFF = ipf.calculate_dFF_percentile(raw_trace, sigma=300, t_axis=0,
+                                             GPU_AVAILABLE=GPU_AVAILABLE)
+    trace2_dFF = ipf.calculate_dFF_percentile(raw_trace2, sigma=300, t_axis=0,
+                                              GPU_AVAILABLE=GPU_AVAILABLE)
+    
+    plt.plot(trace2_dFF)
     
     
     # ---------------------------
@@ -110,22 +112,26 @@ def main(path):
     #   determine where step changes happened (both up and down), and only fall
     #   back to the text files for timestamps if this fails 
     
-    ## we first read the .txt file to figure out how long the pulse trains are 
-    ##  in this recording and to plot the example pulse trace 
+    # we first read the .txt file to figure out how long the pulse trains are 
+    #   in this recording and to plot the example pulse trace 
     print('retrieving stim. parameters...')
     txt = ipf.process_txt_nobeh(txtpath)
-    frame_times = txt['frame_times']
-    pulse_times = np.array(txt['pulse_times'])
-    pulse_params = txt['pulse_parameters'][-1]  # final set of stim params
     
+    # load frame times and check $FM against tot_frame
+    frame_times = txt['frame_times']
+    if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
+        Exception('\nWARNING:\ncheck $FM; halting processing for {}\n'.format(recname))
+    
+    # load pulse times and pulse parameters 
+    pulse_times    = np.array(txt['pulse_times'])
+    pulse_params   = txt['pulse_parameters'][-1]  # final set of stim params
     pulse_width_ON = float(pulse_params[2]) / 1e6  # s
     pulse_width    = float(pulse_params[3]) / 1e6  # s
     pulse_number   = int(pulse_params[4])
     taper_enabled  = int(pulse_params[7])
     taper_raw      = int(pulse_params[8])
     taper_duration = taper_raw if taper_raw > 1000 else 0
-    
-    duty_cycle = f'{int(round(100 * pulse_width_ON / pulse_width))}%'
+    duty_cycle     = f'{int(round(100 * pulse_width_ON / pulse_width))}%'
     
     # split by >=1 s gaps (1000 ms) since pulse trains are always separated 
     #   at least by a few seconds
@@ -157,27 +163,41 @@ def main(path):
     detected_onsets  = [f - 1 for f in detected_onsets_raw]  # 1-frame buffer for envelope 
     detected_offsets = [f + 1 for f in detected_offsets_raw]  # same as above
     detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
-    max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
     
-    detection_printout = (f'''detected based on channel 2:
-        {len(detected_onsets)} candidate stim. onset-offset pairs
-        max stim. duration: {max(detected_stim_durations)} frames ({max_stim_duration_s} s)''')
-    print(detection_printout)
-    
-    ## now we either use detected_onsets or when that fails fall back to txt
-    if len(detected_onsets) == 0:
+    # sanity check: either no detected pulses or detected pulses differ too 
+    #   much from log
+    detected_fewer_than_logged = len(pulse_trains) - len(detected_onsets)
+    if len(detected_stim_durations) == 0 or detected_fewer_than_logged > 2:
+        print('\n\n\n\n******')
+        print('WARNING: detection failed with zthr=100; reduced to zthr=10')
+        print('******\n\n\n\n')
+        detected_onsets_raw, detected_offsets_raw = ipf.detect_step_pairs(
+            trace2_dFF, 
+            zthr=10,
+            min_interval_frames=min_interval_frames
+            )
+        detected_onsets  = [f - 1 for f in detected_onsets_raw]  # 1-frame buffer for envelope 
+        detected_offsets = [f + 1 for f in detected_offsets_raw]  # same as above
+        detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]   
+        
+    # if detected and not over-detected
+    if 0 < len(detected_onsets) < 100:
+        max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
+        detection_printout = (f'''detected based on channel 2:
+            {len(detected_onsets)} candidate stim. onset-offset pairs
+            max stim. duration: {max(detected_stim_durations)} frames ({max_stim_duration_s} s)''')
+        print(detection_printout)
+    else:
         print('no detected onset-offset pairs; falling back to .txt pulse_times')
         pulse_frames = [
             [ipf.find_nearest(p, frame_times) for p in train]
             for train in pulse_trains
         ]
         detected_onsets  = [pf[0] for pf in pulse_frames]
-        detected_offsets = [pf[-1] for pf in pulse_frames]
-    if len(detected_onsets) != len(pulse_trains):
-        print('\n\n\n\n******')
-        print('WARNING: detection mismatch with text log')
-        print(f'    detected {len(detected_onsets)} trains; text log shows {len(pulse_trains)} trains')
-        print('******\n\n\n\n')
+        detected_offsets = [pf[-1] for pf in pulse_frames]  
+        detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
+        max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
+        
         
     ## -- PARAMETER DEFINITIONS
     # now defined within the function scope, since we reassign them later in an if statement
@@ -208,14 +228,11 @@ def main(path):
     
     # pulse processing 
     print('extracting data...')
-
-    # checks $FM against tot_frame
-    if tot_frames<len(frame_times)-3 or tot_frames>len(frame_times):
-        Exception('\nWARNING:\ncheck $FM; halting processing for {}\n'.format(recname))
     
     # filter for opto artefact periods 
     pulse_period_frames = np.concatenate([
         np.arange(on, off+1) for on, off in zip(detected_onsets, detected_offsets)
+        if on - BEF*SAMP_FREQ >= 0 and off + AFT*SAMP_FREQ <= tot_frames
         ])
     
     # filtering
@@ -779,5 +796,5 @@ def main(path):
 
 #%% execute 
 if __name__ == '__main__':
-    for path in paths:
+    for path in paths[53:60]:
         main(path)

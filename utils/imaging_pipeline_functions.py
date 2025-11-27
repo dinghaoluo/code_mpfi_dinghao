@@ -37,6 +37,10 @@ def sum_mat(matrix):
     """
     return sum(map(sum, matrix))
 
+
+# -------------------------------
+# baseline calculation functions
+# -------------------------------
 def convolve_gaussian(
         arr, 
         sigma,
@@ -128,6 +132,55 @@ def rolling_max(
     else:
         return scipy.ndimage.maximum_filter1d(arr, size=win, axis=t_axis, mode='reflect')
 
+def rolling_percentile(arr, window, pct, t_axis, GPU_AVAILABLE):
+    """
+    compute rolling percentile along t_axis using a centred window.
+
+    parameters:
+    - arr: np.ndarray or cp.ndarray
+    - window: int, number of frames
+    - pct: float, percentile (e.g. 10)
+    - t_axis: int, time axis
+    - GPU_AVAILABLE: bool
+
+    returns:
+    - out: same shape as arr, rolling percentile baseline
+    """
+    if GPU_AVAILABLE:
+        import cupy as cp
+        xp = cp
+    else:
+        xp = np
+
+    pad = window // 2
+    T = arr.shape[t_axis]
+
+    # pad reflectively along the time axis
+    pad_width = [(0,0)] * arr.ndim
+    pad_width[t_axis] = (pad, pad)
+    arr_pad = xp.pad(arr, pad_width, mode='reflect')
+
+    # output
+    out = xp.empty_like(arr)
+
+    # move t_axis to last for easier slicing
+    arr_pad = xp.moveaxis(arr_pad, t_axis, -1)
+    out_t   = xp.moveaxis(out, t_axis, -1)
+
+    for i in range(T):
+        w = arr_pad[..., i:i+window]
+        out_t[..., i] = xp.percentile(w, pct, axis=-1)
+
+    # restore original axis order
+    out = xp.moveaxis(out_t, -1, t_axis)
+    return out
+# -----------------------------------
+# baseline calculation functions end
+# -----------------------------------
+
+# --------------------------
+# dFF calculation functions 
+# --------------------------
 def calculate_dFF(
         F_array,
         sigma=300,
@@ -234,30 +287,89 @@ def calculate_dFF(
 
         return np.concatenate(slices, axis=t_axis)
     
-def calculate_dFF_abs(
-        F_array, 
-        window=1800, 
-        sigma=300, 
-        GPU_AVAILABLE=False
-        ): # Jingyu, 3/16/25 for testing std, cv and dFF
+def calculate_dFF_percentile(
+        F_array,
+        sigma=300,
+        t_axis=0,
+        GPU_AVAILABLE=False,
+        CHUNK=False,
+        chunk_size=2000,
+        pct=10
+        ):
     """
-    calculate absolute dF/F using a smoothed rolling baseline.
-
-    parameters:
-    - F_array: np.ndarray
-        fluorescence traces (ROIs x time).
-    - window: int, default=1800
-        rolling window size for baseline computation.
-    - sigma: int, default=300
-        gaussian smoothing parameter before rolling min/max.
-    - GPU_AVAILABLE: bool, default=False
-        whether to use CuPy to accelerate processing.
-
-    returns:
-    - dFF_abs: np.ndarray
-        array of same shape as F_array, containing absolute dF/F values.
+    calculate dF/F using rolling-percentile baseline
     """
+    window = sigma * 6
+    T = F_array.shape[t_axis]
 
+    # full array 
+    if not CHUNK:
+        if GPU_AVAILABLE:
+            import cupy as cp
+            F = cp.array(F_array, dtype=cp.float32)
+        else:
+            F = F_array.astype(np.float32, copy=False)
+
+        # gaussian smoothing
+        baseline = convolve_gaussian(F, sigma, t_axis, GPU_AVAILABLE)
+
+        # rolling 10th percentile baseline
+        baseline = rolling_percentile(baseline, window, pct, t_axis, GPU_AVAILABLE)
+
+        # compute dF/F
+        dFF = (F - baseline) / baseline
+
+        return dFF.get() if GPU_AVAILABLE else dFF
+
+    # chunked 
+    pad = window // 2
+    slices = []
+
+    if GPU_AVAILABLE:
+        import cupy as cp
+        xp = cp
+    else:
+        xp = np
+
+    for start in range(0, T, chunk_size):
+        chunk_start = max(0, start - pad)
+        chunk_end   = min(T, start + chunk_size + pad)
+
+        # extract chunk
+        slicer = [slice(None)] * F_array.ndim
+        slicer[t_axis] = slice(chunk_start, chunk_end)
+        chunk = F_array[tuple(slicer)].astype(np.float32, copy=False)
+
+        if GPU_AVAILABLE:
+            chunk = xp.array(chunk)
+
+        # gaussian
+        baseline = convolve_gaussian(chunk, sigma, t_axis, GPU_AVAILABLE)
+
+        # percentile
+        baseline = rolling_percentile(baseline, window, pct, t_axis, GPU_AVAILABLE)
+
+        # dF/F
+        dFF_chunk = (chunk - baseline) / baseline
+        if GPU_AVAILABLE:
+            dFF_chunk = dFF_chunk.get()
+
+        # trim overlap correctly
+        slicer_out = [slice(None)] * dFF_chunk.ndim
+        slicer_out[t_axis] = (
+            slice(pad, -pad) if (start > 0 and chunk_end < T) else
+            slice(pad, None) if start > 0 else
+            slice(None, -pad) if chunk_end < T else
+            slice(None)
+        )
+        slices.append(dFF_chunk[tuple(slicer_out)])
+
+    return np.concatenate(slices, axis=t_axis)
+# ------------------------------
+# dFF calculation functions end 
+# ------------------------------
+
+    
 def filter_outlier(
         F_array, 
         std_threshold=10
@@ -969,6 +1081,8 @@ def detect_step_pairs(trace, zthr=100, min_interval_frames=30):
     m = np.nanmedian(d)
     mad = np.nanmedian(np.abs(d - m)) + 1e-12
     z = (d - m) / mad
+
+    plt.plot(z)
 
     # detect all large steps (ignore sign)
     cand = np.where(np.abs(z) > zthr)[0] + 1
