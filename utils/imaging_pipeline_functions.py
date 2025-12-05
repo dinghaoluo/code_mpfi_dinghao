@@ -328,10 +328,13 @@ def calculate_dFF_percentile(
     if GPU_AVAILABLE:
         import cupy as cp
         xp = cp
+        device = 'GPU'
     else:
         xp = np
-
-    for start in range(0, T, chunk_size):
+        device = 'CPU'
+        
+    for start in tqdm(range(0, T, chunk_size),
+                      desc=f'Chunked dFF calculation on {device}...'):
         chunk_start = max(0, start - pad)
         chunk_end   = min(T, start + chunk_size + pad)
 
@@ -1082,7 +1085,10 @@ def detect_step_pairs(trace, zthr=100, min_interval_frames=30):
     mad = np.nanmedian(np.abs(d - m)) + 1e-12
     z = (d - m) / mad
 
-    plt.plot(z)
+    fig, ax = plt.subplots(figsize=(3,3))
+    ax.plot(z)
+    ax.set(ylim=(-100,100))
+    plt.show()
 
     # detect all large steps (ignore sign)
     cand = np.where(np.abs(z) > zthr)[0] + 1

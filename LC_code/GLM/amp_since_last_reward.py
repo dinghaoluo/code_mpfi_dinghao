@@ -79,6 +79,7 @@ all_prof_rew_list_bins = [[] for _ in range(N_BINS)]
 # per cell 
 all_cell_rate_dict = {}
 all_cell_time_dict = {}
+cell_bin_traces = {}  # for quantification of baselines and ramp rates 
 
 for path in paths:
     recname = Path(path).name
@@ -118,6 +119,12 @@ for path in paths:
     if not eligible_cells:
         print('No eligible cells. Skipping.')
         continue
+    
+    # initiate bins 
+    for cluname in eligible_cells:
+        if cluname not in cell_bin_traces:
+            cell_bin_traces[cluname] = [[] for _ in range(N_BINS)]
+
 
     # per-session containers for reward-aligned traces
     prof_rew_list_bins = [[] for _ in range(N_BINS)]
@@ -183,6 +190,8 @@ for path in paths:
                 ]
             if bin_idx is not None:
                 prof_rew_list_bins[bin_idx].append(train_rew_short)
+                cell_bin_traces[cluname][bin_idx].append(train_rew_short)
+
         
         trial_times.append(t_since)
         trial_rates.append(np.mean(curr_rates))
@@ -318,6 +327,58 @@ for path in paths:
 low_prof_list   = np.array(low_prof_list)
 high_prof_list  = np.array(high_prof_list)
 
+
+#%% per-cell ramp quantification 
+BASELINE_OFFSET = 0.25
+SMOOTH_WINDOW   = 0.05
+MIN_TRIALS_PER_BIN = 3
+
+cell_ramp_rates = {clu: np.full(N_BINS, np.nan) for clu in cell_bin_traces}
+cell_baselines  = {clu: np.full(N_BINS, np.nan) for clu in cell_bin_traces}
+cell_ends       = {clu: np.full(N_BINS, np.nan) for clu in cell_bin_traces}   # NEW
+
+for cluname, bin_lists in cell_bin_traces.items():
+    for bi in range(N_BINS):
+        trials = bin_lists[bi]
+        if len(trials) < MIN_TRIALS_PER_BIN:
+            continue
+
+        # align traces in this cell+bin
+        bin_min = min(len(tr) for tr in trials)
+        arr = np.stack([tr[:bin_min] for tr in trials])
+        mean_prof = np.mean(arr, axis=0)
+        xaxis = np.arange(bin_min) / SAMP_FREQ - 1
+
+        # define times
+        t_end  = xaxis[-1]
+        t_base = t_end - BASELINE_OFFSET
+        if t_base <= xaxis[0]:
+            continue
+
+        # baseline index
+        mask_base = (xaxis >= (t_base - SMOOTH_WINDOW)) & (xaxis <= (t_base + SMOOTH_WINDOW))
+        idx_base = np.where(mask_base)[0]
+        if idx_base.size == 0:
+            idx_base = np.array([np.argmin(np.abs(xaxis - t_base))])
+
+        # end index (actual end)
+        mask_end = (xaxis >= (t_end - SMOOTH_WINDOW)) & (xaxis <= (t_end + SMOOTH_WINDOW))
+        idx_end = np.where(mask_end)[0]
+        if idx_end.size == 0:
+            idx_end = np.array([np.argmin(np.abs(xaxis - t_end))])
+
+        # amplitudes
+        baseline = np.nanmean(mean_prof[idx_base])
+        end      = np.nanmean(mean_prof[idx_end])
+
+        # slope across the last 0.5 seconds
+        slope    = (end - baseline) / BASELINE_OFFSET
+
+        # store
+        cell_baselines[cluname][bi]  = baseline
+        cell_ramp_rates[cluname][bi] = slope
+        cell_ends[cluname][bi]       = end
+        
 
 #%% plot all t_since 
 # fig, ax = plt.subplots(figsize=(3,3))
@@ -597,3 +658,109 @@ if save:
             dpi=300,
             bbox_inches='tight'
             )
+        
+        
+#%% organise ramp rate and baseline amplitude into matrices
+cell_names = sorted(cell_ramp_rates.keys())
+n_cells = len(cell_names)
+
+ramp_mat     = np.full((n_cells, N_BINS), np.nan)
+baseline_mat = np.full((n_cells, N_BINS), np.nan)
+
+for i, cluname in enumerate(cell_names):
+    ramps     = cell_ramp_rates[cluname]     # slope (Hz/s)
+    baselines = cell_baselines[cluname]      # TRUE baseline amplitude (0.5 s before end)
+    ramp_mat[i, :]     = ramps
+    baseline_mat[i, :] = baselines
+
+# bin centres for time-since-reward
+bin_centres = BIN_START + (np.arange(N_BINS) + 0.5) * BIN_WIDTH
+
+
+#%% 1. ramp rate vs time-since-reward (per cell)
+ramp_slopes_vs_time = []
+
+for i in range(n_cells):
+    y = ramp_mat[i, :]
+    mask = ~np.isnan(y)
+    if np.sum(mask) < 3:
+        continue
+
+    x = bin_centres[mask]
+    y_sel = y[mask]
+
+    a, b = np.polyfit(x, y_sel, 1)   # change in slope across reward-history bins
+    ramp_slopes_vs_time.append(a)
+
+ramp_slopes_vs_time = np.array(ramp_slopes_vs_time)
+
+if len(ramp_slopes_vs_time) > 0:
+    mean_a = np.mean(ramp_slopes_vs_time)
+    sem_a  = sem(ramp_slopes_vs_time)
+    _, p_a = wilcoxon(ramp_slopes_vs_time)
+
+    print(f'ramp rate change per second of t_since: '
+          f'{mean_a:.3f} ± {sem_a:.3f} Hz/s^2, p={p_a:.3e}')
+
+
+#%% 2. baseline amplitude vs time-since-reward (per cell)
+baseline_slopes_vs_time = []
+
+for i in range(n_cells):
+    y = baseline_mat[i, :]
+    mask = ~np.isnan(y)
+    if np.sum(mask) < 3:
+        continue
+
+    x = bin_centres[mask]
+    y_sel = y[mask]
+
+    a, b = np.polyfit(x, y_sel, 1)   # change in baseline firing vs t_since
+    baseline_slopes_vs_time.append(a)
+
+baseline_slopes_vs_time = np.array(baseline_slopes_vs_time)
+
+if len(baseline_slopes_vs_time) > 0:
+    mean_b = np.mean(baseline_slopes_vs_time)
+    sem_b  = sem(baseline_slopes_vs_time)
+    _, p_b = wilcoxon(baseline_slopes_vs_time)
+
+    print(f'baseline amplitude change per second of t_since: '
+          f'{mean_b:.3f} ± {sem_b:.3f} Hz, p={p_b:.3e}')
+
+
+#%% 3. across-bin population curves (mean ± sem)
+ramp_mean_bin     = np.nanmean(ramp_mat,     axis=0)
+baseline_mean_bin = np.nanmean(baseline_mat, axis=0)
+
+ramp_sem_bin = np.nanstd(ramp_mat, axis=0, ddof=1) / \
+               np.sqrt(np.sum(~np.isnan(ramp_mat), axis=0))
+
+baseline_sem_bin = np.nanstd(baseline_mat, axis=0, ddof=1) / \
+                   np.sqrt(np.sum(~np.isnan(baseline_mat), axis=0))
+
+# bins with enough cells
+min_cells_per_bin = 5
+valid_bins = np.sum(~np.isnan(ramp_mat), axis=0) >= min_cells_per_bin
+
+fig, axes = plt.subplots(1, 2, figsize=(4.2, 2.2), sharex=True)
+
+# ramp rate vs t_since
+axes[0].errorbar(bin_centres[valid_bins], ramp_mean_bin[valid_bins],
+                 yerr=ramp_sem_bin[valid_bins],
+                 fmt='o-', ms=3, lw=1, color='forestgreen')
+axes[0].axhline(0, color='gray', ls='--', lw=1)
+axes[0].set(xlabel='time since last reward (s)',
+            ylabel='ramp rate (Hz/s)')
+axes[0].spines[['top', 'right']].set_visible(False)
+
+# baseline amplitude vs t_since
+axes[1].errorbar(bin_centres[valid_bins], baseline_mean_bin[valid_bins],
+                 yerr=baseline_sem_bin[valid_bins],
+                 fmt='o-', ms=3, lw=1, color='forestgreen')
+axes[1].set(xlabel='time since last reward (s)',
+            ylabel='baseline amplitude (Hz)')
+axes[1].spines[['top', 'right']].set_visible(False)
+
+plt.tight_layout()
+plt.show()

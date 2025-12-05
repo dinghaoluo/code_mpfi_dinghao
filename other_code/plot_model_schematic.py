@@ -34,6 +34,12 @@ gauss_std = 0.25 # standard deviation in seconds (sharp peak)
 gauss_peak = np.exp(-0.5 * (taxis_LC / gauss_std)**2)
 gauss_peak /= np.max(gauss_peak)  # normalise to peak at 1
 
+# HPC hypothesis
+taxis_HPC_hyp = np.linspace(-1, 5, 200)
+gauss_std_HPC_hyp = 0.8
+gauss_peak_HPC_hyp = np.exp(-0.5 * (taxis_HPC_hyp / gauss_std_HPC_hyp - 2.5)**2)
+gauss_peak_HPC_hyp /= np.max(gauss_peak_HPC_hyp)
+
 # dopamine trace: starts at time -1, similar rise to LC Gaussian, slower decay
 taxis_decay = np.linspace(0, 6, 600)
 tau_decay_mod = 4.4
@@ -45,13 +51,14 @@ taxis_mod = taxis_mod - .9
 
 fig, ax = plt.subplots(figsize=(2.2, 1.6))
 # ax.plot(taxis_HPC, HPC_mod, c='lightcoral', alpha=.6)
-ax.plot(taxis_HPC, HPC, c='firebrick', alpha=.8)
+# ax.plot(taxis_HPC, HPC, c='firebrick', lw=1.5, alpha=1)
+# ax.plot(taxis_HPC_hyp, gauss_peak_HPC_hyp, c='firebrick', ls='--', alpha=.8)
 # ax.plot(taxis_HPC, 1-HPC, c='purple', alpha=.8)
 # ax.plot(taxis_LC, gauss_peak, c='royalblue')
-ax.plot(taxis_mod, dopamine, c='darkgreen', ls='--')
+ax.plot(taxis_mod, dopamine, c='darkgreen')
 
 # scaled LC peaks
-ax.plot(taxis_LC, gauss_peak * 1, c='royalblue', lw=2, alpha=1)
+ax.plot(taxis_LC, gauss_peak * 1, c='royalblue', lw=1.5, alpha=1)
 # ax.plot(taxis_LC, gauss_peak * .7, c='royalblue', alpha=0.5)
 
 # LC stim 
@@ -68,7 +75,7 @@ ax.set(xlim=(-1, 5), xticks=[],
 plt.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\trace_LC_DA_HPC.png',
+fig.savefig(r'Z:\Dinghao\trace_LC_DA.png',
             dpi=300,
             bbox_inches='tight')
 

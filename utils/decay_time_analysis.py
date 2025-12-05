@@ -6,7 +6,7 @@ a Python implementation of the decay-time extraction scripts in Heldman et al.
     2025:
         - applicable to both run-onset-ON and -OFF cells
 
-@author: LuoD
+@author: Dinghao Luo
 """
 
 #%% imports 

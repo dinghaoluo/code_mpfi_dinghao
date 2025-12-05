@@ -29,8 +29,8 @@ all_sess_stem = dLight_stim_stem / 'all_sessions'
 
 #%% parameters 
 SAMP_FREQ = 30  # Hz
-BEF = 2
-AFT = 10
+BEF       = 2  # s
+AFT       = 10
 
 XAXIS = np.arange((BEF+AFT) * SAMP_FREQ) / SAMP_FREQ - BEF
 
@@ -53,10 +53,10 @@ for path in paths:
     dFF2 = np.load(dFF2_path, allow_pickle=True)
     
     # centring and filtering 
-    dFF  = dFF  - np.nanmean(dFF[:30])
-    dFF2 = dFF2 - np.nanmean(dFF2[:30])
-    dFF[60:110]  = np.nan
-    dFF2[60:110] = np.nan
+    dFF  = dFF  - np.nanmean(dFF[:BEF*SAMP_FREQ])
+    dFF2 = dFF2 - np.nanmean(dFF2[:BEF*SAMP_FREQ])
+    dFF[BEF*SAMP_FREQ : int((BEF+1.5) * SAMP_FREQ)]  = np.nan
+    dFF2[BEF*SAMP_FREQ : int((BEF+1.5) * SAMP_FREQ)] = np.nan
     
     all_dFF.append(dFF)
     all_dFF2.append(dFF2)
@@ -141,10 +141,10 @@ for path in paths:
     dFF2 = np.load(dFF2_path, allow_pickle=True)
     
     # centring and filtering 
-    dFF  = dFF  - np.nanmean(dFF[:30])
-    dFF2 = dFF2 - np.nanmean(dFF2[:30])
-    dFF[60:110]  = np.nan
-    dFF2[60:110] = np.nan
+    dFF  = dFF  - np.nanmean(dFF[:BEF*SAMP_FREQ])
+    dFF2 = dFF2 - np.nanmean(dFF2[:BEF*SAMP_FREQ])
+    dFF[BEF*SAMP_FREQ : int((BEF+1.5) * SAMP_FREQ)]  = np.nan
+    dFF2[BEF*SAMP_FREQ : int((BEF+1.5) * SAMP_FREQ)] = np.nan
         
     # append 
     all_dFF.append(dFF)

@@ -8,20 +8,18 @@ plot single session speed and lick profiles
 """
 
 #%% imports 
+from pathlib import Path
+
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pickle 
 from scipy.stats import sem 
-import sys 
-import os 
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, replace_outlier, smooth_convolve
 mpl_formatting()
 
 
 #%% path list 
-sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 
 remove_recs = [

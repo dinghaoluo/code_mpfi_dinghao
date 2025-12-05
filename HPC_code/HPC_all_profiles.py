@@ -180,7 +180,7 @@ for pathname in paths:
     
     # load spike trains as a list 
     clu_list, trains = support.load_train(
-        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\{}_all_trains.npy'
+        r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{}\{}_all_trains_run.npy'
         .format(recname, recname)
         )
     

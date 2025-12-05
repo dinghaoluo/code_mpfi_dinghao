@@ -16,16 +16,14 @@ import pandas as pd
 import pickle
 import scipy.io as sio
 import matplotlib.pyplot as plt
-from scipy.stats import sem, ranksums
+from scipy.stats import sem, wilcoxon, ttest_ind
 
-# from plotting_functions import plot_violin_with_scatter
-from decay_time_analysis import detect_peak, compute_tau
 from common import mpl_formatting
 mpl_formatting()
 
 import rec_list
-pathHPCLCopt = rec_list.pathHPCLCopt
-pathHPCLCtermopt = rec_list.pathHPCLCtermopt
+paths    = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt
+recnames = [Path(path).name for path in paths]
 
 
 #%% parameters 
@@ -92,7 +90,7 @@ def _binwise_test(early_profiles, late_profiles,
         e_means = np.mean(early_profiles[:, lo_idx:hi_idx], axis=1)
         l_means = np.mean(late_profiles[:, lo_idx:hi_idx], axis=1)
 
-        _, p = ranksums(e_means, l_means, nan_policy='omit')
+        _, p = wilcoxon(e_means, l_means, nan_policy='omit')
         pvals.append(p)
         print(f'  {lo:.1f}–{hi:.1f} s: p={p:.4e}')
 
@@ -151,7 +149,7 @@ def _trial_bin_means(trial_idx_list, bin_size=500, total_len=3500, n_bins=7):
 
 
 #%% load data 
-print('loading dataframes...')
+print('Loading dataframes...')
 cell_profiles = pd.read_pickle(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles.pkl')
 df_pyr = cell_profiles[cell_profiles['cell_identity'] == 'pyr']
 pyrON = df_pyr[df_pyr['class'] == 'run-onset ON']
@@ -159,17 +157,8 @@ pyrOFF = df_pyr[df_pyr['class'] == 'run-onset OFF']
 
 
 #%% main
-# ON cells 
-early_profiles_ON = []
-late_profiles_ON  = []
-early_tau_ON      = []
-late_tau_ON       = []
-
-# OFF cells 
-early_profiles_OFF = []
-late_profiles_OFF  = []
-early_tau_OFF      = []
-late_tau_OFF       = []
+# main container 
+profiles = {}
 
 # speed after speed matching for each session 
 sess_early_speed_means = []
@@ -179,13 +168,44 @@ sess_late_speed_means = []
 sess_early_speed_means_raw = []
 sess_late_speed_means_raw = []
 
-recname = ''
+# cell loop
+recname   = ''
+skip_flag = False
+current_session_ON_early  = []
+current_session_ON_late   = []
+current_session_OFF_early = []
+current_session_OFF_late  = []
 
-for cluname in list(pyrON.index) + list(pyrOFF.index):
+# combine ON and OFF and sort them first to loop over all cells all at once
+all_valid_clunames = list(pyrON.index) + list(pyrOFF.index)
+all_valid_clunames = sorted(all_valid_clunames,
+                            key=lambda x: x.split(' ')[0])
+for cluname in all_valid_clunames:
     temp_recname = cluname.split(' ')[0]
+    
     if temp_recname != recname:
+        # truncate data
+        curr_profiles = {
+            'early ON' : current_session_ON_early,
+            'late ON'  : current_session_ON_late,
+            'early OFF': current_session_OFF_early,
+            'late OFF' : current_session_OFF_late
+            }
+        profiles[recname] = curr_profiles
+            
+        current_session_ON_early  = []
+        current_session_ON_late   = []
+        current_session_OFF_early = []
+        current_session_OFF_late  = []
+        
         recname = temp_recname
+        if recname not in recnames:
+            print(f'\n{recname}\nSkipped')
+            skip_flag = True
+            continue
+        
         print(f'\n{recname}')
+        skip_flag = False
         
         alignRun = sio.loadmat(
             rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}\{recname[:-3]}'
@@ -227,14 +247,14 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
             elif 2.5 < t < 3.5:
                 late_trials.append(trial)
 
-        print(f'found {len(early_trials)} early trials, {len(late_trials)} late trials')
         if len(early_trials) < 10 or len(late_trials) < 10:
-            print('skipped')
+            print('Not enough trials; skipped')
+            skip_flag = True
             continue
 
         all_trains = np.load(
             rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{recname}'
-            rf'\{recname}_all_trains.npy',
+            rf'\{recname}_all_trains_run.npy',
             allow_pickle=True
         ).item()
 
@@ -266,7 +286,7 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
         
         matched_early, matched_late = [], []
         if len(E_bins) and len(L_bins):
-            k = 1.5  # use ±1.5 SD for tighter fit 
+            k = 1.5
         
             # early stats -> bounds that late must satisfy
             e_mu = E_bins.mean(axis=0)
@@ -288,7 +308,10 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
         else:
             matched_early, matched_late = [], []
         
-        print(f'{len(matched_early)} early and {len(matched_late)} late trials passed 7-bin speed filtering')
+        if len(matched_early) < 5 or len(matched_late) < 5:
+            print('Not enough speed-matched trials; skipped')
+            skip_flag = True
+            continue
         
         # collect session means for later plotting 
         e_mean_sp = _session_mean_speed(matched_early, speed_times, n=4000)
@@ -341,7 +364,7 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
             ax.text((x_left + x_right) / 2.0, text_y, f'p={pvals[i]:.3f}',
                     ha='center', va='bottom', fontsize=5)
         
-        ax.set(xlabel='time (s)', ylabel='speed (cm/s)', title=f'{recname} bin-filtered')
+        ax.set(xlabel='Time (s)', ylabel='Speed (cm/s)', title=f'{recname} bin-filtered')
         for s in ['top', 'right']:
             ax.spines[s].set_visible(False)
         fig.tight_layout()
@@ -351,63 +374,35 @@ for cluname in list(pyrON.index) + list(pyrOFF.index):
             fig.savefig(f'{vis_path}{ext}', dpi=200)
         plt.close(fig)
 
-    # main 
-    if len(early_trials) < 10 or len(late_trials) < 10:
-        continue
-    
-    trains = all_trains[cluname]
-    if len(matched_early) >= 10 and len(matched_late) >= 10:
+
+    ## ---- accumulate data
+    if skip_flag == False:
+        trains = all_trains[cluname]
         if cluname in pyrON.index:
-            early_profiles = _get_profiles(trains, matched_early)
-            late_profiles  = _get_profiles(trains, matched_late)
+            print(f'ON {cluname}')
+            early_profiles = np.nanmean(_get_profiles(trains, matched_early), axis=0)
+            late_profiles  = np.nanmean(_get_profiles(trains, matched_late), axis=0)
             
-            early_profiles_ON.extend(early_profiles)
-            late_profiles_ON.extend(late_profiles)
-            
-            # get tau 
-            early_mean = np.nanmean(early_profiles, axis=0)
-            late_mean  = np.nanmean(late_profiles, axis=0)
-            
-            peak_idx_early = detect_peak(early_mean, 'run-onset ON', run_onset_bin=1250)
-            tau_early, fit_params_early = compute_tau(
-                TIME, early_mean, peak_idx_early, 'run-onset ON'
-                )
-        
-            peak_idx_late = detect_peak(late_mean, 'run-onset ON', run_onset_bin=1250)
-            tau_late, fit_params_late = compute_tau(
-                TIME, late_mean, peak_idx_late, 'run-onset ON'
-                )
-            
-            if (fit_params_late['adj_r_squared']>0.6 and 
-                fit_params_early['adj_r_squared']>0.6):
-                early_tau_ON.append(tau_early)
-                late_tau_ON.append(tau_late)
+            current_session_ON_early.append(early_profiles)
+            current_session_ON_late.append(late_profiles)
         
         if cluname in pyrOFF.index:
-            early_profiles = _get_profiles(trains, matched_early)
-            late_profiles  = _get_profiles(trains, matched_late)
+            print(f'OFF {cluname}')
+            early_profiles = np.nanmean(_get_profiles(trains, matched_early), axis=0)
+            late_profiles  = np.nanmean(_get_profiles(trains, matched_late), axis=0)
             
-            early_profiles_OFF.extend(early_profiles)
-            late_profiles_OFF.extend(late_profiles)
-            
-            # get tau 
-            early_mean = np.nanmean(early_profiles, axis=0)
-            late_mean  = np.nanmean(late_profiles, axis=0)
-            
-            peak_idx_early = detect_peak(early_mean, 'run-onset OFF', run_onset_bin=1250)
-            tau_early, fit_params_early = compute_tau(
-                TIME, early_mean, peak_idx_early, 'run-onset OFF'
-                )
-        
-            peak_idx_late = detect_peak(late_mean, 'run-onset OFF', run_onset_bin=1250)
-            tau_late, fit_params_late = compute_tau(
-                TIME, late_mean, peak_idx_late, 'run-onset ON'
-                )
-            
-            if (fit_params_late['adj_r_squared']>0.6 and 
-                fit_params_early['adj_r_squared']>0.6):
-                early_tau_OFF.append(tau_early)
-                late_tau_OFF.append(tau_late)
+            current_session_OFF_early.append(early_profiles)
+            current_session_OFF_late.append(late_profiles)
+    ## ---- accumulate data ends 
+    
+    # after the for-loop ends, flush the last session
+    curr_profiles = {
+        'early ON' : current_session_ON_early,
+        'late ON'  : current_session_ON_late,
+        'early OFF': current_session_OFF_early,
+        'late OFF' : current_session_OFF_late
+        }
+    profiles[recname] = curr_profiles
 
 
 #%% BEFORE-matching session-averaged speed
@@ -431,7 +426,7 @@ ax.fill_between(X_SEC_PLOT, L_raw_mean+L_raw_sem, L_raw_mean-L_raw_sem,
                 color=late_c, edgecolor='none', alpha=.25)
 
 ax.set(xlabel='Time from run onset (s)', xlim=(0, 4),
-       ylabel='Speed (cm/s)', ylim=(0, 65),
+       ylabel='Speed (cm/s)', ylim=(0, 70),
        title='pre-matching speed')
 ax.legend(frameon=False, fontsize=7)
 for s in ['top', 'right']:
@@ -484,17 +479,17 @@ ymax = max((E_trace_mean+E_trace_sem).max(), (L_trace_mean+L_trace_sem).max())
 ymin = min((E_trace_mean-E_trace_sem).min(), (L_trace_mean-L_trace_sem).min())
 yr = ymax - ymin if ymax > ymin else 1.0
 bar_y  = ymax + 0.06 * yr
-text_y = ymax + 0.11 * yr
+text_y = ymax + 0.08 * yr
 
 for i in range(n_bins):
     x_left  = i * 0.5 + 0.1
     x_right = (i + 1) * 0.5 - 0.1
     ax.hlines(bar_y, x_left, x_right, color='k', lw=1)
-    ax.text((x_left + x_right)/2, text_y, f'p={pvals[i]:.3f}',
-            ha='center', va='bottom', fontsize=5)
+    ax.text((x_left + x_right)/2, text_y, f'{pvals[i]:.3e}',
+            ha='center', va='bottom', fontsize=3)
 
 ax.set(xlabel='Time from run onset (s)', xlim=(0,4),
-       ylabel='Speed (cm/s)', ylim=(0,65),
+       ylabel='Speed (cm/s)', ylim=(0,70),
        title='post-matching speed')
 ax.legend(frameon=False, fontsize=7)
 for s in ['top', 'right']:
@@ -515,23 +510,53 @@ for ext in ['.png', '.pdf']:
 
 
 #%% mean spiking curves (ON) for early v late 
-# stat
-early_win_means = np.mean(np.array(early_profiles_ON)[:, 1250+625:1250+1825], axis=1)
-late_win_means  = np.mean(np.array(late_profiles_ON)[:, 1250+625:1250+1825], axis=1)
+# organise data
+valid_profiles = {k: v for k, v in profiles.items() if v['early ON']}
+session_names  = list(valid_profiles.keys())
 
-_, p_val = ranksums(early_win_means, late_win_means, nan_policy='omit')
+keys = [k for k, v in valid_profiles.items()]
+nums = [len(v['early ON']) for k, v in valid_profiles.items()]
+for key, num in zip(keys, nums):
+    print(f'{key}: {num}')
 
-print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
-print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
-print(f'ranksums test (0.5–1.5 s window): p = {p_val:.4e}')
+for i in range(len(session_names)):
+    early_ON  = [arr
+                 for key, session in valid_profiles.items()
+                 if key!=session_names[i]
+                 for arr in session['early ON']]
+    late_ON   = [arr
+                 for key, session in valid_profiles.items()
+                 if key!=session_names[i]
+                 for arr in session['late ON']]
+    early_OFF = [arr
+                 for key, session in valid_profiles.items()
+                 if key!=session_names[i]
+                 for arr in session['early OFF']]
+    late_OFF  = [arr
+                 for key, session in valid_profiles.items()
+                 if key!=session_names[i]
+                 for arr in session['late OFF']]
+    
+    # stats
+    early_win_means = np.mean(np.array(early_ON)[:, 1250+625:1250+1250], axis=1)
+    late_win_means  = np.mean(np.array(late_ON)[:, 1250+625:1250+1250], axis=1)
+    
+    _, p_val = wilcoxon(early_win_means, late_win_means, nan_policy='omit')
+    
+    # print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
+    # print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
+    # print(f'Wilcoxon test (0.5–1.5 s window): p = {p_val:.4e}')
+    print(f'{keys[i]}, late - early = {np.mean(late_win_means) - np.mean(early_win_means)} {p_val}')
 
+
+## ON
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 
-early_mean = np.mean(early_profiles_ON, axis=0)
-early_sem = sem(early_profiles_ON, axis=0)
+early_mean = np.mean(early_ON, axis=0)
+early_sem = sem(early_ON, axis=0)
 
-late_mean = np.mean(late_profiles_ON, axis=0)
-late_sem = sem(late_profiles_ON, axis=0)
+late_mean = np.mean(late_ON, axis=0)
+late_sem = sem(late_ON, axis=0)
 
 fig, ax = plt.subplots(figsize=(2.3, 2.0))
 ax.plot(XAXIS, early_mean, c='lightcoral', label='<2.5')
@@ -541,15 +566,15 @@ ax.plot(XAXIS, late_mean, c='firebrick', label='2.5~3.5')
 ax.fill_between(XAXIS, late_mean+late_sem, late_mean-late_sem,
                 color='firebrick', edgecolor='none', alpha=.25)
 
-pvals = _binwise_test(np.array(early_profiles_ON),
-                      np.array(late_profiles_ON),
+pvals = _binwise_test(np.array(early_ON),
+                      np.array(late_ON),
                       SAMP_FREQ=SAMP_FREQ, BEF=BEF,
                       label='ON cells',
                       bin_size=1.0)
 _annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.28, 3.42),
+ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.28, 3.70),
        ylabel='Firing rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -557,31 +582,19 @@ for s in ['top', 'right']:
 fig.tight_layout()
 plt.show()
 
-for ext in ['.png', '.pdf']:
-    fig.savefig(
-        first_lick_stem / f'all_run_onset_ON_mean_profiles{ext}',
-        dpi=300,
-        bbox_inches='tight')
+# for ext in ['.png', '.pdf']:
+#     fig.savefig(
+#         first_lick_stem / f'all_run_onset_ON_mean_profiles{ext}',
+#         dpi=300,
+#         bbox_inches='tight')
     
 
-#%% mean spiking curves (OFF) for early v late 
-# stat
-early_win_means = np.mean(np.array(early_profiles_OFF)[:, 1250+625:1250+1825], axis=1)
-late_win_means  = np.mean(np.array(late_profiles_OFF)[:, 1250+625:1250+1825], axis=1)
+## OFF
+early_mean = np.mean(early_OFF, axis=0)
+early_sem = sem(early_OFF, axis=0)
 
-_, p_val = ranksums(early_win_means, late_win_means, nan_policy='omit')
-
-print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
-print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
-print(f'ranksums (0.5–1.5 s window): p = {p_val:.4e}')
-
-XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
-
-early_mean = np.mean(early_profiles_OFF, axis=0)
-early_sem = sem(early_profiles_OFF, axis=0)
-
-late_mean = np.mean(late_profiles_OFF, axis=0)
-late_sem = sem(late_profiles_OFF, axis=0)
+late_mean = np.mean(late_OFF, axis=0)
+late_sem = sem(late_OFF, axis=0)
 
 fig, ax = plt.subplots(figsize=(2.3, 2.0))
 ax.plot(XAXIS, early_mean, c='violet', label='<2.5')
@@ -591,15 +604,15 @@ ax.plot(XAXIS, late_mean, c='purple', label='2.5~3.5')
 ax.fill_between(XAXIS, late_mean+late_sem, late_mean-late_sem,
                 color='purple', edgecolor='none', alpha=.25)
 
-pvals = _binwise_test(np.array(early_profiles_OFF),
-                      np.array(late_profiles_OFF),
+pvals = _binwise_test(np.array(early_OFF),
+                      np.array(late_OFF),
                       SAMP_FREQ=SAMP_FREQ, BEF=BEF,
-                      label='OFF cells',
+                      label='ON cells',
                       bin_size=1.0)
-_annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False, fontsize=5)
+_annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='Time from run-onset (s)', xlim=(-1, 4), ylim=(1.15, 2.6),
+ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.28, 3.70),
        ylabel='Firing rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -607,8 +620,8 @@ for s in ['top', 'right']:
 fig.tight_layout()
 plt.show()
 
-for ext in ['.png', '.pdf']:
-    fig.savefig(
-        first_lick_stem / f'all_run_onset_OFF_mean_profiles{ext}',
-        dpi=300,
-        bbox_inches='tight')
+# for ext in ['.png', '.pdf']:
+#     fig.savefig(
+#         first_lick_stem / f'all_run_onset_ON_mean_profiles{ext}',
+#         dpi=300,
+#         bbox_inches='tight')

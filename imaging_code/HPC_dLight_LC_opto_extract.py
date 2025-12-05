@@ -24,7 +24,6 @@ from matplotlib import colormaps
 from matplotlib.colors import TwoSlopeNorm
 import tifffile
 
-import behaviour_functions as bf 
 import imaging_pipeline_functions as ipf
 from plotting_functions import plot_violin_with_scatter, add_scale_bar
 from common import mpl_formatting, get_GPU_availability
@@ -151,37 +150,53 @@ def main(path):
     
     # use 2 × train duration as min interval
     min_interval_frames = 2 * total_train_duration_frames
-    if min_interval_frames < 15:
-        min_interval_frames = 15  # hard safety floor
         
     ## now we detect stim onsets by step changes in trace2_dFF
     detected_onsets_raw, detected_offsets_raw = ipf.detect_step_pairs(
         trace2_dFF, 
-        zthr=100,
+        zthr=10,
         min_interval_frames=min_interval_frames
         )
-    detected_onsets  = [f - 1 for f in detected_onsets_raw]  # 1-frame buffer for envelope 
-    detected_offsets = [f + 1 for f in detected_offsets_raw]  # same as above
+    detected_onsets  = np.array([f - 3 for f in detected_onsets_raw])  # 3-frame buffer for envelope 
+    detected_offsets = np.array([f + 3 for f in detected_offsets_raw])  # same as above
+    valid_edges      = [True if off - on < min_interval_frames else False 
+                        for on, off in zip(detected_onsets, detected_offsets)]
+    detected_onsets  = detected_onsets[valid_edges]
+    detected_offsets = detected_offsets[valid_edges]
     detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
     
-    # sanity check: either no detected pulses or detected pulses differ too 
-    #   much from log
-    detected_fewer_than_logged = len(pulse_trains) - len(detected_onsets)
-    if len(detected_stim_durations) == 0 or detected_fewer_than_logged > 2:
-        print('\n\n\n\n******')
-        print('WARNING: detection failed with zthr=100; reduced to zthr=10')
-        print('******\n\n\n\n')
+    # if detected and not over-detected
+    if abs(len(detected_onsets) - len(pulse_trains)) > 10:  # if mismatched
+        print('Mismatch between detection and logged pulses; rerunning detection with a higher threshold...')
         detected_onsets_raw, detected_offsets_raw = ipf.detect_step_pairs(
             trace2_dFF, 
-            zthr=10,
+            zthr=20,
             min_interval_frames=min_interval_frames
             )
-        detected_onsets  = [f - 1 for f in detected_onsets_raw]  # 1-frame buffer for envelope 
-        detected_offsets = [f + 1 for f in detected_offsets_raw]  # same as above
-        detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]   
-        
-    # if detected and not over-detected
-    if 0 < len(detected_onsets) < 100:
+        detected_onsets  = np.array([f - 3 for f in detected_onsets_raw])  # 1-frame buffer for envelope 
+        detected_offsets = np.array([f + 3 for f in detected_offsets_raw])  # same as above
+        valid_edges      = [True if off - on < min_interval_frames else False 
+                            for on, off in zip(detected_onsets, detected_offsets)]
+        detected_onsets  = detected_onsets[valid_edges]
+        detected_offsets = detected_offsets[valid_edges]
+        detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
+        if abs(len(detected_onsets) - len(pulse_trains)) > 10:  # if still not matching
+            print('Mismatch persists; fall back to logged pulses.')
+            pulse_frames = [
+                [ipf.find_nearest(p, frame_times) for p in train]
+                for train in pulse_trains
+            ]
+            detected_onsets  = np.array([pf[0] - 3 for pf in pulse_frames])
+            detected_offsets = np.array([pf[-1] + 3 for pf in pulse_frames])
+            valid_edges      = [True if off - on < min_interval_frames else False 
+                                for on, off in zip(detected_onsets, detected_offsets)]
+            detected_onsets  = detected_onsets[valid_edges]
+            detected_offsets = detected_offsets[valid_edges]
+            detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
+            max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
+        else:
+            max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
+    elif 0 < len(detected_onsets):
         max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
         detection_printout = (f'''detected based on channel 2:
             {len(detected_onsets)} candidate stim. onset-offset pairs
@@ -193,12 +208,15 @@ def main(path):
             [ipf.find_nearest(p, frame_times) for p in train]
             for train in pulse_trains
         ]
-        detected_onsets  = [pf[0] for pf in pulse_frames]
-        detected_offsets = [pf[-1] for pf in pulse_frames]  
+        detected_onsets  = np.array([pf[0] - 3 for pf in pulse_frames])
+        detected_offsets = np.array([pf[-1] + 3 for pf in pulse_frames])
+        valid_edges      = [True if off - on < min_interval_frames else False 
+                            for on, off in zip(detected_onsets, detected_offsets)]
+        detected_onsets  = detected_onsets[valid_edges]
+        detected_offsets = detected_offsets[valid_edges]
         detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
         max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
-        
-        
+    
     ## -- PARAMETER DEFINITIONS
     # now defined within the function scope, since we reassign them later in an if statement
     BEF = 2
@@ -236,6 +254,7 @@ def main(path):
         ])
     
     # filtering
+    
     raw_trace[pulse_period_frames]  = np.nan
     raw_trace2[pulse_period_frames] = np.nan
     
@@ -248,39 +267,39 @@ def main(path):
     for i, p in enumerate(valid_pulse_start_frames):
         start = p - BEF * SAMP_FREQ
         end   = p + AFT * SAMP_FREQ
-        raw_aligned[i, :]  = raw_trace[start:end]
+        raw_aligned[i, :]   = raw_trace[start:end]
         raw2_aligned[i, :] = raw_trace2[start:end]
     
     # dFF traces aligned 
-    trace_dFF_aligned = np.zeros((tot_valid_pulses, (BEF+AFT)*SAMP_FREQ), dtype=np.float32)
+    trace_dFF_aligned  = np.zeros((tot_valid_pulses, (BEF+AFT)*SAMP_FREQ), dtype=np.float32)
     trace2_dFF_aligned = np.zeros((tot_valid_pulses, (BEF+AFT)*SAMP_FREQ), dtype=np.float32)
     for i, p in enumerate(valid_pulse_start_frames):
         start = p - BEF * SAMP_FREQ
         end   = p + AFT * SAMP_FREQ
-        trace_dFF_aligned[i, :] = trace_dFF[start:end]
+        trace_dFF_aligned[i, :]  = trace_dFF[start:end]
         trace2_dFF_aligned[i, :] = trace2_dFF[start:end]
-    trace_dFF_aligned_mean = np.mean(trace_dFF_aligned, axis=0)
+    trace_dFF_aligned_mean  = np.mean(trace_dFF_aligned, axis=0)
     trace2_dFF_aligned_mean = np.mean(trace2_dFF_aligned, axis=0)
     
     # calculate ratios
     # per‐trial raw means
-    baseline_raw = np.nanmean(raw_aligned[:,  BASELINE_IDX], axis=1)
-    stim_raw = np.nanmean(raw_aligned[:,  STIM_IDX], axis=1)
+    baseline_raw  = np.nanmean(raw_aligned[:,  BASELINE_IDX], axis=1)
+    stim_raw      = np.nanmean(raw_aligned[:,  STIM_IDX], axis=1)
     baseline2_raw = np.nanmean(raw2_aligned[:, BASELINE_IDX], axis=1)
-    stim2_raw = np.nanmean(raw2_aligned[:, STIM_IDX], axis=1)
+    stim2_raw     = np.nanmean(raw2_aligned[:, STIM_IDX], axis=1)
     
     # per‐trial ΔF/F exactly like pixel dFF (stim − base) / |base|
-    dFF = (stim_raw - baseline_raw) / np.abs(baseline_raw)
+    dFF  = (stim_raw - baseline_raw) / np.abs(baseline_raw)
     dFF2 = (stim2_raw - baseline2_raw) / np.abs(baseline2_raw)
     
     # dFF comp
-    baseline_dFF = np.nanmean(trace_dFF_aligned[:,  BASELINE_IDX], axis=1)
-    stim_dFF = np.nanmean(trace_dFF_aligned[:,  STIM_IDX], axis=1)
+    baseline_dFF  = np.nanmean(trace_dFF_aligned[:,  BASELINE_IDX], axis=1)
+    stim_dFF      = np.nanmean(trace_dFF_aligned[:,  STIM_IDX], axis=1)
     baseline2_dFF = np.nanmean(trace2_dFF_aligned[:, BASELINE_IDX], axis=1)
-    stim2_dFF = np.nanmean(trace2_dFF_aligned[:, STIM_IDX], axis=1)
+    stim2_dFF     = np.nanmean(trace2_dFF_aligned[:, STIM_IDX], axis=1)
     
     # for plotting 
-    ymin = np.nanmin(trace_dFF_aligned.T)
+    ymin  = np.nanmin(trace_dFF_aligned.T)
     ymin2 = np.nanmin(trace2_dFF_aligned.T)
     
     # plotting 
@@ -359,7 +378,7 @@ def main(path):
             trace_dFF_aligned_mean)
     np.save(savepath / f'processed_data/{recname}_wholefield_dFF2_stim.npy',
             trace2_dFF_aligned_mean)
-        
+    
     # statistics and plotting 
     # clean both arrays before plotting
     valid_mask = (~np.isnan(dFF)) & (~np.isnan(dFF2))
@@ -402,62 +421,87 @@ def main(path):
         savepath=savepath / f'{recname}_baseline_stim_ch2_violinplot'
         )
     
-    ## pixel-wise extraction 
+    # ----------------------
+    # pixel-wise extraction 
+    # ----------------------
+    # truncate movies first to reduce load 
     # spatial smoothing
-    print('performing spatial filtering...')
-    mov = ipf.spatial_gaussian_filter(mov, sigma_spatial=1,
-                                      GPU_AVAILABLE=GPU_AVAILABLE,
-                                      CHUNK=True)
-    mov2 = ipf.spatial_gaussian_filter(mov2, sigma_spatial=1,
-                                       GPU_AVAILABLE=GPU_AVAILABLE,
-                                       CHUNK=True)
+    print('Performing spatial filtering...')
+    mov      = ipf.spatial_gaussian_filter(mov, sigma_spatial=1,
+                                           GPU_AVAILABLE=GPU_AVAILABLE,
+                                           CHUNK=True)
+    mov2     = ipf.spatial_gaussian_filter(mov2, sigma_spatial=1,
+                                           GPU_AVAILABLE=GPU_AVAILABLE,
+                                           CHUNK=True)
+    # mov_dFF  = ipf.calculate_dFF_percentile(mov, sigma=300, t_axis=0,
+    #                                         GPU_AVAILABLE=GPU_AVAILABLE,
+    #                                         CHUNK=True)
+    # mov_dFF2 = ipf.calculate_dFF_percentile(mov2, sigma=300, t_axis=0,
+    #                                         GPU_AVAILABLE=GPU_AVAILABLE,
+    #                                         CHUNK=True)
+    
+    # new: filter the mov as well so that F_aligned correctly blocks out the pulses, 28 Nov 2025
+    mov[pulse_period_frames, :, :]      = np.nan
+    mov2[pulse_period_frames, :, :]     = np.nan
+    # mov_dFF[pulse_period_frames, :, :]  = np.nan
+    # mov_dFF2[pulse_period_frames, :, :] = np.nan
     
     # compute dF/F per pixel (stim. / baseline for raw F), 24 June 2025
-    pixel_dFF = np.zeros((shape[1], shape[2], len(valid_pulse_start_frames)))
-    pixel_dFF2 = np.zeros_like(pixel_dFF)
+    pixel_RI  = np.zeros((shape[1], shape[2], len(valid_pulse_start_frames)))
+    pixel_RI2 = np.zeros_like(pixel_RI)
     
-    # we still want F aligned
-    pixel_F_aligned = np.zeros((len(valid_pulse_start_frames), 
-                                ((BEF+AFT) * SAMP_FREQ),
-                                shape[1], 
-                                shape[2]))
-    pixel_F2_aligned = np.zeros_like(pixel_F_aligned)
+    # we want F and dF/F aligned
+    pixel_F_aligned    = np.zeros((len(valid_pulse_start_frames), 
+                                   ((BEF+AFT) * SAMP_FREQ),
+                                   shape[1], 
+                                   shape[2]))
+    pixel_F2_aligned   = np.zeros_like(pixel_F_aligned)
+    # pixel_dFF_aligned  = np.zeros_like(pixel_F_aligned)
+    # pixel_dFF2_aligned = np.zeros_like(pixel_F_aligned)
     
     for i, p in enumerate(valid_pulse_start_frames):
-        temp_F = mov[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
-        temp_F2 = mov2[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        temp_F    = mov[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        temp_F2   = mov2[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        # temp_dFF  = mov_dFF[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        # temp_dFF2 = mov_dFF2[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
         
         # save F aligned too
-        pixel_F_aligned[i, :, :, :] = temp_F
-        pixel_F2_aligned[i, :, :, :] = temp_F2
+        pixel_F_aligned[i, :, :, :]    = temp_F
+        pixel_F2_aligned[i, :, :, :]   = temp_F2
+        # pixel_dFF_aligned[i, :, :, :]  = temp_dFF
+        # pixel_dFF2_aligned[i, :, :, :] = temp_dFF2
     
-        stim_mean = np.mean(temp_F[STIM_IDX, :, :], axis=0)
+        stim_mean     = np.mean(temp_F[STIM_IDX, :, :], axis=0)
         baseline_mean = np.mean(temp_F[BASELINE_IDX, :, :], axis=0)
-        dFF = (stim_mean - baseline_mean) / np.abs(baseline_mean)
-        dFF[np.abs(dFF) > 10] = np.nan  # hard cap
-        pixel_dFF[:, :, i] = dFF
+        RI = (stim_mean - baseline_mean) / np.abs(baseline_mean)
+        RI[np.abs(RI) > 10] = np.nan  # hard cap
+        pixel_RI[:, :, i] = RI
     
         stim_mean2 = np.mean(temp_F2[STIM_IDX, :, :], axis=0)
         baseline_mean2 = np.mean(temp_F2[BASELINE_IDX, :, :], axis=0)
-        dFF2 = (stim_mean2 - baseline_mean2) / np.abs(baseline_mean2)
-        dFF2[np.abs(dFF2) > 10] = np.nan
-        pixel_dFF2[:, :, i] = dFF2
+        RI2 = (stim_mean2 - baseline_mean2) / np.abs(baseline_mean2)
+        RI2[np.abs(RI2) > 10] = np.nan
+        pixel_RI2[:, :, i] = RI2
         
-    np.save(savepath / f'processed_data/{recname}_pixel_dFF_stim.npy',
-            pixel_dFF)
-    np.save(savepath / f'processed_data/{recname}_pixel_dFF_ch2_stim.npy',
-            pixel_dFF2)
+    np.save(savepath / f'processed_data/{recname}_pixel_RI_stim.npy',
+            pixel_RI)
+    np.save(savepath / f'processed_data/{recname}_pixel_RI_ch2_stim.npy',
+            pixel_RI2)
     
-    # save F aligned 
+    # save aligned 
     np.save(savepath / f'processed_data/{recname}_pixel_F_aligned.npy',
             pixel_F_aligned)
     np.save(savepath / f'processed_data/{recname}_pixel_F2_aligned.npy',
             pixel_F2_aligned)
+    # np.save(savepath / f'processed_data/{recname}_pixel_dFF_aligned.npy',
+    #         pixel_dFF_aligned)
+    # np.save(savepath / f'processed_data/{recname}_pixel_dFF2_aligned.npy',
+    #         pixel_dFF2_aligned)
     
     # generate mean dFF release map as proxy for t-map, 24 June 2025 
-    print('computing mean release map...')
-    release_map = np.nanmean(pixel_dFF, axis=2)  # shape: (y, x)
-    release_map2 = np.nanmean(pixel_dFF2, axis=2)
+    print('Computing mean release map...')
+    release_map = np.nanmean(pixel_RI, axis=2)  # shape: (y, x)
+    release_map2 = np.nanmean(pixel_RI2, axis=2)
     
     # save map matrices 
     np.save(savepath / f'processed_data/{recname}_release_map.npy', release_map)
@@ -567,12 +611,12 @@ def main(path):
                      release_map2_rgb)
     
     # dispersion rate calculation, 10 Sept 2025 
-    print('calculating binned ratios (for dispersion rate analysis)...')
+    print('Calculating binned ratios (for dispersion rate analysis)...')
     all_bins_ch1 = []
     all_bins_ch2 = []
     
     for i, p in enumerate(valid_pulse_start_frames):
-        temp_F = mov[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
+        temp_F  = mov[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
         temp_F2 = mov2[p - BEF * SAMP_FREQ : p + AFT * SAMP_FREQ, :, :]
         
         trial_bins_ch1 = np.zeros((shape[1], shape[2], n_bins))
@@ -597,158 +641,15 @@ def main(path):
         all_bins_ch2.append(trial_bins_ch2)
     
     # average across trials → final shape (y, x, n_bins)
-    pixel_dFF_bins  = np.nanmean(np.stack(all_bins_ch1, axis=-1), axis=-1)
-    pixel_dFF2_bins = np.nanmean(np.stack(all_bins_ch2, axis=-1), axis=-1)
+    pixel_RI_bins  = np.nanmean(np.stack(all_bins_ch1, axis=-1), axis=-1)
+    pixel_RI2_bins = np.nanmean(np.stack(all_bins_ch2, axis=-1), axis=-1)
     
     # save arrays
-    np.save(savepath / f'processed_data/{recname}_pixel_dFF_bins.npy', pixel_dFF_bins)
-    np.save(savepath / f'processed_data/{recname}_pixel_dFF_ch2_bins.npy', pixel_dFF2_bins)
+    np.save(savepath / f'processed_data/{recname}_pixel_RI_bins.npy', pixel_RI_bins)
+    np.save(savepath / f'processed_data/{recname}_pixel_RI2_bins.npy', pixel_RI2_bins)
     
     
-    ## compute dF/F per pixel IF BEHAVIOUR (run-onset / baseline), 24 June 2025 
-    if txt['behaviour']:
-        print('behaviour session; compiling run-onset dFF dict...')
-        txt = bf.process_behavioural_data_imaging(txtpath)
-        run_onsets = txt['run_onset_frames']
-        stim_conds = [t[15] for t in txt['trial_statements']]
-        stim_idx = [trial for trial, cond in enumerate(stim_conds)
-                    if cond!='0']
-        stim_idx_et = [trial + 1 for trial in stim_idx if trial + 1 < len(run_onsets)]
-        
-        # new axes for run 
-        BASELINE_IDX_RUN = (TAXIS >= -1.0) & (TAXIS <= -0.15)
-        RUN_IDX = (TAXIS >= 0.15) & (TAXIS <= 1.0)
-        
-        run_onsets = [f for trial, f in enumerate(run_onsets)
-                      if not np.isnan(f) 
-                      and trial not in stim_idx and trial not in stim_idx_et
-                      and f > BEF*SAMP_FREQ
-                      and f < tot_frames - AFT*SAMP_FREQ]
-        
-        pixel_dFF_run = np.zeros((shape[1], shape[2], len(run_onsets)))
-        pixel_dFF_run2 = np.zeros_like(pixel_dFF_run)
-        for i, f in enumerate(run_onsets):
-            temp_F = mov[f-BEF*SAMP_FREQ : f+AFT*SAMP_FREQ, :, :]  # do it for all pixels simultaneously
-            temp_F2 = mov2[f-BEF*SAMP_FREQ : f+AFT*SAMP_FREQ, :, :]
-            
-            run_mean = np.mean(temp_F[RUN_IDX, :, :], axis=0)
-            prerun_mean = np.mean(temp_F[BASELINE_IDX_RUN, :, :], axis=0)
-            dFF_run = (run_mean - prerun_mean) / np.abs(prerun_mean)
-            dFF_run[np.abs(dFF_run) > 10] = np.nan
-            pixel_dFF_run[:, :, i] = dFF_run
-            
-            run_mean2 = np.mean(temp_F2[RUN_IDX, :, :], axis=0)
-            prerun_mean2 = np.mean(temp_F2[BASELINE_IDX_RUN, :, :], axis=0)
-            dFF_run2 = (run_mean2 - prerun_mean2) / np.abs(prerun_mean2)
-            dFF_run2[np.abs(dFF_run2) > 10] = np.nan
-            pixel_dFF_run2[:, :, i] = dFF_run2
-            
-        np.save(savepath / f'processed_data/{recname}_pixel_dFF_run.npy',
-                pixel_dFF)
-        np.save(savepath / f'processed_data/{recname}_pixel_dFF_ch2_run.npy',
-                pixel_dFF2)
-        
-        # compute mean run-onset aligned release maps
-        print('computing mean run-onset release map...')
-        release_map_run = np.nanmean(pixel_dFF_run, axis=2)
-        release_map_run2 = np.nanmean(pixel_dFF_run2, axis=2)
-
-        # save map matrices
-        np.save(savepath / f'processed_data/{recname}_release_map_run.npy', release_map_run)
-        np.save(savepath / f'processed_data/{recname}_release_map_run_ch2.npy', release_map_run2)
-
-        ## plotting - run release map ch 2
-        vmin = np.nanpercentile(release_map_run, 1)
-        vmax = np.nanpercentile(release_map_run, 99)
-        
-        # edge case check
-        if vmin >= 0:
-            # no negatives: force vmin = 0, keep vmax
-            vmin = -.01
-        if vmax <= 0:
-            vmax = .01
-        
-        norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-        
-        # plotting
-        fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-
-        # panel 1: channel 1 reference
-        axs[0].imshow(ref, cmap='gray', interpolation='none')
-        axs[0].set_title('channel 1', fontsize=10)
-        axs[0].axis('off')
-
-        # panel 2: channel 2 reference
-        axs[1].imshow(ref2, cmap='gray', interpolation='none')
-        axs[1].set_title('channel 2', fontsize=10)
-        axs[1].axis('off')
-
-        # panel 3: run-aligned release map heatmap
-        im = axs[2].imshow(release_map_run, cmap='RdBu_r', norm=norm, interpolation='none')
-        axs[2].set_title('run-onset / baseline (mean)', fontsize=10)
-        axs[2].axis('off')
-
-        cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
-        cbar.set_label('ΔF/F ratio', fontsize=10)
-        cbar.set_ticks([vmin, 0, vmax])
-
-        fig.tight_layout()
-
-        for ext in ['.png', '.pdf']:
-            fig.savefig(
-                savepath / f'{recname}_release_map_run{ext}',
-                dpi=300,
-                bbox_inches='tight'
-            )
-        
-            
-        ## plotting - run release map ch 2
-        vmin = np.nanpercentile(release_map_run2, 1)
-        vmax = np.nanpercentile(release_map_run2, 99)
-        
-        # edge case check
-        if vmin >= 0:
-            vmin = -.001
-        if vmax <= 0:
-            vmax = .001
-            
-        norm = TwoSlopeNorm(vcenter=0, vmin=vmin, vmax=vmax)
-            
-        fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-        
-        # panel 1: channel 1 reference
-        axs[0].imshow(ref, cmap='gray', interpolation='none')
-        axs[0].set_title('channel 1', fontsize=10)
-        axs[0].axis('off')
-        
-        # panel 2: channel 2 reference
-        axs[1].imshow(ref2, cmap='gray', interpolation='none')
-        axs[1].set_title('channel 2', fontsize=10)
-        axs[1].axis('off')
-        
-        # panel 3: release map heatmap
-        im = axs[2].imshow(release_map_run2, cmap='RdBu_r', norm=norm, interpolation='none')
-        axs[2].set_title('stim / baseline (mean)', fontsize=10)
-        axs[2].axis('off')
-        
-        # colourbar for panel 3
-        cbar = fig.colorbar(im, ax=axs[2], shrink=0.8, fraction=0.046, pad=0.04)
-        cbar.set_label('ΔF/F ratio', fontsize=10)
-        cbar.set_ticks([vmin, 0, vmax])
-        
-        fig.tight_layout()
-        
-        for ext in ['.png', '.pdf']:
-            fig.savefig(
-                savepath / f'{recname}_release_map_run_ch2{ext}',
-                dpi=300,
-                bbox_inches='tight'
-            )
-        
-    else:
-        print('session with no behaviour; finishing...')
-    
-    # axon-only imaging session check and processing 
+    ## ---- axon-only imaging session check and processing 
     axon_only_folder = path + '_1100'
     if Path(axon_only_folder).exists():  # if we have a 1100-nm wavelength session 
         print(f'axon-only recording found: {axon_only_folder}')
@@ -792,9 +693,10 @@ def main(path):
             
             np.save(savepath / f'processed_data/{recname}_ref_mat_1100nm.npy', 
                     reference_axon_only)
+    ## ---- axon only reference map ends
     
 
 #%% execute 
 if __name__ == '__main__':
-    for path in paths[53:60]:
+    for path in paths[31:]:
         main(path)

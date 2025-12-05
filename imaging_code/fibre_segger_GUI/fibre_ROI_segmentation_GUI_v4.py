@@ -12,6 +12,9 @@ Updated on Fri 18 Apr 14:50:12 2025
 Updated on Thur 27 Nov 2025 
     patch note:
         - now includes a 'fix' functionality to fix ROI in the dict 
+        - added 'remove fixed' and 'clear board' utilities
+        - auto-fix all ROIs when auto-loading ROI dict for a ref image
+        - space bar now toggles the ROI overlay checkbox
 
 GUI for sorting fibres detected with MSER pipeline
 
@@ -164,7 +167,7 @@ def enhance_contrast_u8(img, tophat_kernel=11, clahe_clip=2.0):
 class ROIEditor(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('fibre-segger v3.0')
+        self.setWindowTitle('fibre-segger v4.0')
         self.showMaximized()
         self.ref_image = None
         self.roi_dict = {}
@@ -200,34 +203,34 @@ class ROIEditor(QMainWindow):
         self.param_inputs = {}
         grid = QGridLayout()
         param_names = [
-            'clip-percentile',         # 95–99
-            'MSER threshold',          # percentile
-            'MSER max variation',      # 0.5–2.0
-            'MSER delta',              # 3–8
-            'MSER min area',           # 20–200
-            'MSER max area',           # 5000–20000
-            'area min',                # 50–300
-            'aspect ratio min',        # 1.2–1.8
             'solidity min',            # lower for more promiscuous 
             'eccentricity min',        # 0.65–0.9
             'thinness max',            # 0.6–0.9  (circularity; higher = more lenient)
             'tophat kernel',           # 3–17 (odd)
-            'clahe clip'               # 1.0–3.0
+            'clahe clip'     ,         # 1.0–3.0
+            'MSER max variation',      # 0.5–2.0
+            'MSER delta',              # 3–8
+            'MSER min area',           # 20–200
+            'MSER max area',           # 5000–20000
+            'aspect ratio min',        # 1.2–1.8
+            'clip-percentile',         # 95–99
+            'area min',                # 50–300
+            'MSER threshold'           # percentile
         ]
         defaults = [
-            99,
-            80,
-            1.2,
-            5,
-            30,
-            15000,
-            100,
-            1.4,
             0.1,
             0.75,
             0.8,
             11,
-            2.0
+            2.0,
+            1.2,
+            5,
+            30,
+            15000,
+            1.2,
+            99,
+            30,
+            85
         ]
         for i, (name, default) in enumerate(zip(param_names, defaults)):
             label = QLabel(name)
@@ -381,11 +384,10 @@ class ROIEditor(QMainWindow):
         print('removed all fixed ROIs')
         
     def keyPressEvent(self, event):
-        # use space to turn on and off view
+        # space toggles the ROI overlay checkbox directly
         if event.key() == Qt.Key_Space:
-            self.show_overlay = not self.show_overlay
-            self.overlay_toggle.setChecked(self.show_overlay)
-            self.plot_image(preserve_view=True)
+            self.overlay_toggle.setChecked(not self.overlay_toggle.isChecked())
+            return
         
         # use delete to delete selected roi
         if event.key() == Qt.Key_Delete:
@@ -428,8 +430,9 @@ class ROIEditor(QMainWindow):
                         for roi_id, coords in self.roi_dict.items():
                             self.labelled[coords['ypix'], coords['xpix']] = roi_id
                         self.selected.clear()
-                        self.fixed_ids.clear()
                         self.undo_stack.clear()
+                        # auto-fix all rois that came from this dict
+                        self.fixed_ids = set(self.roi_dict.keys())
                         self.plot_image()
                         self.canvas.reset_view()
                         self.append_output(f'ROI dict loaded automatically from {roi_dict_path}\n')
@@ -455,7 +458,7 @@ class ROIEditor(QMainWindow):
             for roi_id, coords in self.roi_dict.items():
                 self.labelled[coords['ypix'], coords['xpix']] = roi_id
             self.selected.clear()
-            self.fixed_ids.clear()
+            self.fixed_ids.clear()   # manual load keeps them editable by default
             self.undo_stack.clear()
             self.plot_image()
             self.canvas.reset_view()

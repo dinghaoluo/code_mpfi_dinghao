@@ -15,7 +15,8 @@ systematic ROI dilation analysis for dLight LC opto
 from pathlib import Path
 
 import numpy as np
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
+from tqdm import tqdm  
 from scipy.stats import ttest_1samp, friedmanchisquare, wilcoxon, mannwhitneyu
 from statsmodels.stats.multitest import multipletests
 from scipy.ndimage import binary_dilation
@@ -65,31 +66,36 @@ WINDOW_BINS = {
 # initialise containers
 dilation_results_all = {w: {} for w in WINDOW_BINS.keys()}
 
-for path in paths[:20]:
+for path in paths:
     recname = Path(path).name
     print(f'\n{recname}')
 
-    pixel_dFF_bins_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_dFF_bins.npy'
-    roi_dict_path = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
+    pixel_RI_path      = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_bins.npy'
+    pixel_RI_stim_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_stim.npy'
+    roi_dict_path      = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
 
-    if not pixel_dFF_bins_path.exists():
-        print('No pixel_dFF_bins; skipped')
+    if not pixel_RI_path.exists():
+        print('No pixel_RI_bins; skipped')
+        continue
+    if not pixel_RI_stim_path.exists():
+        print('No pixel_dFF_stim; skipped')
         continue
     if not roi_dict_path.exists():
         print('No roi_dict; skipped')
         continue
 
     # load data
-    print('loading data...')
-    pixel_dFF_bins = np.load(pixel_dFF_bins_path, allow_pickle=True)  # (512,512,40)
-    roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
+    print('Loading data...')
+    pixel_RI_bins = np.load(pixel_RI_path, allow_pickle=True)  # (512,512,40)
+    pixel_RI_stim = np.load(pixel_RI_stim_path, allow_pickle=True)
+    roi_dict      = np.load(roi_dict_path, allow_pickle=True).item()
     
     # identify releasing ROIs (using whole 0–4 s median)
-    print(f'identifying releasing ROIs with alpha={ALPHA}...')
-    pixel_dFF_med = np.median(pixel_dFF_bins, axis=2)
+    print(f'Identifying releasing ROIs with alpha={ALPHA}...')
+    pixel_RI_med = np.median(pixel_RI_stim, axis=2)
     releasing_rois = {}
     for roi_id, roi in roi_dict.items():
-        roi_vals = pixel_dFF_med[roi['ypix'], roi['xpix']]
+        roi_vals = pixel_RI_med[roi['ypix'], roi['xpix']]
         if np.all(np.isfinite(roi_vals)) and len(roi_vals) > 2:
             _, p_val = ttest_1samp(roi_vals, popmean=0, alternative='greater')
             if p_val < ALPHA:
@@ -103,8 +109,9 @@ for path in paths[:20]:
     all_roi_mask[all_roi_y, all_roi_x] = True
     
     # now we loop over all the rois with collision exclusion
-    print(f'looping over {len(releasing_rois)} ROIs...')
-    for roi_id, roi in releasing_rois.items():
+    for roi_id, roi in tqdm(releasing_rois.items(),
+                            total=len(releasing_rois),
+                            desc='Looping over ROIs'):
         base_mask = np.zeros((512, 512), dtype=bool)
         base_mask[roi['ypix'], roi['xpix']] = True
 
@@ -122,15 +129,15 @@ for path in paths[:20]:
 
             # now extract per-window medians
             for wname, bins in WINDOW_BINS.items():
-                vals = pixel_dFF_bins[:, :, bins][ring_masks[dilation]]  # shape: (#pixels × #bins)
-                val_median = np.median(vals)  # collapse across pixels & time bins
+                vals = pixel_RI_bins[:, :, bins][ring_masks[dilation]]  # shape: (#pixels × #bins)
+                val_mean = np.nanmean(vals)  # collapse across pixels & time bins
 
                 if roi_id not in dilation_results_all[wname]:
                     dilation_results_all[wname][roi_id] = {}
                 if dilation not in dilation_results_all[wname][roi_id]:
                     dilation_results_all[wname][roi_id][dilation] = []
 
-                dilation_results_all[wname][roi_id][dilation].append(val_median)
+                dilation_results_all[wname][roi_id][dilation] = val_mean 
                 
         # plot ring masks 
         fig, axes = plt.subplots(1, len(ring_masks), figsize=(12, 2))
@@ -149,120 +156,6 @@ for path in paths[:20]:
         plt.close(fig)
 
 
-#%% statistics + plotting
-# for wname, results in dilation_results_all.items():
-#     print(f'\nCurrent window: {wname}')
-
-#     # collapse to medians per ROI × dilation
-#     roi_meds = {}
-#     for roi_id, ring_dLight in results.items():
-#         dvals = {d: np.median(vals) for d, vals in ring_dLight.items()}
-#         if all(np.isfinite(val) for val in dvals.values()):
-#             roi_meds[roi_id] = dvals
-
-#     # collect per-dilation values
-#     per_dilation = {d: [] for d in sorted(next(iter(roi_meds.values())).keys())}
-#     for roi_id, dvals in roi_meds.items():
-#         for d, val in dvals.items():
-#             per_dilation[d].append(val)
-
-#     dilations = sorted(per_dilation.keys())
-#     data = [np.array(per_dilation[d]).ravel() for d in dilations]
-
-#     # Friedman test across dilations
-#     vals_matrix = np.array([[dvals[d] for d in dilations] for dvals in roi_meds.values()])
-#     friedman_stat, friedman_p = friedmanchisquare(
-#         *[vals_matrix[:, j] for j in range(vals_matrix.shape[1])]
-#     )
-#     print(f'Friedman test across dilations ({wname}): χ²={friedman_stat:.2f}, p={friedman_p:.3e}')
-
-#     # pairwise Wilcoxon tests vs base (0 px)
-#     pvals = {}
-#     for j, d in enumerate(dilations[1:], start=1):
-#         stat, p = wilcoxon(vals_matrix[:,0], vals_matrix[:,j], alternative='greater')
-#         pvals[d] = p
-#         print(f'd=0 vs d={d} ({wname}): Wilcoxon W={stat}, p={p:.3e}')
-
-#     # plotting 
-#     fig, ax = plt.subplots(figsize=(4,3))
-#     parts = ax.violinplot(data, positions=dilations, widths=1.2,
-#                           showmeans=False, showextrema=False)
-
-#     # style violins
-#     for pc in parts['bodies']:
-#         pc.set_facecolor('darkgreen')
-#         pc.set_edgecolor('none')
-#         pc.set_alpha(0.6)
-
-#     # thin ROI trajectories
-#     for roi_id, dvals in roi_meds.items():
-#         xs = dilations
-#         ys = [dvals[d] for d in xs]
-#         ax.plot(xs, ys, color='gray', alpha=0.08, linewidth=0.8)
-#         ax.scatter(xs, ys, color='black', s=1, alpha=0.07)
-        
-#     # cosmetics
-#     ax.set_xticks(dilations)
-#     ax.set_xlabel('dilation (px)')
-#     ax.set_ylabel('median dLight (a.u.)')
-#     ax.set_ylim((-.05, .8))
-#     ax.set_title(f'ROI-median dLight per dilation ring ({wname})\n'
-#                  f'Friedman χ²={friedman_stat:.2f}, p={friedman_p:.3e}')
-    
-#     for s in ['top', 'right', 'bottom']:
-#         ax.spines[s].set_visible(False)
-    
-#     # annotate
-#     y_max = max([max(vals) for vals in data if len(vals) > 0])
-#     y_step = 0.02
-#     for i, d in enumerate(dilations[1:], start=1):
-#         p = pvals[d]
-#         y = y_max + i*y_step
-#         if p < 0.0001:
-#             star = '****'
-#         elif p < 0.001:
-#             star = '***'
-#         elif p < 0.01:
-#             star = '**'
-#         elif p < 0.05:
-#             star = '*'
-#         else:
-#             star = 'n.s.'
-#         ax.text((dilations[0]+d)/2, y + 0.01*y_max, star,
-#                 ha='center', va='bottom', fontsize=10)
-
-#     plt.tight_layout()
-#     plt.show()
-    
-#     for ext in ['.png', '.pdf']:
-#         fig.savefig(save_stem / f'dilation_analysis_{wname}{ext}',
-#                     dpi=300,
-#                     bbox_inches='tight')
-
-    
-#%% inspect example ring masks 
-example_ids = list(releasing_rois.keys())[-10:]
-
-fig, axes = plt.subplots(len(example_ids), MAX_DILATE+1, figsize=(3*(MAX_DILATE+1), 3*len(example_ids)))
-
-if len(example_ids) == 1:
-    axes = [axes]
-
-for r, roi_id in enumerate(example_ids):
-    for d, dilation in enumerate(range(0, MAX_DILATE+1, DILATE_STEP)):
-        ax = axes[r][d] if len(example_ids) > 1 else axes[d]
-        
-        #---change this line to change the mask type
-        mask_img = ring_masks[dilation].astype(int)
-        
-        ax.imshow(mask_img, cmap='gray')
-        ax.set_title(f'ROI {roi_id}, d={dilation}')
-        ax.axis('off')
-
-plt.tight_layout()
-plt.show()
-
-
 #%% plotting with Jingyu's median plot
 # global y range for plotting 
 global_ymin, global_ymax = -0.05, 0.5
@@ -273,9 +166,8 @@ for wname, results in dilation_results_all.items():
     # build ROI × dilation matrix
     roi_meds = {}
     for roi_id, ring_dLight in results.items():
-        dvals = {d: np.median(vals) for d, vals in ring_dLight.items()}
-        if all(np.isfinite(val) for val in dvals.values()):
-            roi_meds[roi_id] = dvals
+        if all(np.isfinite(val) for val in ring_dLight.values()):
+            roi_meds[roi_id] = ring_dLight
 
     if not roi_meds:
         print(f'No valid ROIs for {wname}, skipped.')
@@ -341,7 +233,7 @@ for wname, results in dilation_results_all.items():
 
     # cosmetics
     ax.spines[['top', 'right']].set_visible(False)
-    ax.set(xlabel='dilation (px)', ylabel='median dLight (a.u.)')
+    ax.set(xlabel='Dilation (px)', ylabel='Mean dLight (a.u.)')
     ax.set_ylim(global_ymin, global_ymax)
 
     # bracket annotation inline

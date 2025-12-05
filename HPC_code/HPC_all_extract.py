@@ -23,6 +23,7 @@ from pathlib import Path
 
 import h5py
 import scipy.io as sio 
+import mat73
 from tqdm import tqdm
 from time import time
 from datetime import timedelta
@@ -86,6 +87,13 @@ def main(path):
     # spike file paths 
     clu_paths = [rec_stem / f'{recname}.clu.{probe}' for probe in range(1,7)]
     res_paths = [rec_stem / f'{recname}.res.{probe}' for probe in range(1,7)]
+    
+    # get cluname 
+    filename = Path(path) / f'{recname}_BehavElectrDataLFP.mat'
+    BehavLFP = mat73.loadmat(filename)
+    Clu = BehavLFP['Clu']
+    shank = Clu['shank']
+    localClu = Clu['localClu']
     
     # check
     if (not aligned_run_path.exists()
@@ -169,7 +177,7 @@ def main(path):
         rasters_rew_gpu = xp.zeros_like(rasters_run_gpu)
         rasters_cue_gpu = xp.zeros_like(rasters_run_gpu)
         
-        for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
+        for clu in tqdm(range(tot_clu), desc='Generating spike array (GPU)'):
             for trial in range(tot_trials):
                 run_x0 = max(run_onsets[trial] - BEF*SAMP_FREQ, 0)
                 run_x1 = min(run_onsets[trial] + AFT*SAMP_FREQ, max_time)
@@ -191,7 +199,7 @@ def main(path):
         rasters_rew = xp.zeros_like(rasters_run)
         rasters_cue = xp.zeros_like(rasters_run)
         
-        for clu in tqdm(range(tot_clu), desc='generating spike array (GPU)'):
+        for clu in tqdm(range(tot_clu), desc='Generating spike array (GPU)'):
             for trial in range(tot_trials):
                 run_x0 = max(run_onsets[trial] - BEF*SAMP_FREQ, 0)
                 run_x1 = min(run_onsets[trial] + AFT*SAMP_FREQ, max_time)
@@ -226,7 +234,7 @@ def main(path):
         rasters_cue = rasters_cue_gpu.get()
         
         print(
-            'convolution on GPU done in '
+            'Convolution on GPU done in '
             f'{str(timedelta(seconds=int(time() - t0)))} s')
     else:
         # CPU convolution using SciPy's FFT-based convolution for better performance
@@ -244,11 +252,11 @@ def main(path):
             ) * SAMP_FREQ
         
         print(
-            'convolution on CPU done in '
+            'Convolution on CPU done in '
             f'{str(timedelta(seconds=int(time() - t0)))} s')
     
     for clu in range(tot_clu):
-        cluname = f'{recname} clu{clu+2}'
+        cluname = f'{recname} clu{clu+2} {int(shank[clu])} {int(localClu[clu])}'
 
         all_trains_run[cluname] = trains_run[clu]
         all_rasters_run[cluname] = rasters_run[clu]
@@ -260,7 +268,7 @@ def main(path):
         all_rasters_cue[cluname] = rasters_cue[clu]
         
     # smooth entire spike map for all clusters
-    print('smoothing full spike maps...')
+    print('Smoothing full spike maps...')
     if GPU_AVAILABLE:
         spike_map_gpu = cp.asarray(spike_map)
         smoothed_spike_map = (cpss.fftconvolve(
@@ -272,8 +280,9 @@ def main(path):
             spike_map, GAUS_SPIKE[None, :], mode='same'
             ) * SAMP_FREQ
     
-    print('done; saving...')
+    print('Done; saving...')
     sess_stem = Path('Z:/Dinghao/code_dinghao/HPC_ephys/all_sessions') / recname
+    sess_stem.mkdir(exist_ok=True)
     np.save(
         sess_stem / f'{recname}_all_trains_run.npy',
         all_trains_run
@@ -295,7 +304,7 @@ def main(path):
         all_trains_cue
         )
     np.save(
-        sess_stem / '{recname}_all_rasters_cue.npy',
+        sess_stem / f'{recname}_all_rasters_cue.npy',
         all_rasters_cue
         )
     np.save(
@@ -306,5 +315,5 @@ def main(path):
           f'({str(timedelta(seconds=int(time() - t0)))})\n')
     
 if __name__ == '__main__':
-    for path in paths[41:]:
+    for path in paths:
         main(path)
