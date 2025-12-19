@@ -13,16 +13,27 @@ from pathlib import Path
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pickle 
-from scipy.stats import sem 
+from scipy.stats import sem, ttest_1samp, wilcoxon
 
 from common import mpl_formatting, replace_outlier, smooth_convolve
 mpl_formatting()
 
-
-#%% path list 
 import rec_list
 
-remove_recs = [
+
+#%% paths and parameters 
+all_beh_stem  = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments')
+all_sess_stem = Path('Z:/Dinghao/code_dinghao/behaviour/session_profiles')
+
+N_SHUF  = 500
+RAMP_T0 = 2.0
+RAMP_T1 = 4.0
+i0 = int(RAMP_T0 * 1000)
+i1 = int(RAMP_T1 * 1000)
+
+
+#%% bad behaviour exclusion 
+remove_recnames = [
     'A060r-20230602-01',
     'A062r-20230626-01',
     
@@ -102,15 +113,18 @@ remove_recs = [
 all_speed_time_curves = []
 all_lick_time_curves = []
 
+# predictive licking containers 
+all_real_slopes = []
+all_shuf_means  = []
+all_shuf_stds   = []
+
 for exp_name in ['HPCLC', 
                  'HPCLCterm', 
                  'LC', 
                  'HPCGRABNE', 
                  'LCHPCGCaMP',
                  'HPCdLightLCOpto']:
-    datapath_stem = os.path.join(
-        r'Z:\Dinghao\code_dinghao\behaviour\all_experiments', exp_name
-        )
+    beh_stem = all_beh_stem / exp_name
     if exp_name == 'HPCLC':
         paths = rec_list.pathHPCLCopt
     elif exp_name == 'HPCLCterm':
@@ -124,21 +138,19 @@ for exp_name in ['HPCLC',
     elif exp_name == 'HPCdLightLCOpto':
         paths = rec_list.pathdLightLCOpto
         
-    os.makedirs(
-        rf'Z:\Dinghao\code_dinghao\behaviour\session_profiles\{exp_name}', 
-        exist_ok=True
-        )
+    exp_stem = all_sess_stem / exp_name
     
     for path in paths:
-        recname = path[-17:]
+        recname = Path(path).name
         
-        if recname in remove_recs:
-            print(f'\nskipping {recname}')
+        if recname in remove_recnames:
+            print(f'\n{recname}\nSkipped')
             continue 
         
         print(f'\n{recname}')
         
-        with open(os.path.join(datapath_stem, f'{recname}.pkl'), 'rb') as f:
+        beh_path = beh_stem / f'{recname}.pkl'
+        with open(beh_path, 'rb') as f:
             try:
                 beh = pickle.load(f)
             except EOFError:
@@ -147,12 +159,7 @@ for exp_name in ['HPCLC',
         if not beh['run_onsets']:
             print(f'{recname} is an immobile session; skipped')
             continue 
-        
-        output_path = os.path.join(
-            r'Z:\Dinghao\code_dinghao\behaviour\session_profiles', 
-            exp_name, recname
-            )
-        
+                
         # speed (temporal)
         speed_times_aligned = beh['speed_times_aligned']
         speed_aligned = [replace_outlier(np.array([s[1] for s in trial])) 
@@ -190,7 +197,7 @@ for exp_name in ['HPCLC',
         mean_lick_maps = np.nanmean(lick_maps, axis=0)
         sem_lick_maps = sem(lick_maps, axis=0, nan_policy='omit')
         lick_distance_axis = np.arange(2200) / 10
-        
+                
         # licks (temporal)
         lick_times = beh['lick_times_aligned']
         tot_trials = sum([1 for trial in lick_times if isinstance(trial, list)])
@@ -208,6 +215,55 @@ for exp_name in ['HPCLC',
         mean_lick_times_maps = np.nanmean(lick_times_map, axis=0)
         sem_lick_times_maps = sem(lick_times_map, axis=0)
         lick_times_axis = np.arange(5000) / 1000
+        
+        # -------------------------------
+        # predictive ramp quantification 
+        # -------------------------------
+        x = lick_times_axis[i0:i1]
+        y = mean_lick_times_maps[i0:i1]
+        
+        if np.all(np.isnan(y)):
+            real_slope = np.nan
+        else:
+            real_slope = np.polyfit(x, y, 1)[0]
+            
+        shuf_slopes = []
+        for _ in range(N_SHUF):
+        
+            # circularly shift EACH TRIAL'S temporal lick trace
+            shuf = np.array([
+                np.roll(tr, np.random.randint(tr.size))
+                for tr in lick_times_map
+            ])
+        
+            # average across trials
+            shuf_mean = np.nanmean(shuf, axis=0)
+            y_shuf = shuf_mean[i0:i1]
+        
+            if np.all(np.isnan(y_shuf)):
+                slope_shuf = np.nan
+            else:
+                slope_shuf = np.polyfit(x, y_shuf, 1)[0]
+        
+            shuf_slopes.append(slope_shuf)
+        
+        shuf_slopes = np.array(shuf_slopes)
+        shuf_slopes = shuf_slopes[~np.isnan(shuf_slopes)]
+        
+        if len(shuf_slopes) > 2:
+            shuf_mean = np.mean(shuf_slopes)
+            shuf_std  = np.std(shuf_slopes)
+        else:
+            shuf_mean = np.nan
+            shuf_std  = np.nan
+        
+        # store
+        all_real_slopes.append(real_slope)
+        all_shuf_means.append(shuf_mean)
+        all_shuf_stds.append(shuf_std)
+        # ------------------------------------
+        # predictive ramp quantification ends 
+        # ------------------------------------
         
         # store for global average (clip to 5000 samples = 5 s)
         all_speed_time_curves.append(mean_speed_times[:5000])
@@ -258,9 +314,9 @@ for exp_name in ['HPCLC',
                        zorder=10)
         ymax = max(mean_lick_maps+sem_lick_maps)*1.01
         if np.isnan(ymax): ymax=0  # for some reason one recording has nan licks...
-        axs[2].set(xlabel='distance (cm)', 
+        axs[2].set(xlabel='Distance (cm)', 
                    xticks=[90, 180],
-                   ylabel='licks',
+                   ylabel='Licks',
                    ylim=(0, ymax))
         for i in range(3):
             for s in ['top', 'right']:
@@ -272,7 +328,7 @@ for exp_name in ['HPCLC',
         plt.show()
         
         for ext in ['.png', '.pdf']:
-            fig.savefig(rf'{output_path}_dist{ext}',
+            fig.savefig(exp_stem / f'{recname}_dist{ext}',
                         dpi=300,
                         bbox_inches='tight')
             
@@ -302,19 +358,19 @@ for exp_name in ['HPCLC',
         ax.spines['top'].set_visible(False)
         axt.spines['top'].set_visible(False)
         
-        ax.set(xlabel='distance (cm)',
+        ax.set(xlabel='Distance (cm)',
                xlim=(0, 220),
-               ylabel='speed (cm/s)',
+               ylabel='Speed (cm/s)',
                ylim=(0, max(mean_speeds_distances)*1.1))
         axt.set(xlim=(0, 220),
-                ylabel='licks',
+                ylabel='Licks',
                 ylim=(0, max(mean_lick_maps)*1.1))
         
         fig.tight_layout()
         plt.show()
         
         for ext in ['.png', '.pdf']:
-            fig.savefig(rf'{output_path}_overlay_dist{ext}',
+            fig.savefig(exp_stem / f'{recname}_overlay_dist{ext}',
                         dpi=300,
                         bbox_inches='tight')
             
@@ -341,19 +397,19 @@ for exp_name in ['HPCLC',
         ax.spines['top'].set_visible(False)
         axt.spines['top'].set_visible(False)
         
-        ax.set(xlabel='time from run-onset (5)',
+        ax.set(xlabel='Time from run-onset (s)',
                xlim=(0, 5),
-               ylabel='speed (cm/s)',
+               ylabel='Speed (cm/s)',
                ylim=(0, max(mean_speed_times)*1.1))
         axt.set(xlim=(0, 5),
-                ylabel='lick rate (Hz)',
+                ylabel='Lick rate (Hz)',
                 ylim=(0, max(mean_lick_times_maps)*1.1))
         
         fig.tight_layout()
         plt.show()
         
         for ext in ['.png', '.pdf']:
-            fig.savefig(rf'{output_path}_overlay_time{ext}',
+            fig.savefig(exp_stem / f'{recname}_overlay_time{ext}',
                         dpi=300,
                         bbox_inches='tight')
             
@@ -386,7 +442,7 @@ axt.fill_between(lick_times_axis, mean_lick_group + sem_lick_group,
 ax.spines['top'].set_visible(False)
 axt.spines['top'].set_visible(False)
 
-ax.set(xlabel='time from run-onset (s)',
+ax.set(xlabel='Time from run-onset (s)',
        xlim=(0, 5),
        ylabel='speed (cm/s)',
        ylim=(0, np.nanmax(mean_speed_group)*1.1))
@@ -400,7 +456,70 @@ plt.show()
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        rf'Z:\Dinghao\code_dinghao\behaviour\session_profiles\mean_overlay_time{ext}',
+        all_sess_stem  / f'mean_overlay_time{ext}',
         dpi=300, bbox_inches='tight'
     )
 plt.close(fig)
+
+
+#%% predictive temporal lick ramp group statistics
+tval, p_t = ttest_1samp(all_real_slopes, 0)
+wstat, p_w = wilcoxon(all_real_slopes)
+
+fig, ax = plt.subplots(figsize=(1.6, 2.2))
+
+# violin
+parts = ax.violinplot(all_real_slopes, positions=[1],
+                      showmeans=False, showmedians=True, showextrema=False)
+for pc in parts['bodies']:
+    pc.set_facecolor('orchid')
+    pc.set_edgecolor('none')
+    pc.set_alpha(0.35)
+parts['cmedians'].set_color('k')
+parts['cmedians'].set_linewidth(1.2)
+
+# scatter individual r's
+ax.scatter(np.ones(len(all_real_slopes)), all_real_slopes,
+           color='orchid', ec='none', s=10, alpha=0.5, zorder=3)
+
+# shuffle + CI
+shuf_mean = np.nanmean(all_shuf_means)
+shuf_std  = np.nanmean(all_shuf_stds)
+
+lower_95 = shuf_mean - 1.96 * shuf_std
+upper_95 = shuf_mean + 1.96 * shuf_std
+
+ax.axhline(shuf_mean, color='gray', lw=1, ls='--')
+
+ax.fill_between(
+    [0, 2],
+    lower_95, upper_95,
+    color='gray', alpha=0.2, edgecolor='none', zorder=0
+)
+
+mean_r, sem_r = np.nanmean(all_real_slopes), sem(all_real_slopes)
+ymax = np.max(all_real_slopes)
+ax.text(1, ymax + 0.05*(ymax - np.min(all_real_slopes)),
+        f'{mean_r:.2f} ± {sem_r:.2f}',
+        ha='center', va='bottom', fontsize=7, color='orchid')
+
+ax.text(1, np.min(all_real_slopes) - 0.10*(ymax - np.min(all_real_slopes)),
+        f't(1-samp)={tval:.2f}, p={p_t:.2e}\n'
+        f'Wilcoxon={wstat:.2f}, p={p_w:.2e}',
+        ha='center', va='top', fontsize=6.5, color='black')
+
+# formatting
+ax.set(xlim=(0.5, 1.5), xticks=[],
+       ylabel='Predictive lick slope (Hz/s)',
+       title='Predictive lick slope')
+ax.spines[['top', 'right', 'bottom']].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+
+for ext in ['.pdf', '.png']:
+    fig.savefig(
+        all_sess_stem / f'predictive_lick_slope_2to4_violinplot{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )

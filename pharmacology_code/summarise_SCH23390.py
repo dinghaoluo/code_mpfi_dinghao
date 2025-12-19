@@ -11,8 +11,6 @@ summarise pharmacological experiments with SCH23390
 #%% imports 
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
-import scipy.io as sio
 from scipy.stats import sem, ttest_rel
 
 from common import mpl_formatting, replace_outlier, smooth_convolve

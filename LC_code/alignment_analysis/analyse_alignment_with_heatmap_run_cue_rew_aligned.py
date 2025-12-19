@@ -1,18 +1,24 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Jul 20 17:53:46 2025
+Modified on 5 Dec 2025 
 
 plot population heatmap, but aligned to cue and rew
+modified to include statistics
 
 @author: Dinghao Luo
 """
 
 #%% imports 
+from pathlib import Path 
+
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pandas as pd
 import pickle 
 from tqdm import tqdm
+from statsmodels.stats.proportion import proportions_ztest
+from scipy.stats import fisher_exact
 
 import rec_list
 paths = rec_list.pathLC
@@ -49,8 +55,8 @@ sess_put_peaks_cue = {}
 sess_put_peaks_rew = {}
 
 for path in paths:
-    recname = path[-17:]
-    print(recname)
+    recname = Path(path).name
+    print(f'\n{recname}')
     
     sess_folder = rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions\{recname}'
     
@@ -586,3 +592,79 @@ for ext in ['.png', '.pdf']:
         rf'Z:\Dinghao\code_dinghao\LC_ephys\population_maps\peak_proximity_bar{ext}',
         dpi=300,
         bbox_inches='tight')
+    
+    
+#%% statistics for alignment test
+n_tagged = len(all_tagged_run_sorted)
+
+# convert proportions back to counts
+k_run = int(p_tagged_run * n_tagged)
+k_cue = int(p_tagged_cue * n_tagged)
+k_rew = int(p_tagged_rew * n_tagged)
+
+print('\n--- TAGGED LC: counts and proportions ---')
+print(f'run-aligned:    {k_run}/{n_tagged}  ({k_run/n_tagged*100:.2f}%)')
+print(f'cue-aligned:    {k_cue}/{n_tagged}  ({k_cue/n_tagged*100:.2f}%)')
+print(f'reward-aligned: {k_rew}/{n_tagged}  ({k_rew/n_tagged*100:.2f}%)')
+
+# Two-proportion z-tests
+# run vs cue
+stat_run_cue, p_run_cue = proportions_ztest(
+    [k_run, k_cue],
+    [n_tagged, n_tagged]
+)
+
+# run vs reward
+stat_run_rew, p_run_rew = proportions_ztest(
+    [k_run, k_rew],
+    [n_tagged, n_tagged]
+)
+
+# cue vs reward
+stat_cue_rew, p_cue_rew = proportions_ztest(
+    [k_cue, k_rew],
+    [n_tagged, n_tagged]
+)
+
+print('\n--- Two-proportion z-tests (tagged LC) ---')
+print(f'run vs cue:    z = {stat_run_cue:.3f}, p = {p_run_cue:.3e}')
+print(f'run vs reward: z = {stat_run_rew:.3f}, p = {p_run_rew:.3e}')
+print(f'cue vs reward: z = {stat_cue_rew:.3f}, p = {p_cue_rew:.3e}')
+
+
+#%% same but for putative Dbh+
+n_put = len(all_putative_run_sorted)
+
+# convert proportions back to counts
+k_put_run = int(p_put_run * n_put)
+k_put_cue = int(p_put_cue * n_put)
+k_put_rew = int(p_put_rew * n_put)
+
+print('\n--- PUTATIVE LC: counts and proportions ---')
+print(f'run-aligned:    {k_put_run}/{n_put}  ({k_put_run/n_put*100:.2f}%)')
+print(f'cue-aligned:    {k_put_cue}/{n_put}  ({k_put_cue/n_put*100:.2f}%)')
+print(f'reward-aligned: {k_put_rew}/{n_put}  ({k_put_rew/n_put*100:.2f}%)')
+
+# Two-proportion z-tests
+# run vs cue
+stat_put_run_cue, p_put_run_cue = proportions_ztest(
+    [k_put_run, k_put_cue],
+    [n_put, n_put]
+)
+
+# run vs reward
+stat_put_run_rew, p_put_run_rew = proportions_ztest(
+    [k_put_run, k_put_rew],
+    [n_put, n_put]
+)
+
+# cue vs reward
+stat_put_cue_rew, p_put_cue_rew = proportions_ztest(
+    [k_put_cue, k_put_rew],
+    [n_put, n_put]
+)
+
+print('\n--- Two-proportion z-tests (putative LC) ---')
+print(f'run vs cue:    z = {stat_put_run_cue:.3f}, p = {p_put_run_cue:.3e}')
+print(f'run vs reward: z = {stat_put_run_rew:.3f}, p = {p_put_run_rew:.3e}')
+print(f'cue vs reward: z = {stat_put_cue_rew:.3f}, p = {p_put_cue_rew:.3e}')

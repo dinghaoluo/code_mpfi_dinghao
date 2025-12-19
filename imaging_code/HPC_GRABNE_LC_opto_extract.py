@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np 
 import matplotlib.pyplot as plt 
 from matplotlib import colormaps
-from matplotlib.colors import TwoSlopeNorm
+from matplotlib.colors import TwoSlopeNorm                                         
 import tifffile
 
 import behaviour_functions as bf 

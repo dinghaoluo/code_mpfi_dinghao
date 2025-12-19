@@ -25,7 +25,7 @@ mpl_formatting()
 
 
 #%% load data 
-print('loading data...')
+print('Loading data...')
 cell_prop = pd.read_pickle(
     r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
     )
@@ -49,12 +49,10 @@ for clu in cell_prop.itertuples():
 RO_keys = tagged_RO_keys + putative_RO_keys
 
 
-#%% session stems 
+#%% paths and parameters
 all_sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions')
 LC_beh_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
 
-
-#%% parameters for processing
 SAMP_FREQ = 1250 
 RUN_ONSET_BIN = 3750
 BEF = 1  # s, how much time before run-onset to get
@@ -142,25 +140,47 @@ for path in paths:
             high_accel_speed.append(speed_trials[trial])
         if trial in low_accel_idx:
             low_accel_speed.append(speed_trials[trial])
-            
-    # process speeds to be equal length
-    if len(high_speed_idx)>0 and len(low_speed_idx)>0:
-        speed_speed_min_length = min([len(l) for l in high_speed_speed] + [len(l) for l in low_speed_speed])
-        high_speed_speed = [l[:speed_speed_min_length] for l in high_speed_speed]
-        low_speed_speed = [l[:speed_speed_min_length] for l in low_speed_speed]
+    
+    # pad speeds to be equal length
+    if high_speed_speed and low_speed_speed:
+        speed_speed_lengths = [len(speeds) for speeds in high_speed_speed + low_speed_speed]
+        speed_speed_max_length = max(speed_speed_lengths)
         
-        if high_speed_speed and low_speed_speed:
-            all_high_speed_speed.append(np.mean(high_speed_speed, axis=0))
-            all_low_speed_speed.append(np.mean(low_speed_speed, axis=0))
+        padded_high_speed_speed = np.full(
+            (len(high_speed_speed), speed_speed_max_length), np.nan
+            )
+        padded_low_speed_speed = np.full(
+            (len(low_speed_speed), speed_speed_max_length), np.nan
+            )
+        for i, lst in enumerate(high_speed_speed):
+            n_valid = min(len(lst), speed_speed_max_length)
+            padded_high_speed_speed[i, :n_valid] = lst[:n_valid]
+        for i, lst in enumerate(low_speed_speed):
+            n_valid = min(len(lst), speed_speed_max_length)
+            padded_low_speed_speed[i, :n_valid] = lst[:n_valid]
+        
+        all_high_speed_speed.append(np.nanmean(padded_high_speed_speed, axis=0))
+        all_low_speed_speed.append(np.nanmean(padded_low_speed_speed, axis=0))
     
-    if len(high_accel_idx)>0 and len(low_accel_idx)>0:
-        accel_speed_min_length = min([len(l) for l in high_accel_speed] + [len(l) for l in low_accel_speed])
-        high_accel_speed = [l[:accel_speed_min_length] for l in high_accel_speed]
-        low_accel_speed = [l[:accel_speed_min_length] for l in low_accel_speed]
-    
-        if high_accel_speed and low_accel_speed:
-            all_high_accel_speed.append(np.mean(high_accel_speed, axis=0))
-            all_low_accel_speed.append(np.mean(low_accel_speed, axis=0))
+    if high_accel_speed and low_accel_speed:
+        accel_speed_lengths = [len(speeds) for speeds in high_accel_speed + low_accel_speed]
+        accel_speed_max_length = max(accel_speed_lengths)
+        
+        padded_high_accel_speed = np.full(
+            (len(high_accel_speed), accel_speed_max_length), np.nan
+            )
+        padded_low_accel_speed = np.full(
+            (len(low_accel_speed), accel_speed_max_length), np.nan
+            )
+        for i, lst in enumerate(high_accel_speed):
+            n_valid = min(len(lst), accel_speed_max_length)
+            padded_high_accel_speed[i, :n_valid] = lst[:n_valid]
+        for i, lst in enumerate(low_accel_speed):
+            n_valid = min(len(lst), accel_speed_max_length)
+            padded_low_accel_speed[i, :n_valid] = lst[:n_valid]
+        
+        all_high_accel_speed.append(np.nanmean(padded_high_accel_speed, axis=0))
+        all_low_accel_speed.append(np.nanmean(padded_low_accel_speed, axis=0))
     
     # accumulate spike data
     curr_high_speed_curve = []
@@ -273,11 +293,11 @@ for path in paths:
         r_real, p_real = pearsonr(session_init_speed_per_trial,
                                   session_mean_FR_per_trial)
     
-        print(f'init-speed vs FR: r={r_real:.3f}')
+        print(f'Init-speed vs FR: r={r_real:.3f}')
     
     else:
         r_real, p_real = np.nan, np.nan
-        print('not enough trials: skipped')
+        print('Not enough trials: skipped')
     
     # store per-session results
     try:
@@ -313,8 +333,8 @@ ax.fill_between(XAXIS_SPEED_TIME, low_speed_speed_mean+low_speed_speed_sem,
                                   low_speed_speed_mean-low_speed_speed_sem,
                 alpha=.25, color='lightsteelblue', edgecolor='none')
 
-ax.set(xlabel='Time from run onset (s)', 
-       ylabel='Speed (cm·s$^{-1}$)', ylim=(0,75),
+ax.set(xlabel='Time from run onset (s)', xticks=[0,2,4],
+       ylabel='Speed (cm/s)', ylim=(0,75),
        title='High v low speed')
 ax.legend([hsln, lsln], ['High', 'Low'], frameon=False)
 for s in ['top', 'right']:
@@ -352,7 +372,7 @@ ax.fill_between(XAXIS_SPEED_TIME, low_accel_speed_mean+low_accel_speed_sem,
                 alpha=.25, color='lightcoral', edgecolor='none')
 
 ax.set(xlabel='Time from run onset (s)', 
-       ylabel='Speed (cm·s$^{-1}$)', ylim=(0,75),
+       ylabel='Speed (cm/s)', ylim=(0,75),
        title='High v low accel')
 ax.legend([hsln, lsln], ['High', 'Low'], frameon=False)
 for s in ['top', 'right']:

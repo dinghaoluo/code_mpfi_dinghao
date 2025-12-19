@@ -18,12 +18,15 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 from scipy.stats import sem, wilcoxon, ttest_ind
 
+from plotting_functions import plot_violin_with_scatter
 from common import mpl_formatting
 mpl_formatting()
 
 import rec_list
-paths    = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt
-recnames = [Path(path).name for path in paths]
+paths            = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt
+bad_beh_paths    = rec_list.pathHPCbadbeh
+recnames         = [Path(path).name for path in paths]
+bad_beh_recnames = [Path(path).name for path in bad_beh_paths]
 
 
 #%% parameters 
@@ -89,10 +92,15 @@ def _binwise_test(early_profiles, late_profiles,
 
         e_means = np.mean(early_profiles[:, lo_idx:hi_idx], axis=1)
         l_means = np.mean(late_profiles[:, lo_idx:hi_idx], axis=1)
+        
+        e_means_means = np.mean(e_means)
+        l_means_means = np.mean(l_means)
+        e_means_sem = sem(e_means)
+        l_means_sem = sem(l_means)
 
         _, p = wilcoxon(e_means, l_means, nan_policy='omit')
         pvals.append(p)
-        print(f'  {lo:.1f}–{hi:.1f} s: p={p:.4e}')
+        print(f'  {lo:.1f}–{hi:.1f} s: e={e_means_means}, {e_means_sem}, l={l_means_means}, {l_means_sem},  p={p:.4e}')
 
     return pvals
 
@@ -221,8 +229,8 @@ for cluname in all_valid_clunames:
             rf'\{recname}\{recname}_DataStructure_mazeSection1_'
             r'TrialType1_behPar_msess1.mat'
         )
-        bad_idx = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
-        good_idx = [t for t in range(tot_trial) if t not in bad_idx]
+        bad_idx  = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
+        stim_idx = np.where(behPar['behPar'][0]['stimOn'][0]!=0)[1]-1
 
         # get first-lick time
         first_licks = []
@@ -241,7 +249,7 @@ for cluname in all_valid_clunames:
         early_trials = []
         late_trials = []
         for trial, t in enumerate(first_licks_sec):
-            if trial in bad_idx or np.isnan(t): continue
+            if trial in bad_idx or trial in stim_idx or np.isnan(t): continue
             if t < 2.5:
                 early_trials.append(trial)
             elif 2.5 < t < 3.5:
@@ -286,7 +294,7 @@ for cluname in all_valid_clunames:
         
         matched_early, matched_late = [], []
         if len(E_bins) and len(L_bins):
-            k = 1.5
+            k = 2
         
             # early stats -> bounds that late must satisfy
             e_mu = E_bins.mean(axis=0)
@@ -347,9 +355,9 @@ for cluname in all_valid_clunames:
                 pvals[i] = p
         
         # skip session if any bin differs
-        if np.any(pvals < 0.05):
-            print('Session rejected for unequal speeds (binwise t-test)')
-            continue
+        # if np.any(pvals < 0.05):
+        #     print('Session rejected for unequal speeds (binwise t-test)')
+        #     continue
         
         # annotate bars + p-values above each 500 ms bin
         ymin, ymax = ax.get_ylim()
@@ -379,7 +387,6 @@ for cluname in all_valid_clunames:
     if skip_flag == False:
         trains = all_trains[cluname]
         if cluname in pyrON.index:
-            print(f'ON {cluname}')
             early_profiles = np.nanmean(_get_profiles(trains, matched_early), axis=0)
             late_profiles  = np.nanmean(_get_profiles(trains, matched_late), axis=0)
             
@@ -387,7 +394,7 @@ for cluname in all_valid_clunames:
             current_session_ON_late.append(late_profiles)
         
         if cluname in pyrOFF.index:
-            print(f'OFF {cluname}')
+            # print(f'OFF {cluname}')
             early_profiles = np.nanmean(_get_profiles(trains, matched_early), axis=0)
             late_profiles  = np.nanmean(_get_profiles(trains, matched_late), axis=0)
             
@@ -507,18 +514,33 @@ for ext in ['.png', '.pdf']:
     fig.savefig(first_lick_stem / f'speed_post_matched{ext}',
                 dpi=300,
                 bbox_inches='tight')
+    
+
+#%% mean over all speeds for violinplot 
+mean_E = np.mean(E, axis=1)
+mean_L = np.mean(L, axis=1)
+
+plot_violin_with_scatter(mean_E, mean_L,
+                         early_c, late_c,
+                         ylabel='Speed (cm/s)',
+                         xticklabels=['Early', 'Late'],
+                         print_statistics=True,
+                         save=True,
+                         savepath=first_lick_stem / 'speed_post_matched_violin')
 
 
 #%% mean spiking curves (ON) for early v late 
 # organise data
-valid_profiles = {k: v for k, v in profiles.items() if v['early ON']}
+valid_profiles = {k: v for k, v in profiles.items() if v['early ON']
+                  and k not in ['A068r-20231024-01',
+                                'A071r-20230922-02',
+                                'A071r-20230921-01']}
 session_names  = list(valid_profiles.keys())
 
 keys = [k for k, v in valid_profiles.items()]
 nums = [len(v['early ON']) for k, v in valid_profiles.items()]
 for key, num in zip(keys, nums):
     print(f'{key}: {num}')
-
 for i in range(len(session_names)):
     early_ON  = [arr
                  for key, session in valid_profiles.items()
@@ -543,12 +565,18 @@ for i in range(len(session_names)):
     
     _, p_val = wilcoxon(early_win_means, late_win_means, nan_policy='omit')
     
+    early_win_means = np.mean(np.array(early_OFF)[:, 1250+2500+625:1250+3750+625], axis=1)
+    late_win_means  = np.mean(np.array(late_OFF)[:, 1250+2500+625:1250+3750+625], axis=1)
+    
+    _, p_val2 = wilcoxon(early_win_means, late_win_means, nan_policy='omit')
+    
     # print(f'early mean = {np.mean(early_win_means)}, sem = {sem(early_win_means)}\n')
     # print(f'late mean = {np.mean(late_win_means)}, sem = {sem(late_win_means)}\n')
     # print(f'Wilcoxon test (0.5–1.5 s window): p = {p_val:.4e}')
-    print(f'{keys[i]}, late - early = {np.mean(late_win_means) - np.mean(early_win_means)} {p_val}')
+    print(f'{keys[i]}, late - early = {round(np.mean(late_win_means) - np.mean(early_win_means), 3)} {p_val:.3g} {p_val2:.3g}')
 
 
+#%% plotting
 ## ON
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
 
@@ -574,7 +602,7 @@ pvals = _binwise_test(np.array(early_ON),
 _annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.28, 3.70),
+ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.4, 3.6),
        ylabel='Firing rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -607,12 +635,12 @@ ax.fill_between(XAXIS, late_mean+late_sem, late_mean-late_sem,
 pvals = _binwise_test(np.array(early_OFF),
                       np.array(late_OFF),
                       SAMP_FREQ=SAMP_FREQ, BEF=BEF,
-                      label='ON cells',
+                      label='OFF cells',
                       bin_size=1.0)
 _annotate_pvals(ax, pvals, start=-0.5, bin_size=1.0, star=False)
 
 ax.legend(fontsize=5, frameon=False)
-ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.28, 3.70),
+ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), ylim=(1.15, 3.0),
        ylabel='Firing rate (Hz)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
@@ -622,6 +650,6 @@ plt.show()
 
 # for ext in ['.png', '.pdf']:
 #     fig.savefig(
-#         first_lick_stem / f'all_run_onset_ON_mean_profiles{ext}',
+#         first_lick_stem / f'all_run_onset_OFF_mean_profiles{ext}',
 #         dpi=300,
 #         bbox_inches='tight')

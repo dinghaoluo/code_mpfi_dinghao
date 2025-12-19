@@ -108,13 +108,8 @@ def _trial_bin_means(trial_idx_list, bin_size=500, total_len=3500, n_bins=7):
 
 
 #%% main
-# ON cells 
-early_profiles_ON = []
-late_profiles_ON = []
-
-# OFF cells 
-early_profiles_OFF = []
-late_profiles_OFF = []
+# main container 
+profiles = {}
 
 # speed after speed matching for each session 
 sess_early_speed_means = []
@@ -123,6 +118,14 @@ sess_late_speed_means = []
 # speed BEFORE matching 
 sess_early_speed_means_raw = []
 sess_late_speed_means_raw = []
+
+# cell loop
+recname   = ''
+skip_flag = False
+current_session_ON_early  = []
+current_session_ON_late   = []
+current_session_OFF_early = []
+current_session_OFF_late  = []
 
 # main loop 
 for i, path in enumerate(paths):

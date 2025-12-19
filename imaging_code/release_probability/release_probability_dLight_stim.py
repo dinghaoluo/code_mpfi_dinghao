@@ -14,11 +14,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.colors import TwoSlopeNorm
-from scipy.stats import ttest_1samp
+from scipy.stats import ttest_1samp, wilcoxon, sem
 from skimage.measure import find_contours 
 from tqdm import tqdm 
 
-from common import mpl_formatting
+from common import smooth_convolve, mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -31,7 +31,7 @@ paths = rec_list.pathdLightLCOpto + \
 ALPHA = 0.05
 EDGE  = 6  # pixels 
 
-N_SHUF = 100
+N_SHUF = 500
 
 SAMP_FREQ = 30  # Hz 
 BEF       = 2  # s 
@@ -47,7 +47,8 @@ mice_exp_stem = Path('Z:/Dinghao/MiceExp')
 
         
 #%% main 
-all_release_probabilities = []
+all_release_proportions   = []  # proportions of axon ROIs that release in each session
+all_release_probabilities = []  # release probabilities of all axon ROIs
 
 for path in paths:
     recname = Path(path).name
@@ -71,7 +72,7 @@ for path in paths:
     # load data
     print('Loading data...')
     pixel_RI = np.load(pixel_RI_path, allow_pickle=True)  # (512,512,40)
-    roi_dict  = np.load(roi_dict_path, allow_pickle=True).item()
+    roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
     
     # load 1100-nm ref. or ref2 (we used 1100-nm references for very early recordings)
     if ref1100_path.exists():
@@ -83,16 +84,25 @@ for path in paths:
     
     # identify releasing ROIs
     print(f'Identifying releasing ROIs with alpha={ALPHA}...')
-    pixel_RI_med = np.nanmedian(pixel_RI, axis=2)  # get median values of pixel dFF
     releasing_rois = {}
     for roi_id, roi in roi_dict.items():
-        roi_vals = pixel_RI_med[roi['ypix'], roi['xpix']]
-        if np.all(np.isfinite(roi_vals)) and len(roi_vals) > 2:
-            _, p_val = ttest_1samp(roi_vals, popmean=0, alternative='greater')
-            if p_val < ALPHA:
-                releasing_rois[roi_id] = roi
+        ypix, xpix = roi['ypix'], roi['xpix']
+        if len(roi['ypix']) != len(roi['xpix']):
+            print(f'WARNING: y-, x-pixel counts mismatch for {roi_id}')
+            continue
+        roi_vals = pixel_RI[roi['ypix'], roi['xpix'], :]
+        med_roi_vals = np.nanmedian(roi_vals, axis=0)
+        
+        _, p_val = ttest_1samp(med_roi_vals, popmean=0, alternative='greater')
+        if p_val < ALPHA:
+            releasing_rois[roi_id] = roi
+            
+    # get proportion of releasing ROIs
+    curr_prop = len(releasing_rois) / len(roi_dict)
+    all_release_proportions.append(curr_prop)
     
     # get min and max 
+    pixel_RI_med = np.nanmedian(pixel_RI, axis=2)
     global_min = np.nanmin(pixel_RI_med[EDGE:-EDGE, EDGE:-EDGE])
     global_max = np.nanmax(pixel_RI_med[EDGE:-EDGE, EDGE:-EDGE])
     
@@ -158,7 +168,13 @@ for path in paths:
                             total=len(roi_dict)):
         # get traces 
         curr_F_pixel_traces = F_aligned[:, :, roi['ypix'], roi['xpix']]
+        if curr_F_pixel_traces.size == 0 or curr_F_pixel_traces.shape[2] == 0:
+            print(f'WARNING: {roi_id} has 0 size')
+            continue
         curr_F_traces = np.nanmean(curr_F_pixel_traces, axis=2)
+        if np.all(np.isnan(curr_F_traces)):
+            print('WARNING: 0-size curr_F_traces')
+            continue 
         
         # determine response index 
         mean_trace = np.nanmean(curr_F_traces, axis=0)
@@ -169,23 +185,43 @@ for path in paths:
         response_idx = np.where((XAXIS >= response_start) & (XAXIS <= response_start + .85))[0]
  
         n_trials = curr_F_traces.shape[0]
- 
-        RIs = np.zeros(n_trials) 
+                
+        RIs      = np.zeros(n_trials) 
+        shuf_RIs = np.zeros(n_trials)
         for tr in range(n_trials):
             trace = curr_F_traces[tr, :]
+            trace = smooth_convolve(trace, sigma=SAMP_FREQ/10)
  
             base_val = np.nanmean(trace[baseline_idx])
             resp_val = np.nanmean(trace[response_idx])
  
             RIs[tr] = (resp_val - base_val) / np.abs(base_val)
             
+            # shuffle
+            shuf_trace_arr = np.full((N_SHUF, len(trace)), np.nan)
+            for shuf in range(N_SHUF):
+                # keep shuffling if baseline or resp catch all NaNs
+                for attempt in range(10):   # safety cap to prevent infinite loop
+                    shift = np.random.randint(0, len(trace))
+                    shuf_trace = np.roll(trace, shift)
+                    base_slice = shuf_trace[baseline_idx]
+                    resp_slice = shuf_trace[response_idx]
+                    if np.any(np.isfinite(base_slice)) and np.any(np.isfinite(resp_slice)):
+                        break
+                # if still NaN-filled... continue 
+                if not (np.any(np.isfinite(base_slice)) and np.any(np.isfinite(resp_slice))):
+                    continue
+                
+                shuf_trace_arr[shuf, :] = smooth_convolve(shuf_trace, sigma=SAMP_FREQ/10)
+            
+            shuf_base_val = np.nanmean(shuf_trace_arr[:, baseline_idx], axis=1)
+            shuf_resp_val = np.nanmean(shuf_trace_arr[:, response_idx], axis=1)
+            shuf_RIs_curr = (shuf_resp_val - shuf_base_val) / np.abs(shuf_base_val)
+            shuf_RIs[tr]  = np.nanpercentile(shuf_RIs_curr, 95)
+            
         # release probability 
-        release_trials = np.sum(RIs > 0.01)  # 1% dFF threshold
-        release_prob = release_trials / n_trials
-        
-        if not np.isnan(release_prob):
-            sess_release_probabilities.append(release_prob)
-        
+        releasing = RIs > shuf_RIs
+        sess_release_probabilities.append(np.nanmean(releasing))
         
         # --------------------
         # single-ROI plotting
@@ -255,7 +291,7 @@ for path in paths:
         
         axs[2].text(
             0.02, 0.98,
-            f'Release prob = {release_prob:.2f}',
+            f'Release prob = {np.nanmean(releasing):.2f}',
             transform=axs[2].transAxes,
             ha='left', va='top',
             fontsize=7,
@@ -351,3 +387,53 @@ for ext in ['.pdf', '.png']:
     fig.savefig(
         rf'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\dLight_LC_stim_release_probabilities{ext}',
         dpi=300, bbox_inches='tight')
+    
+    
+#%% release proportions
+tval, p_t = ttest_1samp(all_release_proportions, 0)
+wstat, p_w = wilcoxon(all_release_proportions)
+
+fig, ax = plt.subplots(figsize=(1.6, 2.2))
+
+# violin
+parts = ax.violinplot(all_release_proportions, positions=[1],
+                      showmeans=False, showmedians=True, showextrema=False)
+for pc in parts['bodies']:
+    pc.set_facecolor('darkgreen')
+    pc.set_edgecolor('none')
+    pc.set_alpha(0.35)
+parts['cmedians'].set_color('k')
+parts['cmedians'].set_linewidth(1.2)
+
+# scatter individual r's
+ax.scatter(np.ones(len(all_release_proportions)), all_release_proportions,
+           color='darkgreen', ec='none', s=10, alpha=0.5, zorder=3)
+
+# real mean ± sem
+mean_r, sem_r = np.nanmean(all_release_proportions), sem(all_release_proportions)
+ymax = np.max(all_release_proportions)
+ax.text(1, ymax + 0.05*(ymax - np.min(all_release_proportions)),
+        f'{mean_r:.2f} ± {sem_r:.2f}',
+        ha='center', va='bottom', fontsize=7, color='darkgreen')
+
+# significance
+ax.text(1, np.min(all_release_proportions) - 0.10*(ymax - np.min(all_release_proportions)),
+        f't(1-samp)={tval:.2f}, p={p_t:.2e}\n'
+        f'Wilcoxon={wstat:.2f}, p={p_w:.2e}',
+        ha='center', va='top', fontsize=6.5, color='black')
+
+# formatting
+ax.set(xlim=(0.5, 1.5),
+       xticks=[1],
+       ylabel='Prop. releasing')
+ax.spines[['top', 'right', 'bottom']].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+
+# for ext in ['.pdf', '.png']:
+#     fig.savefig(
+#         GLM_stem / f'rew_to_run_r_violinplot{ext}',
+#         dpi=300,
+#         bbox_inches='tight'
+#     )

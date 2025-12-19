@@ -479,6 +479,12 @@ if save:
 tval, p_t = ttest_1samp(regress_r, 0)
 wstat, p_w = wilcoxon(regress_r)
 
+# compute shuffle 95% interval across sessions
+shuf_mean = np.nanmean(regress_shuf_r)
+shuf_std  = np.nanstd(regress_shuf_r)
+ci_low  = shuf_mean - 1.96 * shuf_std
+ci_high = shuf_mean + 1.96 * shuf_std
+
 fig, ax = plt.subplots(figsize=(1.6, 2.2))
 
 # violin
@@ -495,17 +501,20 @@ parts['cmedians'].set_linewidth(1.2)
 ax.scatter(np.ones(len(regress_r)), regress_r,
            color='forestgreen', ec='none', s=10, alpha=0.5, zorder=3)
 
-# baseline at 0
-ax.axhline(0, color='gray', lw=1, ls='--')
 
-# mean ± sem text just above the violin
+# shuffle + CI
+ax.axhline(shuf_mean, color='gray', lw=1.2, ls='--')
+ax.fill_between([0.5, 1.5], [ci_low, ci_low], [ci_high, ci_high],
+                color='gray', alpha=0.20, edgecolor='none')
+
+# real mean ± sem
 mean_r, sem_r = np.nanmean(regress_r), sem(regress_r)
 ymax = np.max(regress_r)
 ax.text(1, ymax + 0.05*(ymax - np.min(regress_r)),
         f'{mean_r:.2f} ± {sem_r:.2f}',
         ha='center', va='bottom', fontsize=7, color='forestgreen')
 
-# stats text neatly *below* the violin
+# significance
 ax.text(1, np.min(regress_r) - 0.10*(ymax - np.min(regress_r)),
         f't(1-samp)={tval:.2f}, p={p_t:.2e}\n'
         f'Wilcoxon={wstat:.2f}, p={p_w:.2e}',
@@ -516,7 +525,7 @@ ax.set(xlim=(0.5, 1.5),
        xticks=[1],
        xticklabels=['Real r'],
        ylabel='Correlation (r)',
-       title='across-sess. r')
+       title='Across-sess. r')
 ax.spines[['top', 'right', 'bottom']].set_visible(False)
 
 plt.tight_layout()
@@ -528,7 +537,7 @@ if save:
             GLM_stem / f'rew_to_run_r_violinplot{ext}',
             dpi=300,
             bbox_inches='tight'
-            )
+        )
     
     
 #%% rates
@@ -658,109 +667,3 @@ if save:
             dpi=300,
             bbox_inches='tight'
             )
-        
-        
-#%% organise ramp rate and baseline amplitude into matrices
-cell_names = sorted(cell_ramp_rates.keys())
-n_cells = len(cell_names)
-
-ramp_mat     = np.full((n_cells, N_BINS), np.nan)
-baseline_mat = np.full((n_cells, N_BINS), np.nan)
-
-for i, cluname in enumerate(cell_names):
-    ramps     = cell_ramp_rates[cluname]     # slope (Hz/s)
-    baselines = cell_baselines[cluname]      # TRUE baseline amplitude (0.5 s before end)
-    ramp_mat[i, :]     = ramps
-    baseline_mat[i, :] = baselines
-
-# bin centres for time-since-reward
-bin_centres = BIN_START + (np.arange(N_BINS) + 0.5) * BIN_WIDTH
-
-
-#%% 1. ramp rate vs time-since-reward (per cell)
-ramp_slopes_vs_time = []
-
-for i in range(n_cells):
-    y = ramp_mat[i, :]
-    mask = ~np.isnan(y)
-    if np.sum(mask) < 3:
-        continue
-
-    x = bin_centres[mask]
-    y_sel = y[mask]
-
-    a, b = np.polyfit(x, y_sel, 1)   # change in slope across reward-history bins
-    ramp_slopes_vs_time.append(a)
-
-ramp_slopes_vs_time = np.array(ramp_slopes_vs_time)
-
-if len(ramp_slopes_vs_time) > 0:
-    mean_a = np.mean(ramp_slopes_vs_time)
-    sem_a  = sem(ramp_slopes_vs_time)
-    _, p_a = wilcoxon(ramp_slopes_vs_time)
-
-    print(f'ramp rate change per second of t_since: '
-          f'{mean_a:.3f} ± {sem_a:.3f} Hz/s^2, p={p_a:.3e}')
-
-
-#%% 2. baseline amplitude vs time-since-reward (per cell)
-baseline_slopes_vs_time = []
-
-for i in range(n_cells):
-    y = baseline_mat[i, :]
-    mask = ~np.isnan(y)
-    if np.sum(mask) < 3:
-        continue
-
-    x = bin_centres[mask]
-    y_sel = y[mask]
-
-    a, b = np.polyfit(x, y_sel, 1)   # change in baseline firing vs t_since
-    baseline_slopes_vs_time.append(a)
-
-baseline_slopes_vs_time = np.array(baseline_slopes_vs_time)
-
-if len(baseline_slopes_vs_time) > 0:
-    mean_b = np.mean(baseline_slopes_vs_time)
-    sem_b  = sem(baseline_slopes_vs_time)
-    _, p_b = wilcoxon(baseline_slopes_vs_time)
-
-    print(f'baseline amplitude change per second of t_since: '
-          f'{mean_b:.3f} ± {sem_b:.3f} Hz, p={p_b:.3e}')
-
-
-#%% 3. across-bin population curves (mean ± sem)
-ramp_mean_bin     = np.nanmean(ramp_mat,     axis=0)
-baseline_mean_bin = np.nanmean(baseline_mat, axis=0)
-
-ramp_sem_bin = np.nanstd(ramp_mat, axis=0, ddof=1) / \
-               np.sqrt(np.sum(~np.isnan(ramp_mat), axis=0))
-
-baseline_sem_bin = np.nanstd(baseline_mat, axis=0, ddof=1) / \
-                   np.sqrt(np.sum(~np.isnan(baseline_mat), axis=0))
-
-# bins with enough cells
-min_cells_per_bin = 5
-valid_bins = np.sum(~np.isnan(ramp_mat), axis=0) >= min_cells_per_bin
-
-fig, axes = plt.subplots(1, 2, figsize=(4.2, 2.2), sharex=True)
-
-# ramp rate vs t_since
-axes[0].errorbar(bin_centres[valid_bins], ramp_mean_bin[valid_bins],
-                 yerr=ramp_sem_bin[valid_bins],
-                 fmt='o-', ms=3, lw=1, color='forestgreen')
-axes[0].axhline(0, color='gray', ls='--', lw=1)
-axes[0].set(xlabel='time since last reward (s)',
-            ylabel='ramp rate (Hz/s)')
-axes[0].spines[['top', 'right']].set_visible(False)
-
-# baseline amplitude vs t_since
-axes[1].errorbar(bin_centres[valid_bins], baseline_mean_bin[valid_bins],
-                 yerr=baseline_sem_bin[valid_bins],
-                 fmt='o-', ms=3, lw=1, color='forestgreen')
-axes[1].set(xlabel='time since last reward (s)',
-            ylabel='baseline amplitude (Hz)')
-axes[1].spines[['top', 'right']].set_visible(False)
-
-plt.tight_layout()
-plt.show()

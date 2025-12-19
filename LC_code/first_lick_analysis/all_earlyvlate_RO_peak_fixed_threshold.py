@@ -143,7 +143,7 @@ def _session_mean_speed(trial_list, speed_times, n=4000):
 
 
 #%% load cell table
-print('loading data...')
+print('Loading data...')
 cell_prop = pd.read_pickle(r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl')
 
 # keys
