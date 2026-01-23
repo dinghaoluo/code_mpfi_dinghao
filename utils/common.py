@@ -13,6 +13,12 @@ import numpy as np
 import os
 
 
+#%% global variables (for imports)
+colour_tagged   = (70/255 , 101/255, 175/255)
+colour_putative = (101/255, 82/255 , 163/255)
+colour_other    = (169/255, 169/255, 169/255)
+
+
 #%% os functions 
 def file_delete_loop(root_dir, str_check):
     import glob

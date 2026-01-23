@@ -7,68 +7,68 @@ example plot: single session, targeted trial window
 @author: Dinghao Luo
 """
 
+#%% imports 
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.io as sio
 import mat73
-import os
-import sys
 
-sys.path.append('Z:\\Dinghao\\code_mpfi_dinghao\\utils')
 from common import mpl_formatting, smooth_convolve, gaussian_kernel_unity
 mpl_formatting()
 
 
-#%% parameters
+#%% paths parameters
+MiceExp_stem  = Path('Z:/Dinghao/MiceExp')
+run_bout_stem = Path('Z:/Dinghao/code_dinghao/run_bouts')
+save_stem     = Path('Z:/Dinghao/code_dinghao/LC_ephys/run_onset_v_run_bout/single_cell_examples_rolling')
+
 SAMP_FREQ = 1250
-gaus_speed = gaussian_kernel_unity(sigma=SAMP_FREQ*0.03)
+
+KERN_SPEED = gaussian_kernel_unity(sigma=SAMP_FREQ*0.03)
 
 
 #%% recname 
 # note: t=30 will show trials 29-31
 
-recname = 'A067r-20230821-01'
+# recname = 'A067r-20230821-01'
 # t = 30
-t = 157
+# t = 157
 
 # recname = 'A045r-20221207-02'
 # t = 181  
 
-# recname = 'A032r-20220802-02'
-# t = 75
+recname = 'A032r-20220802-02'
+t = 75
 
 
 #%% paths
-base_path = rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}\{recname[:14]}\{recname}'
+base_path     = MiceExp_stem / f'ANMD{recname[1:5]}' / recname[:14] / recname
+run_bout_path = run_bout_stem / f'{recname}_run_bouts_py.csv'
 
-run_bout_path = rf'Z:\Dinghao\code_dinghao\run_bouts\{recname}_run_bouts_py.csv'
+alignedRun_path = (MiceExp_stem / f'ANMD{recname[1:5]}' / recname[:14] / recname / 
+                   f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat')
+alignedCue_path = (MiceExp_stem / f'ANMD{recname[1:5]}' / recname[:14] / recname / 
+                   f'{recname}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat')
+alignedRew_path = (MiceExp_stem / f'ANMD{recname[1:5]}' / recname[:14] / recname / 
+                   f'{recname}_DataStructure_mazeSection1_TrialType1_alignRew_msess1.mat')
 
-alignedRun_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
-                                recname[:14],  # till end of date
-                                recname,
-                                f'{recname}_DataStructure_mazeSection1_TrialType1_alignRun_msess1.mat')
-alignedCue_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
-                                recname[:14],  # till end of date
-                                recname,
-                                f'{recname}_DataStructure_mazeSection1_TrialType1_alignCue_msess1.mat')
-alignedRew_path = os.path.join(rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}',  # numbers + r
-                                recname[:14],  # till end of date
-                                recname,
-                                f'{recname}_DataStructure_mazeSection1_TrialType1_alignRew_msess1.mat')
+behave_lfp_path = base_path / f'{recname}_BehavElectrDataLFP.mat'
 
-behave_lfp_path = os.path.join(base_path, f'{recname}_BehavElectrDataLFP.mat')
-clu_path = os.path.join(base_path, f'{recname}.clu.1')
-res_path = os.path.join(base_path, f'{recname}.res.1')
-cell_profiles = pd.read_pickle(r'Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profiles.pkl')
+clu_path = base_path / f'{recname}.clu.1'
+res_path = base_path / f'{recname}.res.1'
+
+cell_profiles = pd.read_pickle('Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profiles.pkl')
 
 
 #%% load data
 run_bout_table = pd.read_csv(run_bout_path)
-beh_lfp = mat73.loadmat(behave_lfp_path)
-aligned = sio.loadmat(alignedRun_path)['trialsRun'][0][0]
-alignedCue = sio.loadmat(alignedCue_path)['trialsCue'][0][0]  # for cue marking 
-alignedRew = sio.loadmat(alignedRew_path)['trialsRew'][0][0]  # for cue marking 
+beh_lfp        = mat73.loadmat(str(behave_lfp_path))
+aligned        = sio.loadmat(str(alignedRun_path))['trialsRun'][0][0]
+alignedCue     = sio.loadmat(str(alignedCue_path))['trialsCue'][0][0]  # for cue marking 
+alignedRew     = sio.loadmat(str(alignedRew_path))['trialsRew'][0][0]  # for rew marking 
 
 # read cues 
 cueLfpInd = alignedCue['startLfpInd'].flatten()
@@ -107,10 +107,10 @@ lickLfp_flat = np.array(lickLfp_flat)
 speed_MMsec = tracks['speed_MMsecAll']
 speed_MMsec[speed_MMsec < 0] = np.nan
 speed_MMsec = pd.Series(speed_MMsec).interpolate().fillna(method='bfill').fillna(method='ffill').values
-speed_MMsec = np.convolve(speed_MMsec, gaus_speed, mode='same')/10
+speed_MMsec = np.convolve(speed_MMsec, KERN_SPEED, mode='same')/10
 
 startLfpInd = aligned['startLfpInd'][0]
-endLfpInd = aligned['endLfpInd'][0]
+endLfpInd   = aligned['endLfpInd'][0]
 
 
 #%% select cells
@@ -123,19 +123,18 @@ for i, clu in enumerate(unique_clus):
             selected_indices.append(i)
 
 if not selected_indices:
-    print(f'no tagged/putative run-onset peak cells found for {recname}')
-    sys.exit()
+    print(f'No tagged/putative run-onset peak cells found for {recname}')
 
 print(f'{len(selected_indices)} tagged/putative run-onset peak cells selected.')
 
 
 #%% plot trials
-lfp_indices_t = np.arange(startLfpInd[t]-1250, min(endLfpInd[t+2], len(speed_MMsec)))
+lfp_indices_t = np.arange(startLfpInd[t]-SAMP_FREQ, min(endLfpInd[t+2], len(speed_MMsec)))
 lap_start = lfp_indices_t[0]
 xaxis = np.arange(0, len(lfp_indices_t)) / SAMP_FREQ
 
 fig, ax = plt.subplots(figsize=(len(lfp_indices_t)/4300, 1.55))
-ax.set(xlabel='time (s)', ylabel='v (cm/s)',
+ax.set(xlabel='Time (s)', ylabel='Speed (cm/s)',
        ylim=(0, 1.5 * max(speed_MMsec[lfp_indices_t])),
        xlim=(0, len(lfp_indices_t) / SAMP_FREQ),
        title=f'{recname} trial {t}')
@@ -172,6 +171,6 @@ plt.tight_layout()
 plt.show()
 
 for ext in ['.pdf', '.png']:
-    fig.savefig(rf'Z:\Dinghao\paper\figures_other\{recname}_t{t}{ext}',
+    fig.savefig(save_stem / f'{recname}_t{t}{ext}',
                 dpi=300,
                 bbox_inches='tight')

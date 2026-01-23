@@ -17,7 +17,7 @@ import pandas as pd
 import pickle
 import scipy.io as sio
 import matplotlib.pyplot as plt
-from scipy.stats import sem, wilcoxon
+from scipy.stats import sem, wilcoxon, linregress
 from matplotlib.cm import ScalarMappable
 
 import GLM_functions as gf
@@ -39,8 +39,8 @@ SAMP_FREQ_BEH = 1000
 PRE_REW_S  = 1.0            # reward-aligned window start
 PRE_RUN_S  = 3.0            # run-aligned window start 
 POST_RUN_S = 5.0
-BASELINE_OFFSET = 0.5      # baseline = 0.5 s before trace end
-SMOOTH_WINDOW   = 0.05     # ± smoothing for baseline averaging to reduce noise 
+BASELINE_ON  = 1.0      # before trace end
+BASELINE_OFF = 0.5      # same 
 
 TMIN = 0.5   # lower bound of t_since to include
 TMAX = 8.0   # upper bound
@@ -59,6 +59,10 @@ cell_prop = pd.read_pickle('Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profile
 #%% main loop
 all_trials_by_cell_rew = {}
 all_trials_by_cell_run = {}
+
+t_since_all = []
+baseline_fr_all = []
+phasic_fr_all = []
 
 for path in paths:
     recname = Path(path).name
@@ -152,6 +156,20 @@ for path in paths:
 
             trace_run = smooth_convolve(trace_run, sigma=1250*0.2, axis=0)
             all_trials_by_cell_run[cluname].append((t_since, trace_run))
+            
+            # baseline fr 
+            x_rew = np.arange(len(trace_rew)) / SAMP_FREQ - PRE_REW_S
+            mask_base = (x_rew >= x_rew[-1] - BASELINE_ON) & (x_rew <= x_rew[-1] - BASELINE_OFF)
+            baseline_fr = np.nanmean(trace_rew[mask_base])
+            
+            # phasic fr (run-aligned; ±0.25 s around run onset)
+            x_run = np.arange(len(trace_run)) / SAMP_FREQ - PRE_RUN_S
+            mask_phasic = (x_run >= -0.25) & (x_run <= 0.25)
+            phasic_fr = np.nanmean(trace_run[mask_phasic])
+            
+            t_since_all.append(t_since)
+            baseline_fr_all.append(baseline_fr)
+            phasic_fr_all.append(phasic_fr)
 
 
 #%% binning and baseline analysis
@@ -339,10 +357,46 @@ for bi in range(n_bins_run - 1):
 
     mean_curves_run.append(mean_prof)
 
-xaxis_run = np.arange((PRE_RUN_S + POST_RUN_S) * SAMP_FREQ) / SAMP_FREQ - PRE_RUN_S
+
+#%% pooled run-onset-aligned curves with >n s collapsed
+COLLAPSE_THRESHOLD = 4.0
+
+pooled_bin_traces_run_collapsed = [[] for _ in range(n_bins_run)]
+pooled_collapsed = []
+
+for cluname, trials in all_trials_by_cell_run.items():
+    for t_since, trace in trials:
+        if t_since > COLLAPSE_THRESHOLD:
+            pooled_collapsed.append(trace)
+        else:
+            bi = int((t_since - TMIN) // BIN_WIDTH_RUN)
+            if 0 <= bi < n_bins_run:
+                pooled_bin_traces_run_collapsed[bi].append(trace)
+
+mean_curves_run_collapsed = []
+
+for bi in range(n_bins_run - 1):
+    traces = pooled_bin_traces_run_collapsed[bi]
+    if len(traces) == 0:
+        mean_curves_run_collapsed.append(None)
+        continue
+
+    L = min(len(tr) for tr in traces)
+    arr = np.stack([tr[:L] for tr in traces])
+    mean_curves_run_collapsed.append(np.mean(arr, axis=0))
+
+# >5 s pooled curve
+if len(pooled_collapsed) > 0:
+    L = min(len(tr) for tr in pooled_collapsed)
+    arr = np.stack([tr[:L] for tr in pooled_collapsed])
+    mean_collapsed = np.mean(arr, axis=0)
+else:
+    mean_collapsed = None
 
 
 #%% plot pooled run-onset-aligned curves
+xaxis_run = np.arange((PRE_RUN_S + POST_RUN_S) * SAMP_FREQ) / SAMP_FREQ - PRE_RUN_S
+
 fig, ax = plt.subplots(figsize=(3.0, 2.4))
 
 for bi in range(n_bins_run - 1):
@@ -367,4 +421,150 @@ plt.tight_layout()
 
 for ext in ['.png', '.pdf']:
     fig.savefig(GLM_stem / f'rew_to_run_run_aligned_profiles_smoothed200ms{ext}',
+                dpi=300, bbox_inches='tight')
+    
+    
+#%% plot pooled run-onset-aligned curves
+xaxis_run = np.arange(3 * SAMP_FREQ) / SAMP_FREQ - 1
+
+fig, ax = plt.subplots(figsize=(2.6, 2.4))
+
+for bi in range(n_bins_run - 1):
+    if mean_curves_run[bi] is None:
+        continue
+    colour = plt.cm.Greens(0.3 + 0.6 * bi / max(1, (n_bins_run - 1)))
+    ax.plot(xaxis_run, mean_curves_run[bi][2500:2500+3*SAMP_FREQ], color=colour, lw=1.0)
+
+ax.set(xlabel='Time from run onset (s)', xticks=[-1, 0, 1, 2],
+       ylabel='Firing rate (Hz)',
+       title='LC ITI ramps (run-aligned)')
+ax.spines[['top', 'right']].set_visible(False)
+
+norm = plt.Normalize(vmin=TMIN, vmax=TMAX)
+sm = ScalarMappable(norm=norm, cmap=plt.cm.Greens)
+sm.set_array([])
+cbar = fig.colorbar(sm, ax=ax, pad=0.01, shrink=.35)
+cbar.set_label('Time since last reward (s)', fontsize=8)
+cbar.set_ticks([1, 4, 7])
+
+plt.tight_layout()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(GLM_stem / f'rew_to_run_run_aligned_profiles_smoothed200ms_3s{ext}',
+                dpi=300, bbox_inches='tight')
+    
+
+#%% plot pooled run-onset-aligned curves (gt>5s collapsed)
+xaxis_run = np.arange(3 * SAMP_FREQ) / SAMP_FREQ - 1
+
+fig, ax = plt.subplots(figsize=(2.6, 2.4))
+
+for bi in range(n_bins_run - 1):
+    if mean_curves_run_collapsed[bi] is None:
+        continue
+    colour = plt.cm.Greens(0.3 + 0.6 * bi / max(1, (n_bins_run - 1)))
+    ax.plot(
+        xaxis_run,
+        mean_curves_run_collapsed[bi][2500:2500 + 3 * SAMP_FREQ],
+        color=colour, lw=1.0
+    )
+
+# pooled >5 s curve
+if mean_collapsed is not None:
+    ax.plot(
+        xaxis_run,
+        mean_collapsed[2500:2500 + 3 * SAMP_FREQ],
+        color=plt.cm.Greens(0.95),
+        lw=1.5
+    )
+
+ax.set(xlabel='Time from run onset (s)', xticks=[-1, 0, 1, 2],
+       ylabel='Firing rate (Hz)',
+       title='LC ITI ramps (run-aligned; >4 s pooled)')
+ax.spines[['top', 'right']].set_visible(False)
+
+plt.tight_layout()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(GLM_stem / f'rew_to_run_run_aligned_profiles_smoothed200ms_3s_collapsed{ext}',
+                dpi=300, bbox_inches='tight')
+    
+    
+#%% scatter data wrangling 
+t_since_all = np.array(t_since_all)
+baseline_fr_all = np.array(baseline_fr_all)
+phasic_fr_all = np.array(phasic_fr_all)
+
+valid = (
+    ~np.isnan(t_since_all) &
+    ~np.isnan(baseline_fr_all) &
+    ~np.isnan(phasic_fr_all)
+)
+
+t_since_v = t_since_all[valid]
+baseline_v = baseline_fr_all[valid]
+phasic_v = phasic_fr_all[valid]
+
+
+#%% t_since vs baseline fr
+filt_t, filt_base = [], []
+for t, b in zip(t_since_all, baseline_fr_all):
+    if not np.isnan(t) and not np.isnan(b) and b > 0.01:
+        filt_t.append(t)
+        filt_base.append(b)
+
+slope, intercept, r, p, _ = linregress(filt_t, filt_base)
+
+fig, ax = plt.subplots(figsize=(2.3, 2.6))
+ax.scatter(filt_t, filt_base, color='forestgreen', s=5, edgecolor='none', alpha=0.5)
+
+xfit = np.linspace(min(filt_t), max(filt_t), 100)
+ax.plot(xfit, intercept + slope * xfit, color='k', lw=1)
+
+ax.text(0.05, 0.95,
+        f'$R = {r:.2f}$\n$p = {p:.3g}$',
+        transform=ax.transAxes,
+        ha='left', va='top', fontsize=9)
+
+ax.set_xlabel('Time since last reward (s)')
+ax.set_ylabel('Baseline firing rate (Hz)')
+ax.set_title('Baseline vs r-r interval')
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+fig.tight_layout()
+for ext in ['.pdf', '.png']:
+    fig.savefig(GLM_stem / f'scatter_baseline_vs_tsince{ext}',
+                dpi=300, bbox_inches='tight')
+
+
+#%% baseline fr vs phasic fr
+filt_base, filt_phasic = [], []
+for b, pfr in zip(baseline_fr_all, phasic_fr_all):
+    if not np.isnan(b) and not np.isnan(pfr):
+        filt_base.append(b)
+        filt_phasic.append(pfr)
+
+slope, intercept, r, p, _ = linregress(filt_base, filt_phasic)
+
+fig, ax = plt.subplots(figsize=(2.3, 2.6))
+ax.scatter(filt_base, filt_phasic, color='forestgreen', s=5, edgecolor='none', alpha=0.5)
+
+xfit = np.linspace(min(filt_base), max(filt_base), 100)
+ax.plot(xfit, intercept + slope * xfit, color='k', lw=1)
+
+ax.text(0.05, 0.95,
+        f'$R = {r:.2f}$\n$p = {p:.3g}$',
+        transform=ax.transAxes,
+        ha='left', va='top', fontsize=9)
+
+ax.set_xlabel('Baseline firing rate (Hz)')
+ax.set_ylabel('Phasic firing rate (Hz)')
+ax.set_title('Phasic vs baseline')
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+fig.tight_layout()
+for ext in ['.pdf', '.png']:
+    fig.savefig(GLM_stem / f'scatter_phasic_vs_baseline{ext}',
                 dpi=300, bbox_inches='tight')

@@ -17,22 +17,31 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pickle 
 from tqdm import tqdm
+from scipy.stats import sem 
 from statsmodels.stats.proportion import proportions_ztest
-from scipy.stats import fisher_exact
 
 import rec_list
 paths = rec_list.pathLC
 
 from common import normalise, mpl_formatting
+from common import colour_putative, colour_tagged
 mpl_formatting()
 
 
+#%% paths 
+LC_stem       = Path('Z:/Dinghao/code_dinghao/LC_ephys')
+all_sess_stem = LC_stem / 'all_sessions'
+
+beh_stem      = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
+
+
 #%% load data 
-cell_profiles = pd.read_pickle(
-    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
-    )
+cell_profiles = pd.read_pickle(LC_stem / 'LC_all_cell_profiles.pkl')
+
 tag_list = [clu for clu in cell_profiles.index if cell_profiles['identity'][clu]=='tagged']
 put_list = [clu for clu in cell_profiles.index if cell_profiles['identity'][clu]=='putative']
+
+peak_list = [clu for clu in cell_profiles.index if cell_profiles['run_onset_peak'][clu]]
 
 
 #%% main 
@@ -54,14 +63,18 @@ sess_put_peaks_run = {}
 sess_put_peaks_cue = {}
 sess_put_peaks_rew = {}
 
+# peak time list 
+peak_run_peak_time = []
+
 for path in paths:
     recname = Path(path).name
     print(f'\n{recname}')
     
-    sess_folder = rf'Z:\Dinghao\code_dinghao\LC_ephys\all_sessions\{recname}'
+    sess_path = all_sess_stem / recname
     
     # load beh file 
-    with open(rf'Z:\Dinghao\code_dinghao\behaviour\all_experiments\LC\{recname}.pkl', 'rb') as f:
+    beh_path = beh_stem / f'{recname}.pkl'
+    with open(beh_path, 'rb') as f:
         beh = pickle.load(f)
     
     # fine stim start 
@@ -73,11 +86,11 @@ for path in paths:
     
     # load cell profiles  
     try:
-        trains_run = np.load(rf'{sess_folder}\{recname}_all_trains_run.npy',
+        trains_run = np.load(sess_path / f'{recname}_all_trains_run.npy',
                              allow_pickle=True).item()
-        trains_cue = np.load(rf'{sess_folder}\{recname}_all_trains_cue.npy',
+        trains_cue = np.load(sess_path / f'{recname}_all_trains_cue.npy',
                              allow_pickle=True).item()
-        trains_rew = np.load(rf'{sess_folder}\{recname}_all_trains_rew.npy',
+        trains_rew = np.load(sess_path / f'{recname}_all_trains_rew.npy',
                              allow_pickle=True).item()
     except FileNotFoundError:
         print(f'{recname}: missing files, skipping')
@@ -118,6 +131,9 @@ for path in paths:
                 all_putative_run.append(mean_run)
                 all_putative_cue.append(mean_cue)
                 all_putative_rew.append(mean_rew)
+            
+            if clu in peak_list:
+                peak_run_peak_time.append(np.argmax(mean_run[:2500]))  # restrict to 2 seconds around run onset
             
 # sorting
 pooled_run_argmax = [np.argmax(clu) for clu in all_pooled_run]
@@ -507,17 +523,14 @@ for recname in paths:
 
 
 #%% plot
-colour_tag = (70/255, 101/255, 175/255)
-colour_put = (101/255, 82/255, 163/255)
-
 fig, ax = plt.subplots(figsize=(2, 3))
 height = 0.35
 
 for i in range(len(labels)):
     ax.barh(y=i - height/2, width=proportions[i][0], height=height,
-            label='tagged' if i == 0 else "", color=colour_tag)
+            label='tagged' if i == 0 else "", color=colour_tagged)
     ax.barh(y=i + height/2, width=proportions[i][1], height=height,
-            label='putative' if i == 0 else "", color=colour_put)
+            label='putative' if i == 0 else "", color=colour_putative)
     
 ytag_run = 0 - height/2
 yput_run = 0 + height/2
@@ -536,14 +549,14 @@ if len(sess_p_tagged_run) > 0:
     vals[vals == 0] = bump    # inline fix
     ax.scatter(vals,
                np.full(len(vals), ytag_run),
-               s=8, color=colour_tag, edgecolors='k')
+               s=8, color=colour_tagged, edgecolors='k')
 
 if len(sess_p_put_run) > 0:
     vals = np.array(sess_p_put_run, float)
     vals[vals == 0] = bump
     ax.scatter(vals,
                np.full(len(vals), yput_run),
-               s=8, color=colour_put, edgecolors='k')
+               s=8, color=colour_putative, edgecolors='k')
 
 # --- cue ---
 if len(sess_p_tagged_cue) > 0:
@@ -551,14 +564,14 @@ if len(sess_p_tagged_cue) > 0:
     vals[vals == 0] = bump
     ax.scatter(vals,
                np.full(len(vals), ytag_cue),
-               s=8, color=colour_tag, edgecolors='k')
+               s=8, color=colour_tagged, edgecolors='k')
 
 if len(sess_p_put_cue) > 0:
     vals = np.array(sess_p_put_cue, float)
     vals[vals == 0] = bump
     ax.scatter(vals,
                np.full(len(vals), yput_cue),
-               s=8, color=colour_put, edgecolors='k')
+               s=8, color=colour_putative, edgecolors='k')
 
 # --- rew ---
 if len(sess_p_tagged_rew) > 0:
@@ -566,14 +579,14 @@ if len(sess_p_tagged_rew) > 0:
     vals[vals == 0] = bump
     ax.scatter(vals,
                np.full(len(vals), ytag_rew),
-               s=8, color=colour_tag, edgecolors='k')
+               s=8, color=colour_tagged, edgecolors='k')
 
 if len(sess_p_put_rew) > 0:
     vals = np.array(sess_p_put_rew, float)
     vals[vals == 0] = bump
     ax.scatter(vals,
                np.full(len(vals), yput_rew),
-               s=8, color=colour_put, edgecolors='k')
+               s=8, color=colour_putative, edgecolors='k')
 
 ax.set_yticks(x)
 ax.set_yticklabels(labels)
@@ -668,3 +681,10 @@ print('\n--- Two-proportion z-tests (putative LC) ---')
 print(f'run vs cue:    z = {stat_put_run_cue:.3f}, p = {p_put_run_cue:.3e}')
 print(f'run vs reward: z = {stat_put_run_rew:.3f}, p = {p_put_run_rew:.3e}')
 print(f'cue vs reward: z = {stat_put_cue_rew:.3f}, p = {p_put_cue_rew:.3e}')
+
+
+#%% peak time 
+mean_peak_run_peak_time = np.mean(peak_run_peak_time) / 1250 - 1  # -1 because aligned to run with a pre of 1 s
+sem_peak_run_peak_time  = sem(peak_run_peak_time) / 1250
+
+print(f'Peak time: {mean_peak_run_peak_time} ± {sem_peak_run_peak_time} s')

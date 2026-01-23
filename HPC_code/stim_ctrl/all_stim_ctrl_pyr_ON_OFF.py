@@ -82,38 +82,50 @@ def _binwise_test(ctrl_traces, stim_traces, label):
     paired = len(ctrl_traces) == len(stim_traces)
 
     print(f'\nBinwise stats for {label}:')
-    for b in range(len(bin_edges)-1):
+    print('bin | ctrl mean ± SEM (n) | stim mean ± SEM (n) | '
+          'rs | tt_ind | wil | tt_rel')
+
+    for b in range(len(bin_edges) - 1):
         start, end = bin_edges[b], bin_edges[b+1]
 
-        ctrl_bin = [np.mean(tr[start:end]) for tr in ctrl_traces]
-        stim_bin = [np.mean(tr[start:end]) for tr in stim_traces]
+        ctrl_bin = np.array([np.mean(tr[start:end]) for tr in ctrl_traces], dtype=float)
+        stim_bin = np.array([np.mean(tr[start:end]) for tr in stim_traces], dtype=float)
 
-        ctrl_mean = np.mean(ctrl_bin)
-        ctrl_sem  = sem(ctrl_bin)
-        stim_mean = np.mean(stim_bin)
-        stim_sem  = sem(stim_bin)
+        # drop NaNs
+        c = ctrl_bin[~np.isnan(ctrl_bin)]
+        s = stim_bin[~np.isnan(stim_bin)]
 
-        # always valid
-        _, p_ranksums = ranksums(ctrl_bin, stim_bin, nan_policy='omit')
-        pvals_ranksums.append(p_ranksums)
+        # mean ± sem
+        c_mean = np.mean(c) if c.size else np.nan
+        s_mean = np.mean(s) if s.size else np.nan
+        c_sem  = sem(c) if c.size > 1 else np.nan
+        s_sem  = sem(s) if s.size > 1 else np.nan
 
-        _, p_ttest_ind = ttest_ind(ctrl_bin, stim_bin, nan_policy='omit')
-        pvals_ttest_ind.append(p_ttest_ind)
-
-        # fill NaN for missing values
-        if paired:
-            _, p_wilcoxon = wilcoxon(ctrl_bin, stim_bin, nan_policy='omit')
-            _, p_ttest_rel = ttest_rel(ctrl_bin, stim_bin, nan_policy='omit')
+        # stats
+        _, p_rs = ranksums(c, s, nan_policy='omit')
+        _, p_ti = ttest_ind(c, s, nan_policy='omit')
+        
+        if paired and len(c) == len(s):
+            _, p_w = wilcoxon(c, s, nan_policy='omit')
+            _, p_tr = ttest_rel(c, s, nan_policy='omit')
         else:
-            p_wilcoxon = np.nan
-            p_ttest_rel = np.nan
+            p_w = np.nan
+            p_tr = np.nan
 
-        pvals_wilcoxon.append(p_wilcoxon)
-        pvals_ttest_rel.append(p_ttest_rel)
+        pvals_ranksums.append(p_rs)
+        pvals_ttest_ind.append(p_ti)
+        pvals_wilcoxon.append(p_w)
+        pvals_ttest_rel.append(p_tr)
 
-        print(f'{bin_labels[b]}: {ctrl_mean:.4e}±{ctrl_sem:.4e}, {stim_mean:.4e}±{stim_sem:.4e}, p={p_wilcoxon:.4e}')
+        print(f'{bin_labels[b]:>12s} | '
+              f'{c_mean:.3f} ± {c_sem:.3f} | '
+              f'{s_mean:.3f} ± {s_sem:.3f} | '
+              f'{p_rs:.2e} {p_ti:.2e} {p_w:.2e} {p_tr:.2e}')
 
-    return pvals_ranksums, pvals_ttest_ind, pvals_wilcoxon, pvals_ttest_rel
+    return (np.array(pvals_ranksums),
+            np.array(pvals_ttest_ind),
+            np.array(pvals_wilcoxon),
+            np.array(pvals_ttest_rel))
 
 
 #%% path stems
@@ -251,7 +263,7 @@ for path in paths:
                     label='stim.', color='royalblue')
             for s in ['top', 'right']:
                 ax.spines[s].set_visible(False)
-            ax.set(xlabel='Time from run-onset (s)',
+            ax.set(xlabel='Time from run onset (s)',
                    ylabel='Firing rate (Hz)',
                    xticks=[0, 2, 4])
             ax.set_title(f'{recname} ON remainers', fontsize=9)
@@ -274,7 +286,7 @@ for path in paths:
                     label='stim.', color='royalblue')
             for s in ['top', 'right']:
                 ax.spines[s].set_visible(False)
-            ax.set(xlabel='Time from run-onset (s)',
+            ax.set(xlabel='Time from run onset (s)',
                    ylabel='Firing rate (Hz)',
                    xticks=[0, 2, 4])
             ax.set_title(f'{recname} OFF remainers', fontsize=9)
@@ -308,6 +320,8 @@ sem_ctrl_remain_OFF = sem(mean_prof_ctrl_remain_OFF, axis=0)[2500:2500+5*1250]
 mean_stim_remain_OFF = np.mean(mean_prof_stim_remain_OFF, axis=0)[2500:2500+5*1250]
 sem_stim_remain_OFF = sem(mean_prof_stim_remain_OFF, axis=0)[2500:2500+5*1250]
 
+
+#%% stats 
 pvals_remain_ON = _binwise_test(mean_prof_ctrl_remain_ON, mean_prof_stim_remain_ON, 'remain ON')
 pvals_remain_OFF = _binwise_test(mean_prof_ctrl_remain_OFF, mean_prof_stim_remain_OFF, 'remain OFF')
 
@@ -324,7 +338,7 @@ ax.fill_between(XAXIS, mean_stim_all_ON + sem_stim_all_ON, mean_stim_all_ON - se
 _annotate_pvals(ax, pvals_all_ON, base_y=4.05, dy=0.12, star=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
-ax.set(xlabel='Time from run-onset (s)', xticks=[0, 2, 4],
+ax.set(xlabel='Time from run onset (s)', xticks=[0, 2, 4],
        ylabel='Firing rate (Hz)', yticks=[1, 2, 3, 4], ylim=(1, 4.1))
 ax.set_title(f'{exp}\nPyrUp all', fontsize=10)
 ax.legend(fontsize=5, frameon=False)
@@ -343,7 +357,7 @@ ax.fill_between(XAXIS, mean_stim_all_OFF + sem_stim_all_OFF, mean_stim_all_OFF -
 _annotate_pvals(ax, pvals_all_OFF, base_y=4.05, dy=0.12, star=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
-ax.set(xlabel='Time from run-onset (s)', xticks=[0, 2, 4],
+ax.set(xlabel='Time from run onset (s)', xticks=[0, 2, 4],
        ylabel='Firing rate (Hz)', yticks=[1, 2, 3, 4], ylim=(1, 4.1))
 ax.set_title(f'{exp}\nPyrDown all', fontsize=10)
 ax.legend(fontsize=5, frameon=False)
@@ -362,7 +376,7 @@ ax.fill_between(XAXIS, mean_stim_remain_ON + sem_stim_remain_ON, mean_stim_remai
 _annotate_pvals(ax, pvals_remain_ON, base_y=4.05, dy=0.12, star=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
-ax.set(xlabel='Time from run-onset (s)', xticks=[0, 2, 4],
+ax.set(xlabel='Time from run onset (s)', xticks=[0, 2, 4],
        ylabel='Firing rate (Hz)', yticks=[1, 2, 3, 4], ylim=(1, 4.1))
 ax.set_title(f'{exp}\nPyrUp remainers', fontsize=10)
 ax.legend(fontsize=5, frameon=False)
@@ -381,7 +395,7 @@ ax.fill_between(XAXIS, mean_stim_remain_OFF + sem_stim_remain_OFF, mean_stim_rem
 _annotate_pvals(ax, pvals_remain_OFF, base_y=4.05, dy=0.12, star=False)
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
-ax.set(xlabel='Time from run-onset (s)', xticks=[0, 2, 4],
+ax.set(xlabel='Time from run onset (s)', xticks=[0, 2, 4],
        ylabel='Firing rate (Hz)', yticks=[1, 2, 3, 4], ylim=(1, 4.1))
 ax.set_title(f'{exp}\nPyrDown remainers', fontsize=10)
 ax.legend(fontsize=5, frameon=False)
@@ -390,7 +404,7 @@ for ext in ['.pdf', '.png']:
                 dpi=300, bbox_inches='tight')
 
 
-## regression: Δamp vs behaviour
+#%% regression: Δamp vs behaviour
 # ON: Δamp vs distance
 filt_amp, filt_dist = [], []
 for amp, dist in zip(all_amp_remain_ON_delta_mean, all_ctrl_stim_lick_distance_delta):

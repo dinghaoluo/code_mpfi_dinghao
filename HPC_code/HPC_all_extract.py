@@ -63,9 +63,9 @@ else:
 
 
 #%% parameters 
-SAMP_FREQ = 1250  # Hz
+SAMP_FREQ   = 1250  # Hz
 SIGMA_SPIKE = int(SAMP_FREQ * 0.05)  # 50 ms
-GAUS_SPIKE = gaussian_kernel_unity(SIGMA_SPIKE, GPU_AVAILABLE)
+GAUS_SPIKE  = gaussian_kernel_unity(SIGMA_SPIKE, GPU_AVAILABLE)
 
 MAX_LENGTH = 12500  # samples
 

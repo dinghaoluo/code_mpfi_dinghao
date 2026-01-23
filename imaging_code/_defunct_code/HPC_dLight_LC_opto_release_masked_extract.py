@@ -119,7 +119,7 @@ for path in paths:
     tot_frames = ops['nframes']
     Ly, Lx = ops['Ly'], ops['Lx']
     
-    print('loading movies...')
+    print('Loading movies...')
     t0 = time()
     mov = np.memmap(
         binpath, mode='r', dtype='int16', shape=(tot_frames, Ly, Lx)
@@ -127,7 +127,7 @@ for path in paths:
     mov2 = np.memmap(
         bin2path, mode='r', dtype='int16', shape=(tot_frames, Ly, Lx)
         ).astype(np.float32)
-    print(f'movies loaded ({str(timedelta(seconds=int(time()-t0)))})')
+    print(f'Movies loaded ({str(timedelta(seconds=int(time()-t0)))})')
     
     # reshape the movies to use advanced indexing (for mean later in the loop)
     mov = mov.reshape(tot_frames, -1)
@@ -164,7 +164,7 @@ for path in paths:
         roi_traces_ch2[i] = np.mean(mov2[:, pix_idx], axis=1)
             
     # calculate all the ROIs at the same time 
-    print('computing dFFs for both channels...')
+    print('Computing dFFs for both channels...')
     dFF_all = ipf.calculate_dFF(roi_traces, GPU_AVAILABLE=GPU_AVAILABLE)
     dFF_all_ch2 = ipf.calculate_dFF(roi_traces_ch2, GPU_AVAILABLE=GPU_AVAILABLE)
 
@@ -235,7 +235,7 @@ for path in paths:
                                run_aligned_mean-run_aligned_sem,
                         color='darkgreen', edgecolor='none', alpha=.25)
         
-        ax.set(xlabel='time from run-onset (s)', xticks=[0, 2, 4],
+        ax.set(xlabel='Time from run-onset (s)', xticks=[0, 2, 4],
                ylabel='dF/F',
                title=f'{recname}\n{roi_id}')
         

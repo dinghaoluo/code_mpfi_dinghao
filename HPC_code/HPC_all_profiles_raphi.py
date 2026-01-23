@@ -2,11 +2,14 @@
 """
 Created on Mon Apr  1 17:34:28 2024
 Modified on Tue 10 Dec 2024
+Modified on 21 Jan 2026
 
 genearte profiles for all pyramidal cells in hippocampus recordings, 
     segregated into baseline, ctrl and stim trials 
+Modification note:
+    Somehow Raphi's recording after 
 
-dependent on HPC_all_extract.py
+dependent on HPC_all_extract_raphi.py
 
 @author: Dinghao Luo
 """
@@ -41,36 +44,43 @@ from common import mpl_formatting
 mpl_formatting()
 
 
+#%% paths and parameters 
+HPC_stem   = Path('Z:/Dinghao/code_dinghao/HPC_ephys')
+train_stem = HPC_stem / 'all_sessions_raphi'
+
+beh_stem   = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCRaphi')
+
+
 #%% dataframe initialisation/loading
-fpath = Path(r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles_raphi.pkl')
+fpath = HPC_stem / 'HPC_all_profiles_raphi_new.pkl'
 if fpath.exists():
     df = pd.read_pickle(fpath)
     print(f'df loaded from {fpath}')
-    processed_sess = df['recname'].tolist()
+    processed_sess = np.unique(df['recname'].tolist())
 else:
     processed_sess = []
     sess = {
-        'recname': [],  # Axxxr-202xxxxx-0x
+        'recname': [],        # Axxxr-202xxxxx-0x
         'cell_identity': [],  # str, 'pyr' or 'int'
-        'depth': [],  # depth relative to layer centre
-        'spike_rate': [],  # in Hz
-        'place_cell': [],  # booleon
-        'pre_post': [],  # post/pre ([.5:1.5]/[-1.5:-.5])
+        'depth': [],          # depth relative to layer centre
+        'firing_rate': [],     # in Hz
+        'place_cell': [],     # booleon
+        'pre_post': [],       # post/pre ([.5:1.5]/[-1.5:-.5])
         'pre_post_stim': [],  # in stim trials 
         'pre_post_ctrl': [],  # in stim-ctrl trials 
-        'class': [],  # run-onset activated/inhibited/unresponsive
+        'class': [],          # run-onset activated/inhibited/unresponsive
         'class_stim': [],
         'class_ctrl': [],
-        'var': [],  # trial-by-trial variability in firing
+        'var': [],            # trial-by-trial variability in firing
         'var_stim': [],
         'var_ctrl': [],
-        'SI': [],  # spatial information
+        'SI': [],             # spatial information
         'SI_stim': [],
         'SI_ctrl': [],
-        'TI': [],  # temporal information 
+        'TI': [],             # temporal information 
         'TI_stim': [],
         'TI_ctrl': [],
-        'prof_mean': [],  # mean firing profile
+        'prof_mean': [],      # mean firing profile
         'prof_sem': [],
         'prof_stim_mean': [],
         'prof_stim_sem': [],
@@ -83,30 +93,22 @@ else:
 #%% load paths to recordings 
 import rec_list
 paths = rec_list.pathHPC_Raphi
-mazes = rec_list.pathHPC_Raphi_maze_sess
 
 
 #%% parameters
-global samp_freq, run_onset_bin
-
 # behaviour 
-track_length = 200  # in cm
-bin_size = 0.1  # in cm
+track_length  = 200  # in cm
+bin_size      = 0.1  # in cm
 run_onset_bin = 3750  # in bins 
 
 # ephys 
-SAMP_FREQ = 1250  # in Hz
-MAX_TIME = 10  # collect (for each trial) a maximum of 10 s of spiking-profile
+SAMP_FREQ   = 1250  # in Hz
+MAX_TIME    = 10  # collect (for each trial) a maximum of 10 s of spiking-profile
 MAX_SAMPLES = SAMP_FREQ * MAX_TIME
 
 # pre_post ratio thresholds 
 run_onset_activated_thres = 2/3
 run_onset_inhibited_thres = 3/2
-
-
-#%% parameters and path stems 
-beh_stem = Path(r'Z:\Dinghao\code_dinghao\behaviour\all_experiments\HPCRaphi')
-train_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions_raphi')
 
 
 #%% MAIN
@@ -123,15 +125,18 @@ for i, path in enumerate(paths):
     
     # load beh dataframe 
     beh_path = beh_stem / f'{recname}.pkl'
-    with open(beh_path, 'rb') as f:
-        beh = pickle.load(f)
+    try:
+        with open(beh_path, 'rb') as f:
+            beh = pickle.load(f)
+    except FileNotFoundError:
+        print('No beh file; skipped')
+        continue
         
     speeds = support.load_speeds(beh)
     good_idx, bad_idx = support.get_good_bad_idx(beh)
     
     # import bad beh trial indices from MATLAB pipeline 
-    good_idx_matlab, bad_idx_matlab = support.get_good_bad_idx_MATLAB(path,
-                                                                      sess=mazes[i])
+    good_idx_matlab, bad_idx_matlab = support.get_good_bad_idx_MATLAB(path)
     
     # calculate occupancy
     distance_bins = np.arange(0, track_length + bin_size, bin_size)
@@ -141,11 +146,15 @@ for i, path in enumerate(paths):
         ]
     
     # load spike trains as a list 
-    train_path = train_stem / recname / f'{recname}_all_trains.npy'
+    train_path = train_stem / recname / f'{recname}_all_trains_run.npy'
     clu_list, trains = support.load_train(train_path)
     
     # load spike trains (in distance) as a list
-    train_dist_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess{mazes[i]}_Run0.mat'
+    # try maze sess:
+    for maze_sess in range(10):
+        train_dist_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_convSpikesDistAligned_msess{maze_sess}_Run0.mat'
+        if train_dist_path.exists():
+            break
     trains_dist = support.load_dist_spike_array(train_dist_path)
     
     # get pyr and int ID's and corresponding spike rates
@@ -154,10 +163,10 @@ for i, path in enumerate(paths):
     
     # get place cell indices 
     try:
-        place_cell_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{mazes[i]}_Run0.mat'
+        place_cell_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{maze_sess}_Run0.mat'
         place_cell_idx = support.get_place_cell_idx(place_cell_info_path)
     except FileNotFoundError:  # for some of Raphi's recordings
-        place_cell_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{mazes[i]}_Run1.mat'
+        place_cell_info_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_FieldSpCorrAligned_Run{maze_sess}_Run1.mat'
         place_cell_idx = support.get_place_cell_idx(place_cell_info_path)
     
     # get cell depth 
@@ -165,7 +174,7 @@ for i, path in enumerate(paths):
     depths = support.get_relative_depth(depth_info_path)
         
     # behaviour parameters
-    beh_MATLAB_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess{mazes[i]}.mat'
+    beh_MATLAB_path = Path(path) / f'{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess{maze_sess}.mat'
     (
         baseline_idx,
         stim_idx, 
@@ -177,7 +186,7 @@ for i, path in enumerate(paths):
     ctrl_idx = [t - 1 for t in ctrl_idx]
 
     # iterate over all pyramidal cells 
-    for clu in tqdm(range(len(cell_identities)), desc='collecting profiles'):
+    for clu in tqdm(range(len(cell_identities)), desc='Collecting profiles'):
         # pyr or int (or other if the spike rate is too high or too low)
         # modified 31 Mar 2025
         cell_identity = cell_identities[clu]

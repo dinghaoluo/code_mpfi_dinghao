@@ -378,28 +378,6 @@ for cluname, bin_lists in cell_bin_traces.items():
         cell_baselines[cluname][bi]  = baseline
         cell_ramp_rates[cluname][bi] = slope
         cell_ends[cluname][bi]       = end
-        
-
-#%% plot all t_since 
-# fig, ax = plt.subplots(figsize=(3,3))
-# ax.hist(all_t_since, bins=1000)
-# ax.set(xlim=(0, 20))
-# plt.show()
-
-# fig, ax = plt.subplots(figsize=(3,3))
-# ax.hist(all_t_since, bins=1000)
-# ax.set(xlim=(0, 10))
-# plt.show()
-
-# fig, ax = plt.subplots(figsize=(3,3))
-# ax.hist(all_t_since, bins=1500)
-# ax.set(xlim=(0, 5))
-# plt.show()
-
-# fig, ax = plt.subplots(figsize=(3,3))
-# ax.hist(all_t_since, bins=1500)
-# ax.set(xlim=(0, 3))
-# plt.show()
 
 
 #%% population summary (run-onset low vs high)

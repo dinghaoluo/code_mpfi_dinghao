@@ -10,40 +10,38 @@ plot the heatmap of pooled ROI activity of axon-GCaMP animals
 
 
 #%% imports 
+from pathlib import Path
+
 import numpy as np 
 import matplotlib.pyplot as plt
-import sys
 import pandas as pd 
 from tqdm import tqdm
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, smooth_convolve, normalise
 mpl_formatting()
 
-sys.path.append('Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathLCHPCGCaMP
 
 
-#%% parameters 
+#%% paths and parameters
+axon_GCaMP_stem = Path('Z:/Dinghao/code_dinghao/LCHPC_axon_GCaMP')
+ 
 ROI_size_threshold = 500  # pixel count 
 
 
 #%% load data 
-df = pd.read_pickle(
-    r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP'
-    r'\LCHPC_axon_GCaMP_all_profiles.pkl'
-    )
+df = pd.read_pickle(axon_GCaMP_stem / 'LCHPC_axon_GCaMP_all_profiles.pkl')
 
-proc_path = r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
+proc_path = axon_GCaMP_stem / 'all_sessions'
 
 # initialise with the first session
 temp_dict = np.load(
-    rf'{proc_path}\{paths[0][-17:]}\processed_data\RO_aligned_mean_dict.npy',
+    proc_path / paths[0][-17:] / 'processed_data' / 'RO_aligned_mean_dict.npy',
     allow_pickle=True
     ).item()
 temp_coord_dict = np.load(
-    rf'{proc_path}\{paths[0][-17:]}\processed_data\valid_rois_coord_dict.npy',
+    proc_path / paths[0][-17:] / 'processed_data' / 'valid_rois_coord_dict.npy',
     allow_pickle=True
     ).item()
 pooled_ROIs = np.row_stack(
@@ -54,11 +52,11 @@ pooled_ROIs = np.row_stack(
 
 for rec_path in tqdm(paths[1:], desc='loading sessions'):
     temp_dict = np.load(
-        rf'{proc_path}\{rec_path[-17:]}\processed_data\RO_aligned_mean_dict.npy',
+        proc_path / rec_path[-17:] / 'processed_data' / 'RO_aligned_mean_dict.npy',
         allow_pickle=True
         ).item()
     temp_coord_dict = np.load(
-        rf'{proc_path}\{rec_path[-17:]}\processed_data\valid_rois_coord_dict.npy',
+        proc_path / rec_path[-17:] / 'processed_data' / 'valid_rois_coord_dict.npy',
         allow_pickle=True
         ).item()
     temp_array = np.row_stack(
@@ -79,7 +77,7 @@ keys = np.argsort([np.argmax(pooled_ROIs[roi, :]) for roi in range(tot_rois)])
 im_matrix = pooled_ROIs[keys, :]
 
 fig, ax = plt.subplots(figsize=(2.6,2.1))
-ax.set(xlabel='time from run-onset (s)',
+ax.set(xlabel='Time from run onset (s)',
        ylabel='ROI #')
 ax.set_aspect('equal')
 fig.suptitle('LC-CA1 GCaMP')
@@ -90,8 +88,13 @@ plt.colorbar(im_ordered, shrink=.5, ticks=[0,1], label='norm. dF/F')
 
 for ext in ['.png', '.pdf']:
     fig.savefig(
-        r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP'
-        rf'\pooled_ordered_heatmap_RO_aligned{ext}',
+        axon_GCaMP_stem / f'pooled_ordered_heatmap_RO_aligned{ext}',
         dpi=300,
         bbox_inches='tight'
         )
+    
+
+#%% run onset peaks?
+run_onset_peaks = df['run_onset_peak']
+
+print(f'Percentage of run-onset-peaking axon ROIs: {sum(run_onset_peaks) / len(run_onset_peaks) * 100}%')

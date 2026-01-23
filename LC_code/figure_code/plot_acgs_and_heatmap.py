@@ -9,14 +9,18 @@ plot ACGs as heatmaps
 
 
 #%% imports 
+from pathlib import Path 
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd  
-import sys 
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, normalise, gaussian_kernel_unity
 mpl_formatting()
+
+
+#%% paths and parameters 
+LC_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys')
 
 gaussian = gaussian_kernel_unity(sigma=2)
 
@@ -24,9 +28,8 @@ xaxis = np.arange(-200, 201)
 
 
 #%% load data
-cell_profiles = pd.read_pickle(
-    r'Z:\Dinghao\code_dinghao\LC_ephys\LC_all_cell_profiles.pkl'
-    )
+cell_profiles_path = LC_stem / 'LC_all_cell_profiles.pkl'
+cell_profiles = pd.read_pickle(cell_profiles_path)
 
 
 #%% plot single-cell ACGs
@@ -51,16 +54,15 @@ for clu in cell_profiles.itertuples():
            alpha=.5)
     
     ax.set(title=cluname,
-           xlabel='lag (ms)',
-           ylabel='', yticks=())
+           xlabel='Lag (ms)',
+           ylabel='Spike pair count')
     
-    for s in ('left', 'top', 'right'):
+    for s in ('top', 'right'):
         ax.spines[s].set_visible(False)
     
-    for ext in ('.png', '.pdf'):
+    for ext in ['.png', '.pdf']:
         fig.savefig(
-            r'Z:\Dinghao\code_dinghao\LC_ephys'
-            rf'\single_cell_ACGs\{cluname} {identity}{ext}',
+            LC_stem / f'single_cell_ACGs/{cluname} {identity}{ext}',
             dpi=300,
             bbox_inches='tight'
             )

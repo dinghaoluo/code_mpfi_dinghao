@@ -139,7 +139,7 @@ def main(path):
     
     # determine time bin mask
     # NOTE: stim_start means the start of the STIM_IDX period, which comes AFTER the stim
-    PMT_BUFFER_FRAMES = 18  # frames 
+    PMT_BUFFER_FRAMES = 8  # frames 
     PMT_BUFFER = PMT_BUFFER_FRAMES / SAMP_FREQ
     last_time_s = last_time / 1_000  # convert to seconds
     if last_time_s >= 5:  # for long stimulation attempts to elicit NE release, 30 Oct 2025
@@ -213,8 +213,10 @@ def main(path):
         end   = p + AFT * SAMP_FREQ
         trace_dFF_aligned[i, :] = trace_dFF[start:end]
         trace2_dFF_aligned[i, :] = trace2_dFF[start:end]
-    trace_dFF_aligned_mean = np.mean(trace_dFF_aligned, axis=0)
-    trace2_dFF_aligned_mean = np.mean(trace2_dFF_aligned, axis=0)
+    trace_dFF_aligned_mean = np.nanmean(trace_dFF_aligned, axis=0)
+    trace2_dFF_aligned_mean = np.nanmean(trace2_dFF_aligned, axis=0)
+    trace_dFF_aligned_mean[60:83] = np.nan
+    trace2_dFF_aligned_mean[60:83] = np.nan
     
     # calculate ratios
     # per‐trial raw means

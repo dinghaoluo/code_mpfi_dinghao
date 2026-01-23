@@ -8,6 +8,8 @@ support functions for HPC scripts to reduce cluttering
 """
 
 #%% imports 
+from pathlib import Path
+
 import numpy as np 
 import scipy.io as sio 
 import mat73
@@ -327,7 +329,7 @@ def get_good_bad_idx(beh_series):
     
     return good_idx, bad_idx
 
-def get_good_bad_idx_MATLAB(pathname, sess=1):
+def get_good_bad_idx_MATLAB(pathname):
     """
     extract indices of good and bad trials from a MATLAB behavioural parameter file.
 
@@ -338,10 +340,14 @@ def get_good_bad_idx_MATLAB(pathname, sess=1):
     - good_idx_matlab: list of indices (0-based) for trials marked as good.
     - bad_idx_matlab: list of indices (0-based) for trials marked as bad.
     """
-    recname = pathname.split('\\')[-1]
-    beh_parameter_file = sio.loadmat(
-       rf'{pathname}\{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess{sess}.mat'
-       )
+    recname = Path(pathname).name
+    
+    for sess in range(10):
+        beh_parameter_file_path = Path(pathname) / f'{recname}_DataStructure_mazeSection1_TrialType1_behPar_msess{sess}.mat'
+        if beh_parameter_file_path.exists():
+            break
+    
+    beh_parameter_file = sio.loadmat(beh_parameter_file_path)
     
     # same as the previous function
     bad_idx_matlab = [trial-1 for trial, quality 
@@ -352,6 +358,7 @@ def get_good_bad_idx_MATLAB(pathname, sess=1):
                        if not quality and trial>0]
     
     return good_idx_matlab, bad_idx_matlab
+
 
 def get_place_cell_idx(classification_filename):
     """

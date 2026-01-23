@@ -42,13 +42,19 @@ stim_mean_speeds_020 = []
 ctrl_perc_rew_020 = []
 stim_perc_rew_020 = [] 
 
+n_sess = 0
+
 for i, pathname in enumerate(pathLCBehopt):
     sessname = pathname[-13:]
-    print(sessname)
     curr_cond = condLCBehopt[i]
     curr_sess = sessLCBehopt[i]
+    
+    # see if this recording is 020
     if str([0,2,0])[1:-1] not in str(curr_cond)[1:-1]: 
         continue
+    print(sessname)
+    n_sess -= -1  # if yes, then increment n_sess
+    
     file_idx = curr_sess[curr_cond.index(2)]
     text_file = rf'{pathname}\{sessname}-0{file_idx}\{sessname}-0{file_idx}T.txt'
     curr_txt = process_behavioural_data(text_file)
@@ -169,9 +175,11 @@ for i, pathname in enumerate(pathLCopt):
     curr_txt = process_behavioural_data(text_file)
     
     # segment the session based on optogenetic protocol
+    # see if this recording is 020
     optogenetic_protocol = [t[15] for t in curr_txt['trial_statements']]
     if '2' not in np.unique(optogenetic_protocol):
         continue
+    n_sess -= -1  # if yes, then increment n_sess
     
     start_idx = end_idx = None  # handle edge-cases
     for trial_idx, protocol in enumerate(optogenetic_protocol):  # find the start 
@@ -280,9 +288,11 @@ for i, pathname in enumerate(pathHPCopt):
     curr_txt = process_behavioural_data(text_file)
     
     # segment the session based on optogenetic protocol
+    # see if this recording is 020
     optogenetic_protocol = [t[15] for t in curr_txt['trial_statements']]
     if '2' not in np.unique(optogenetic_protocol):
         continue
+    n_sess -= -1  # if yes, then increment n_sess
     
     start_idx = end_idx = None  # handle edge-cases
     for trial_idx, protocol in enumerate(optogenetic_protocol):  # find the start 
@@ -434,6 +444,8 @@ pf.plot_violin_with_scatter(
     dpi=300
     )
 
+print(f'n_sess = {n_sess}')
+
 
 #%% 030 
 ctrl_lick_times_030 = []
@@ -446,13 +458,19 @@ stim_mean_speeds_030 = []
 ctrl_perc_rew_030 = []
 stim_perc_rew_030 = [] 
 
+n_sess = 0
+
 for i, pathname in enumerate(pathLCBehopt):
     sessname = pathname[-13:]
-    print(sessname)
     curr_cond = condLCBehopt[i]
     curr_sess = sessLCBehopt[i]
+    
+    # see if this recording is 030
     if str([0,3,0])[1:-1] not in str(curr_cond)[1:-1]: 
         continue
+    print(sessname)
+    n_sess -= -1  # if yes, then increment n_sess
+    
     file_idx = curr_sess[curr_cond.index(3)]
     text_file = rf'{pathname}\{sessname}-0{file_idx}\{sessname}-0{file_idx}T.txt'
     curr_txt = process_behavioural_data(text_file)
@@ -568,14 +586,16 @@ for i, pathname in enumerate(pathLCBehopt):
 
 for i, pathname in enumerate(pathLCopt):
     sessname = pathname[-17:]
-    print(sessname)
     text_file = rf'{pathname}\{sessname}T.txt'
     curr_txt = process_behavioural_data(text_file)
     
     # segment the session based on optogenetic protocol
+    # see if this recording is 030
     optogenetic_protocol = [t[15] for t in curr_txt['trial_statements']]
     if '3' not in np.unique(optogenetic_protocol):
         continue
+    print(sessname)
+    n_sess -= -1  # if yes, then increment n_sess
     
     start_idx = end_idx = None  # handle edge-cases
     for trial_idx, protocol in enumerate(optogenetic_protocol):  # find the start 
@@ -679,14 +699,16 @@ for i, pathname in enumerate(pathLCopt):
         
 for i, pathname in enumerate(pathHPCopt):
     sessname = pathname[-17:]
-    print(sessname)
     text_file = rf'{pathname}\{sessname}T.txt'
     curr_txt = process_behavioural_data(text_file)
     
     # segment the session based on optogenetic protocol
+    # see if this recording is 030
     optogenetic_protocol = [t[15] for t in curr_txt['trial_statements']]
     if '3' not in np.unique(optogenetic_protocol):
         continue
+    print(sessname)
+    n_sess -= -1  # if yes, then increment n_sess
     
     start_idx = end_idx = None  # handle edge-cases
     for trial_idx, protocol in enumerate(optogenetic_protocol):  # find the start 
@@ -838,19 +860,26 @@ pf.plot_violin_with_scatter(
     dpi=300
     )
 
+print(f'n_sess = {n_sess}')
 
 
 #%% 040
 all_opto_ctrl_num_licks_aft = [] 
 all_opto_stim_num_licks_aft = []
+
+n_sess = 0
+
 for i, pathname in enumerate(pathLCBehopt):   
     sessname = pathname[-13:]
     curr_cond = condLCBehopt[i]
     curr_sess = sessLCBehopt[i]
-    if str([0,4])[1:-1] not in str(curr_cond)[1:-1]:  # I have to commemmorate this as quite a clever trick
-        print(curr_cond)
-        print(f'{sessname} does not have rew-stim.')
+    
+    # see if this recording is 040
+    if str([0,4])[1:-1] not in str(curr_cond)[1:-1]:
         continue
+    print(sessname)
+    n_sess -= -1  # if yes, then increment n_sess
+    
     file_idx = curr_sess[curr_cond.index(4)]  # rew
     text_file = r'{}\{}-0{}\{}-0{}T.txt'.format(pathname, 
                                                 sessname, file_idx, 
@@ -920,6 +949,8 @@ pf.plot_violin_with_scatter(
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\040_lick_aft_rew',
     dpi=300)
+
+print(f'n_sess = {n_sess}')
 
 
 #%% 020 terminal 

@@ -14,10 +14,8 @@ import sys
 from tqdm import tqdm
 import pandas as pd
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import support_LCHPC_axon as support
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from common import mpl_formatting, smooth_convolve
 import peak_detection_functions as pdf
 mpl_formatting()
@@ -52,7 +50,6 @@ else:
 
 
 #%% load paths to recordings 
-sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 paths = rec_list.pathLCHPCGCaMP
 
@@ -99,7 +96,7 @@ for path in paths:
     # load data 
     F_dFF = np.load(
         rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-        rf'\{recname}\processed_data\RO_aligned_dict.npy',
+        rf'\{recname}\{recname}_all_run.npy',
         allow_pickle=True
         ).item() | np.load(
             rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'

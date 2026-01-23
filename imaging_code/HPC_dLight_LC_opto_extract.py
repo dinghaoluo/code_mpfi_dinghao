@@ -40,6 +40,8 @@ cp, GPU_AVAILABLE = get_GPU_availability()
 
 
 #%% parameters 
+pixel_wise_processing = False
+
 SAMP_FREQ = 30
 
 # post-stim dispersion calculation
@@ -215,7 +217,8 @@ def main(path):
         detected_onsets  = detected_onsets[valid_edges]
         detected_offsets = detected_offsets[valid_edges]
         detected_stim_durations = [off-on for off, on in zip(detected_offsets, detected_onsets)]
-        max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
+        max_stim_duration   = max(detected_stim_durations)
+        max_stim_duration_s = max_stim_duration / SAMP_FREQ
     
     ## -- PARAMETER DEFINITIONS
     # now defined within the function scope, since we reassign them later in an if statement
@@ -278,8 +281,16 @@ def main(path):
         end   = p + AFT * SAMP_FREQ
         trace_dFF_aligned[i, :]  = trace_dFF[start:end]
         trace2_dFF_aligned[i, :] = trace2_dFF[start:end]
-    trace_dFF_aligned_mean  = np.mean(trace_dFF_aligned, axis=0)
-    trace2_dFF_aligned_mean = np.mean(trace2_dFF_aligned, axis=0)
+        
+    # calculate the mean traces for plotting 
+    trace_dFF_aligned_mean  = np.nanmean(trace_dFF_aligned, axis=0)
+    trace2_dFF_aligned_mean = np.nanmean(trace2_dFF_aligned, axis=0)
+    
+    # block out the stim period
+    blocked_on  = BEF * SAMP_FREQ - 1  # -1 frame as a buffer 
+    blocked_off = BEF * SAMP_FREQ + max_stim_duration
+    trace_dFF_aligned_mean[blocked_on : blocked_off]  = np.nan
+    trace2_dFF_aligned_mean[blocked_on : blocked_off] = np.nan
     
     # calculate ratios
     # per‐trial raw means
@@ -426,6 +437,9 @@ def main(path):
     # ----------------------
     # truncate movies first to reduce load 
     # spatial smoothing
+    if not pixel_wise_processing:
+        return
+    
     print('Performing spatial filtering...')
     mov      = ipf.spatial_gaussian_filter(mov, sigma_spatial=1,
                                            GPU_AVAILABLE=GPU_AVAILABLE,

@@ -14,18 +14,15 @@ modifications:
 
 #%% imports 
 import pickle 
-import sys
 import os
 from time import time 
 from datetime import timedelta
 
 # import pre-processing functions 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\behaviour_code\utils')
 import behaviour_functions as bf
 
 
 #%% recording list
-sys.path.append(r'Z:\Dinghao\code_dinghao')
 import rec_list
 
 list_to_process = input(

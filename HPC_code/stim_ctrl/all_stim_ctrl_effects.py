@@ -314,8 +314,30 @@ proportion_inh = sum([1 for clu in sig_dict.values() if clu[1] == -1]) / len(sig
 onset_times_act = [clu[0] for clu in sig_dict.values() if clu[1] == 1]
 onset_times_inh = [clu[0] for clu in sig_dict.values() if clu[1] == -1]
 
+onset_times_act = np.asarray([clu[0] for clu in sig_dict.values() if clu[1] == 1])
+onset_times_inh = np.asarray([clu[0] for clu in sig_dict.values() if clu[1] == -1])
+
+onset_times_act = onset_times_act[~np.isnan(onset_times_act)]
+onset_times_inh = onset_times_inh[~np.isnan(onset_times_inh)]
+
+n_act = onset_times_act.size
+n_inh = onset_times_inh.size
+
+# medians
 act_median = np.median(onset_times_act)
 inh_median = np.median(onset_times_inh)
+
+# MAD / sqrt(n)
+act_mad = np.median(np.abs(onset_times_act - act_median))
+inh_mad = np.median(np.abs(onset_times_inh - inh_median))
+
+act_mad_sem = act_mad / np.sqrt(n_act)
+inh_mad_sem = inh_mad / np.sqrt(n_inh)
+
+# IQR
+act_q25, act_q75 = np.percentile(onset_times_act, [25, 75])
+inh_q25, inh_q75 = np.percentile(onset_times_inh, [25, 75])
+
 
 # plotting 
 bin_edges = np.arange(0.0, max(max(onset_times_act), max(onset_times_inh)), 0.1)
@@ -336,9 +358,28 @@ axs[1].hist(onset_times_inh,
             edgecolor='k',
             label='inhibition')
 
-axs[0].set(title=f'Activation med={act_median:.3g} s')
-axs[1].set(title=f'Inhibition med={inh_median:.3g} s',
-           xlabel='Time from run/stim. onset (s)')
+axs[0].set(
+    title=(
+        f'Activation\n'
+        f'med={act_median:.3g}s, '
+        f'MAD/√n={act_mad_sem:.3g}s\n'
+        f'IQR=[{act_q25:.3g}, {act_q75:.3g}]s'
+    )
+)
+
+axs[1].set(
+    title=(
+        f'Inhibition\n'
+        f'med={inh_median:.3g}s, '
+        f'MAD/√n={inh_mad_sem:.3g}s\n'
+        f'IQR=[{inh_q25:.3g}, {inh_q75:.3g}]s'
+    ),
+    xlabel='Time from run/stim. onset (s)'
+)
+
+axs[0].axvline(act_median, color='k', lw=1)
+axs[1].axvline(inh_median, color='k', lw=1)
+
 for i in range(2):
     axs[i].set(xlim=(0,max(max(onset_times_act), max(onset_times_inh))), 
                yticks=[0,1], ylim=(0,1.2), ylabel='Density')
@@ -372,9 +413,28 @@ axs[1].hist(onset_times_inh,
             edgecolor='k',
             label='inhibition')
 
-axs[0].set(title=f'Activation med={act_median:.3g} s')
-axs[1].set(title=f'Inhibition med={inh_median:.3g} s',
-           xlabel='Time from run/stim. onset (s)')
+axs[0].axvline(act_median, color='k', lw=1)
+axs[1].axvline(inh_median, color='k', lw=1)
+
+axs[0].set(
+    title=(
+        f'Activation\n'
+        f'med={act_median:.3g}s, '
+        f'MAD/√n={act_mad_sem:.3g}s\n'
+        f'IQR=[{act_q25:.3g}, {act_q75:.3g}]s'
+    )
+)
+
+axs[1].set(
+    title=(
+        f'Inhibition\n'
+        f'med={inh_median:.3g}s, '
+        f'MAD/√n={inh_mad_sem:.3g}s\n'
+        f'IQR=[{inh_q25:.3g}, {inh_q75:.3g}]s'
+    ),
+    xlabel='Time from run/stim. onset (s)'
+)
+
 for i in range(2):
     axs[i].set(xlim=(0,1), 
                yticks=[0,1], ylim=(0,1.2), ylabel='Density')
@@ -388,6 +448,24 @@ for ext in ['.png', '.pdf']:
         bbox_inches='tight'
         )
     
+    
+# printout 
+print('\n=== latency summary ===')
+
+print(
+    f'activation: n={n_act}, '
+    f'median={act_median:.4g}s, '
+    f'MAD/√n={act_mad_sem:.4g}s, '
+    f'IQR=[{act_q25:.4g}, {act_q75:.4g}]s'
+)
+
+print(
+    f'inhibition: n={n_inh}, '
+    f'median={inh_median:.4g}s, '
+    f'MAD/√n={inh_mad_sem:.4g}s, '
+    f'IQR=[{inh_q25:.4g}, {inh_q75:.4g}]s'
+)
+
     
 #%% other plots 
 ks_stat, ks_p = ks_2samp(onset_times_act, onset_times_inh)

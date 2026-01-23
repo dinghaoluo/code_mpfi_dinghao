@@ -30,7 +30,7 @@ mazes    = rec_list.pathHPC_Raphi_maze_sess
 
 
 #%% parameters 
-SAMP_FREQ = 1250 
+SAMP_FREQ     = 1250 
 RUN_ONSET_BIN = 3750
 BEF = 1  # seconds before run-onset
 AFT = 4  # seconds after run-onset
@@ -44,8 +44,10 @@ late_c  = (102/255, 83/255 , 162/255)
 
 
 #%% path stems 
-all_exp_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCRaphi')
-first_lick_stem = Path('Z:/Dinghao/code_dinghao/HPC_ephys/first_lick_analysis_raphi')
+HPC_stem        = Path('Z:/Dinghao/code_dinghao/HPC_ephys')
+first_lick_stem = HPC_stem / 'first_lick_analysis_raphi'
+
+all_exp_stem    = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCRaphi')
 
 
 #%% helper 
@@ -96,40 +98,45 @@ def _binwise_test_all(early_profiles, late_profiles,
     bins = np.arange(start, end, bin_size)
     n_bins = len(bins)
 
-    p_ind  = []   # t-test independent
-    p_rs   = []   # ranksums
-    p_rel  = []   # paired t-test
-    p_wil  = []   # wilcoxon signed-rank
+    p_ind  = []
+    p_rs   = []
+    p_rel  = []
+    p_wil  = []
 
     print(f'\nBinwise stats for {label}:')
+    print('bin(s) | early mean ± SEM (n) | late mean ± SEM (n) | '
+          'ind | rs | rel | wil')
+
     for b in range(n_bins):
         lo, hi = bins[b], bins[b] + bin_size
         lo_idx = int((lo + BEF) * SAMP_FREQ)
         hi_idx = int((hi + BEF) * SAMP_FREQ)
 
-        e_means = np.mean(early_profiles[:, lo_idx:hi_idx], axis=1)
-        l_means = np.mean(late_profiles[:, lo_idx:hi_idx], axis=1)
+        e_means = np.nanmean(early_profiles[:, lo_idx:hi_idx], axis=1)
+        l_means = np.nanmean(late_profiles[:, lo_idx:hi_idx], axis=1)
 
-        # drop NaNs consistently
         mask = ~np.isnan(e_means) & ~np.isnan(l_means)
         e = e_means[mask]
         l = l_means[mask]
+
+        # mean ± sem
+        e_mean = np.mean(e) if e.size else np.nan
+        l_mean = np.mean(l) if l.size else np.nan
+        e_sem  = sem(e) if e.size > 1 else np.nan
+        l_sem  = sem(l) if l.size > 1 else np.nan
 
         try:
             _, p_i = ttest_ind(e, l, nan_policy='omit')
         except:
             p_i = np.nan
-
         try:
             _, p_r = ranksums(e, l, nan_policy='omit')
         except:
             p_r = np.nan
-
         try:
             _, p_p = ttest_rel(e, l, nan_policy='omit')
         except:
             p_p = np.nan
-
         try:
             _, p_w = wilcoxon(e, l, nan_policy='omit')
         except:
@@ -140,9 +147,15 @@ def _binwise_test_all(early_profiles, late_profiles,
         p_rel.append(p_p)
         p_wil.append(p_w)
 
-        print(f'{lo:.1f}–{hi:.1f} s: ind={p_i:.3g}, rs={p_r:.3g}, rel={p_p:.3g}, wil={p_w:.3g}')
+        print(f'{lo:>4.1f}–{hi:<4.1f} | '
+              f'{e_mean:.3f} ± {e_sem:.3f} | '
+              f'{l_mean:.3f} ± {l_sem:.3f} | '
+              f'{p_i:.2e} {p_r:.2e} {p_p:.2e} {p_w:.2e}')
 
-    return np.array(p_ind), np.array(p_rs), np.array(p_rel), np.array(p_wil)
+    return (np.array(p_ind),
+            np.array(p_rs),
+            np.array(p_rel),
+            np.array(p_wil))
 
 def _compute_bin_speeds_7(trial_indices, n_bins=7, bin_size=500):
     means = []
@@ -197,10 +210,9 @@ def _trial_bin_means(trial_idx_list, bin_size=500, total_len=3500, n_bins=7):
 
 
 #%% load data 
-print('loading dataframes...')
-cell_profiles = pd.read_pickle(
-    r'Z:\Dinghao\code_dinghao\HPC_ephys\HPC_all_profiles_raphi.pkl'
-)
+print('Loading dataframes...')
+cell_profiles_path = HPC_stem / 'HPC_all_profiles_raphi.pkl'
+cell_profiles = pd.read_pickle(cell_profiles_path)
 df_pyr = cell_profiles[cell_profiles['cell_identity'] == 'pyr']
 pyrON = df_pyr[df_pyr['class'] == 'run-onset ON']
 pyrOFF = df_pyr[df_pyr['class'] == 'run-onset OFF']
@@ -218,8 +230,13 @@ sess_late_speed_means = []
 sess_early_speed_means_raw = []
 sess_late_speed_means_raw = []
 
+# counters 
+animals = set()
+n_sess  = 0
+
 # cell loop
 recname   = ''
+anmname   = ''
 skip_flag = False
 current_session_ON_early  = []
 current_session_ON_late   = []
@@ -242,6 +259,14 @@ for cluname in all_valid_clunames:
             'late OFF' : current_session_OFF_late
             }
         profiles[recname] = curr_profiles
+        
+        # if the last session has been skipped, decrement n_sess
+        if skip_flag:
+            n_sess += -1
+            try:
+                animals.remove(anmname)
+            except KeyError:
+                pass
             
         current_session_ON_early  = []
         current_session_ON_late   = []
@@ -256,6 +281,10 @@ for cluname in all_valid_clunames:
         
         print(f'\n{recname}')
         skip_flag = False
+        
+        n_sess -= -1
+        anmname = recname.split('-')[0]
+        animals.add(anmname)
         
         for maze_section in range(6):
             alignRun_path = Path(
@@ -631,6 +660,29 @@ p_ind, p_rs, p_rel, p_wil = _binwise_test_all(
 _annotate_pvals_all(ax, p_ind, p_rs, p_rel, p_wil,
                     start=-0.5, bin_size=1, fontsize=2.5)
 
+print('\nON cells: bin-by-bin mean ± SEM (Hz)')
+bins = np.arange(-0.5, 3.5, 1)
+
+for i, lo in enumerate(bins):
+    hi = lo + 1
+    lo_idx = int((lo + BEF) * SAMP_FREQ)
+    hi_idx = int((hi + BEF) * SAMP_FREQ)
+
+    e_vals = np.nanmean(np.array(early_ON)[:, lo_idx:hi_idx], axis=1)
+    l_vals = np.nanmean(np.array(late_ON)[:, lo_idx:hi_idx], axis=1)
+
+    e_vals = e_vals[~np.isnan(e_vals)]
+    l_vals = l_vals[~np.isnan(l_vals)]
+
+    e_mean = np.mean(e_vals)
+    e_sem  = sem(e_vals)
+    l_mean = np.mean(l_vals)
+    l_sem  = sem(l_vals)
+
+    print(f'{lo:>4.1f}–{hi:<4.1f}s: '
+          f'early: {e_mean:.3f} ± {e_sem:.3f}; '
+          f'late:  {l_mean:.3f} ± {l_sem:.3f}')
+
 ax.legend(fontsize=5, frameon=False)
 ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), 
        ylabel='Firing rate (Hz)', ylim=(0.75, 3.15), yticks=[1,2,3])
@@ -670,6 +722,29 @@ p_ind, p_rs, p_rel, p_wil = _binwise_test_all(
     )
 _annotate_pvals_all(ax, p_ind, p_rs, p_rel, p_wil,
                     start=-0.5, bin_size=1, fontsize=2.5)
+
+print('\nOFF cells: bin-by-bin mean ± SEM (Hz)')
+bins = np.arange(-0.5, 3.5, 1)
+
+for i, lo in enumerate(bins):
+    hi = lo + 1
+    lo_idx = int((lo + BEF) * SAMP_FREQ)
+    hi_idx = int((hi + BEF) * SAMP_FREQ)
+
+    e_vals = np.nanmean(np.array(early_OFF)[:, lo_idx:hi_idx], axis=1)
+    l_vals = np.nanmean(np.array(late_OFF)[:, lo_idx:hi_idx], axis=1)
+
+    e_vals = e_vals[~np.isnan(e_vals)]
+    l_vals = l_vals[~np.isnan(l_vals)]
+
+    e_mean = np.mean(e_vals)
+    e_sem  = sem(e_vals)
+    l_mean = np.mean(l_vals)
+    l_sem  = sem(l_vals)
+
+    print(f'{lo:>4.1f}–{hi:<4.1f}s: '
+          f'early: {e_mean:.3f} ± {e_sem:.3f}; '
+          f'late:  {l_mean:.3f} ± {l_sem:.3f}')
 
 ax.legend(fontsize=5, frameon=False)
 ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), 
