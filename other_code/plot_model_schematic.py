@@ -8,18 +8,48 @@ playground script
 """
 
 #%% imports 
-import matplotlib.pyplot as plt 
+from pathlib import Path 
 import numpy as np 
+import matplotlib.pyplot as plt 
 from scipy.signal import fftconvolve
 
 from common import mpl_formatting
 mpl_formatting()
 
 
-#%% plotting 
-# HPC curve 
-taxis_HPC = np.linspace(-.5, 6, 550)
-sigmoid_onset = 1 / (1 + np.exp(-5 * (taxis_HPC - 0.3)))  # onset at ~0.3 s
+#%% paths 
+save_stem = Path('Z:/Dinghao/code_dinghao/model_schematics')
+
+
+#%% LC curve
+taxis_LC = np.linspace(-1, 1, 200)
+gauss_std = 0.25 # standard deviation in seconds (sharp peak)
+gauss_peak = np.exp(-0.5 * (taxis_LC / gauss_std)**2)
+gauss_peak /= np.max(gauss_peak)  # normalise to peak at 1
+
+fig, ax = plt.subplots(figsize=(2.2, 1.6))
+ax.plot(taxis_LC, gauss_peak, c='royalblue')
+
+for s in ['left', 'right', 'top', 'bottom']:
+    ax.spines[s].set_visible(False)
+
+ax.set(xlim=(-1, 5), xticks=[],
+       ylim=(0, 1.1), yticks=[])
+
+plt.tight_layout()
+plt.show()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        save_stem / f'trace_LC{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )
+
+
+#%% HPC curve 
+taxis_HPC = np.linspace(-1, 6, 550)
+sigmoid_onset = 1 / (1 + np.exp(-6.5 * (taxis_HPC - 0.3)))  # onset at ~0.3 s
 exponential_tail = np.exp(-taxis_HPC / 2.5)  # slow decay
 
 HPC = sigmoid_onset * exponential_tail
@@ -28,18 +58,27 @@ HPC /= np.max(HPC)
 # HPC_mod: reduced amplitude version
 HPC_mod = HPC * 0.25
 
-# LC curve
-taxis_LC = np.linspace(-1, 1, 200)
-gauss_std = 0.25 # standard deviation in seconds (sharp peak)
-gauss_peak = np.exp(-0.5 * (taxis_LC / gauss_std)**2)
-gauss_peak /= np.max(gauss_peak)  # normalise to peak at 1
+fig, ax = plt.subplots(figsize=(2.2, 1.6))
+ax.plot(taxis_HPC, HPC, c='firebrick', lw=1.5, alpha=1)
 
-# HPC hypothesis
-taxis_HPC_hyp = np.linspace(-1, 5, 200)
-gauss_std_HPC_hyp = 0.8
-gauss_peak_HPC_hyp = np.exp(-0.5 * (taxis_HPC_hyp / gauss_std_HPC_hyp - 2.5)**2)
-gauss_peak_HPC_hyp /= np.max(gauss_peak_HPC_hyp)
+for s in ['left', 'right', 'top', 'bottom']:
+    ax.spines[s].set_visible(False)
 
+ax.set(xlim=(-1, 5), xticks=[],
+       ylim=(0, 1.1), yticks=[])
+
+plt.tight_layout()
+plt.show()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        save_stem / f'trace_HPC{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )
+    
+
+#%% DA trace 
 # dopamine trace: starts at time -1, similar rise to LC Gaussian, slower decay
 taxis_decay = np.linspace(0, 6, 600)
 tau_decay_mod = 4.4
@@ -50,22 +89,8 @@ taxis_mod = np.linspace(0, 6, 600)
 taxis_mod = taxis_mod - .9
 
 fig, ax = plt.subplots(figsize=(2.2, 1.6))
-# ax.plot(taxis_HPC, HPC_mod, c='lightcoral', alpha=.6)
-# ax.plot(taxis_HPC, HPC, c='firebrick', lw=1.5, alpha=1)
-# ax.plot(taxis_HPC_hyp, gauss_peak_HPC_hyp, c='firebrick', ls='--', alpha=.8)
-# ax.plot(taxis_HPC, 1-HPC, c='purple', alpha=.8)
-# ax.plot(taxis_LC, gauss_peak, c='royalblue')
 ax.plot(taxis_mod, dopamine, c='darkgreen')
 
-# scaled LC peaks
-ax.plot(taxis_LC, gauss_peak * 1, c='royalblue', lw=1.5, alpha=1)
-# ax.plot(taxis_LC, gauss_peak * .7, c='royalblue', alpha=0.5)
-
-# LC stim 
-# ax.plot(taxis_LC, gauss_peak * .75, c='grey', alpha=.6)
-# ax.plot(taxis_LC, gauss_peak * 1, c='royalblue', alpha=1)
-
-# remove left, right and top spines
 for s in ['left', 'right', 'top', 'bottom']:
     ax.spines[s].set_visible(False)
 
@@ -75,47 +100,32 @@ ax.set(xlim=(-1, 5), xticks=[],
 plt.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\trace_LC_DA.png',
-            dpi=300,
-            bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        save_stem / f'trace_DA{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )
 
 
-#%% simplified/generic 
-# HPC curve 
-t = np.linspace(-1, 5, 500)
-hpc_generic = 1 / (1 + np.exp(-8 * (t - 0)))  # sigmoid at t = 0
-
-# LC curves 
-# 1
-gauss_std = 0.25
-gauss_peak = np.exp(-0.5 * (t / gauss_std)**2)
-gauss_peak /= np.max(gauss_peak)
-lc_tonic = np.copy(gauss_peak)
-peak_idx = np.argmax(lc_tonic)
-lc_tonic[peak_idx:] = lc_tonic[peak_idx]  # flatten from peak onward
-
-# 2
-taxis_LC = np.linspace(-1, 1, 200)
-gauss_std = 0.25 # standard deviation in seconds (sharp peak)
-gauss_peak = np.exp(-0.5 * (taxis_LC / gauss_std)**2)
-gauss_peak /= np.max(gauss_peak)  # normalise to peak at 1
-
-# plot
+#%% combined 
 fig, ax = plt.subplots(figsize=(2.2, 1.6))
-# ax.plot(t, hpc_generic, c='firebrick', lw=3, ls='dashed')
-# ax.plot(t, 1-hpc_generic, c='purple', lw=2, ls='dashed')
-# ax.plot(t, lc_tonic, c='royalblue', lw=2, ls='dashed')  # LC tonic trace
-ax.plot(taxis_LC, gauss_peak, c='royalblue', lw=2) 
+ax.plot(taxis_LC, gauss_peak, c='royalblue')
+ax.plot(taxis_HPC, HPC, c='firebrick', lw=1.5, alpha=1)
+ax.plot(taxis_mod, dopamine, c='darkgreen')
 
-# remove spines and ticks
 for s in ['left', 'right', 'top', 'bottom']:
     ax.spines[s].set_visible(False)
 
-ax.set(xlim=(-1, 5), xticks=[], ylim=(0, 1.1), yticks=[])
+ax.set(xlim=(-1, 5), xticks=[],
+       ylim=(0, 1.1), yticks=[])
 
 plt.tight_layout()
 plt.show()
 
-fig.savefig(r'Z:\Dinghao\paper\figures_other\trace_LC_phasic_solid.png',
-            dpi=300,
-            bbox_inches='tight')
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        save_stem / f'trace_combined{ext}',
+        dpi=300,
+        bbox_inches='tight'
+        )

@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm  
-from scipy.stats import ttest_1samp, friedmanchisquare, wilcoxon, mannwhitneyu
+from scipy.stats import ttest_1samp, wilcoxon, mannwhitneyu
 from statsmodels.stats.multitest import multipletests
 from scipy.ndimage import binary_dilation
 
@@ -29,7 +29,7 @@ paths = rec_list.pathdLightLCOpto
 
 
 #%% helper
-def build_roi_mask(roi_dict):
+def _build_roi_mask(roi_dict):
     """build combined mask from all ROIs"""
     mask = np.zeros((512, 512), dtype=bool)
     for roi_id, roi in roi_dict.items():
@@ -39,7 +39,7 @@ def build_roi_mask(roi_dict):
 
 #%% path stems
 all_sess_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\all_sessions')
-save_stem = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\dispersion_analysis')
+save_stem     = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\dispersion_analysis')
 
 
 #%% parameters
@@ -48,17 +48,14 @@ DILATE_STEP = 2
 MAX_DILATE = 10
 EDGE = 6
 
-ALPHA = 0.05
+ALPHA  = 0.05
+MIN_RI = 0.1
 
 WINDOW_BINS = {
-    '0-0.5 s': range(0, 5),
-    '0.5-1 s': range(5, 10),
-    '1-1.5 s': range(10, 15),
-    '1.5-2 s': range(15, 20),
-    '2-2.5 s': range(20, 25),
-    '2.5-3 s': range(25, 30),
-    '3-3.5 s': range(30, 35),
-    '3.5-4 s': range(35, 40)
+    '0-1 s':   range(0, 10),
+    '1-2 s':   range(10, 20),
+    '2-3 s':   range(20, 30),
+    '3-4 s':   range(30, 40),
 }
 
 
@@ -90,16 +87,22 @@ for path in paths:
     pixel_RI_stim = np.load(pixel_RI_stim_path, allow_pickle=True)
     roi_dict      = np.load(roi_dict_path, allow_pickle=True).item()
     
-    # identify releasing ROIs (using whole 0–4 s median)
-    print(f'Identifying releasing ROIs with alpha={ALPHA}...')
-    pixel_RI_med = np.median(pixel_RI_stim, axis=2)
+    # ---- identify releasing ROIs ----
     releasing_rois = {}
-    for roi_id, roi in roi_dict.items():
-        roi_vals = pixel_RI_med[roi['ypix'], roi['xpix']]
-        if np.all(np.isfinite(roi_vals)) and len(roi_vals) > 2:
-            _, p_val = ttest_1samp(roi_vals, popmean=0, alternative='greater')
-            if p_val < ALPHA:
-                releasing_rois[roi_id] = roi
+
+    for rid, roi in roi_dict.items():
+        vals  = pixel_RI_stim[roi['ypix'], roi['xpix'], :]
+        means = np.nanmean(vals, axis=0)  # mean over pixels 
+        means = [mean for mean in means if np.isfinite(mean)]  # filtering first 
+        if len(means) > 2:
+            _, p = ttest_1samp(means, 0, alternative='greater')
+            if p < ALPHA and np.mean(means) > MIN_RI:
+                releasing_rois[rid] = roi
+
+    if len(releasing_rois) == 0:
+        print('No releasing ROI; skipped')
+        continue 
+    # ---- identification ends ----
 
     # per ROI, per window
     # first we collect all pixel idx of all ROIs (for collision exclusion)
@@ -178,36 +181,45 @@ for wname, results in dilation_results_all.items():
     roi_map = np.array([[roi_meds[roi_id][d] for d in dilations] for roi_id in roi_ids])
     groups = [roi_map[:, i][~np.isnan(roi_map[:, i])] for i in range(len(dilations))]
 
-    # pairwise tests vs base
-    pvals = {}
-    for i, d in enumerate(dilations):
-        if d == 0:
-            continue
-        vals0 = roi_map[:, 0]
-        valsk = roi_map[:, i]
-        common_mask = np.isfinite(vals0) & np.isfinite(valsk)
-        common_n = np.sum(common_mask)
-        if common_n > 5:
-            stat, p = wilcoxon(vals0[common_mask], valsk[common_mask], alternative='greater')
-            test_used = 'Wilcoxon'
-        else:
-            stat, p = mannwhitneyu(vals0, valsk, alternative='greater')
-            test_used = 'Mann–Whitney'
-        pvals[d] = (p, test_used, common_n)
+    # all pairwise comparisons
+    pvals = {}  # key: (d1, d2)
+    
+    for i, d1 in enumerate(dilations):
+        for j, d2 in enumerate(dilations):
+            if j <= i:
+                continue  # avoid duplicates & self-comparisons
+    
+            vals1 = roi_map[:, i]
+            vals2 = roi_map[:, j]
+    
+            common_mask = np.isfinite(vals1) & np.isfinite(vals2)
+            common_n = np.sum(common_mask)
+    
+            if common_n > 5:
+                stat, p = wilcoxon(vals1[common_mask], vals2[common_mask])
+                test_used = 'Wilcoxon'
+            else:
+                stat, p = mannwhitneyu(vals1, vals2)
+                test_used = 'Mann–Whitney'
+    
+            pvals[(d1, d2)] = (p, test_used, common_n)
 
     # FDR correction
-    if len(pvals) > 0:
-        p_raw = np.array([p for p, _, _ in pvals.values()])
+    if pvals:
+        p_raw = np.array([v[0] for v in pvals.values()])
         reject, p_corr, _, _ = multipletests(p_raw, method='fdr_bh')
     else:
         reject, p_corr = np.array([]), np.array([])
 
+    # store paired stats 
     stats_out = {}
-    for (d, (p, test_used, n)), pc, rej in zip(pvals.items(), p_corr, reject):
-        line = f'dilation {d} vs 0: {test_used} p={p:.3e}, p_corr={pc:.3e}, n={n}'
+    for ((d1, d2), (p, test_used, n)), pc, rej in zip(pvals.items(), p_corr, reject):
+        line = f'{d1}px vs {d2}px: p={p:.2e}, p_corr={pc:.2e}'
         print(line)
-        stats_out[d] = {'text': line, 'rej': bool(rej)}
-
+        stats_out[(d1, d2)] = {
+            'text': line,
+            'rej': bool(rej)
+        }
 
     # plotting
     fig, ax = plt.subplots(figsize=(4.5, 3.2), dpi=300)
@@ -236,33 +248,64 @@ for wname, results in dilation_results_all.items():
     ax.set(xlabel='Dilation (px)', ylabel='Mean dLight (a.u.)')
     ax.set_ylim(global_ymin, global_ymax)
 
-    # bracket annotation inline
+    # bracket annotation: all significant pairs, stacked by span
     yrange = global_ymax - global_ymin
-    base_gap = 0.1 * yrange
-    tick_h = 0.03 * yrange
-    level_gap = 0.08 * yrange
-    ymax_per_group = [np.nanmax(v) if len(v) else np.nan for v in groups]
+    tick_h = 0.02 * yrange
+    level_gap = 0.05 * yrange
+    
     xpos = {lab: i for i, lab in enumerate(dilations, start=1)}
-
+    ymax_per_group = [np.nanmax(v) if len(v) else np.nan for v in groups]
+    
+    # collect all pairs 
+    all_pairs = [
+        (d1, d2, stats)
+        for (d1, d2), stats in stats_out.items()
+    ]
+    
+    # sort by span (short → long)
+    all_pairs.sort(key=lambda x: xpos[x[1]] - xpos[x[0]])
+    
     current_level = 0
-    for d in dilations:
-        if d == 0 or d not in stats_out:
-            continue
-        x1, x2 = xpos[0], xpos[d]
-        involved_max = np.nanmax([ymax_per_group[x1-1], ymax_per_group[x2-1]])
-        y = global_ymax + current_level * level_gap
-
-        # draw bracket
-        ax.plot([x1, x1, x2, x2], [y, y+tick_h, y+tick_h, y], color='black', linewidth=1.0, clip_on=False)
-        ax.text((x1+x2)/2, y + tick_h * 3, stats_out[d]['text'],
-                ha='center', va='top', fontsize=6.5, color='black')
-
+    for d1, d2, stats in all_pairs:
+        x1, x2 = xpos[d1], xpos[d2]
+    
+        involved_max = np.nanmax([
+            ymax_per_group[x1 - 1],
+            ymax_per_group[x2 - 1]
+        ])
+    
+        y = involved_max + (current_level + 1) * level_gap
+        
+        # style switch
+        is_sig = stats['rej']
+        color = 'black' if is_sig else '0.6'
+        lw = 1.0 if is_sig else 0.6
+        alpha = 1.0 if is_sig else 0.6
+        
+        # bracket
+        ax.plot(
+            [x1, x1, x2, x2],
+            [y, y + tick_h, y + tick_h, y],
+            color=color,
+            lw=lw,
+            alpha=alpha,
+            clip_on=False
+        )
+        
+        ax.text(
+            (x1 + x2) / 2,
+            y + tick_h * 1.3,
+            stats['text'],
+            ha='center',
+            va='bottom',
+            fontsize=6,
+            color=color,
+            alpha=alpha
+        )
         current_level += 1
-
-    ax.set_ylim(global_ymin, global_ymax + base_gap + (current_level+1)*level_gap + tick_h)
-    plt.tight_layout()
-
-    for ext in ['.png', '.pdf']:
-        fig.savefig(save_stem / f'dilation_boxplot_FDRbracket_{wname}{ext}',
-                    dpi=300, bbox_inches='tight')
-    plt.show()
+    
+    # expand ylim to fit all brackets
+    ax.set_ylim(
+        global_ymin,
+        global_ymax + (current_level + 2) * level_gap
+    )

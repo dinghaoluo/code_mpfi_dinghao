@@ -24,8 +24,8 @@ import rec_list
 
 
 #%% paths and parameters
-pathSCH  = rec_list.pathSCH
-sessSCH  = rec_list.sessSCH
+pathNEblocker = rec_list.pathBetaBlocker
+sessNEblocker = rec_list.sessBetaBlocker
 
 pharmacology_stem = Path('Z:/Dinghao/code_dinghao/pharmacology')
 
@@ -45,17 +45,15 @@ reward_percentages_drug     = []
 
 
 #%% load data
-for pathname, sesslist in zip(pathSCH, sessSCH):
-    sessname = Path(pathname).name
+for k, pathname in enumerate(pathNEblocker):
+    sessname = pathname[-13:]
     print(sessname)
 
-    speed_drugs              = []
-    lick_drugs               = []
-    reward_percentages_drugs = []
+    sesslist = sessNEblocker[k]
 
-    for sess in sesslist:
-        recname = f'{sessname}-0{sess}'
-        txtpath = rf'{pathname}\{recname}\{recname}T.txt'
+    for i, sess in enumerate(sesslist):
+        suffix = f'-0{sess}'
+        txtpath = f'{pathname}{suffix}T.txt'
 
         file = bf.process_behavioural_data(txtpath)
 
@@ -63,10 +61,10 @@ for pathname, sesslist in zip(pathSCH, sessSCH):
         reward_times = file['reward_times'][1:-1]
         rewarded = [1 if not np.isnan(t) else 0 for t in reward_times]
 
-        if sess == 1:
+        if i == 0:
             reward_percentages_baseline.append(np.mean(rewarded))
-        elif sess in [2, 3]:
-            reward_percentages_drugs.append(np.mean(rewarded))
+        elif i == 1:
+            reward_percentages_drug.append(np.mean(rewarded))
 
         # speed
         speed_dist = np.array([
@@ -75,10 +73,10 @@ for pathname, sesslist in zip(pathSCH, sessSCH):
             if len(trial) > 0
         ])
 
-        if sess == 1:
-            mean_speeds_baseline.append(np.mean(speed_dist, axis=0))
-        elif sess in [2, 3]:
-            speed_drugs.append(np.mean(speed_dist, axis=0))
+        if i == 0:
+            mean_speeds_baseline.append(np.mean(speed_dist, axis=0) * 1.8)
+        elif i == 1:
+            mean_speeds_drug.append(np.mean(speed_dist, axis=0) * 1.8)
 
         # licks
         lick_dist = np.array([
@@ -87,24 +85,19 @@ for pathname, sesslist in zip(pathSCH, sessSCH):
             if len(trial) > 0
         ])
 
-        mean_licks = np.mean(lick_dist, axis=0)
-
-        if sess == 1:
-            lick_baseline = mean_licks
-            mean_licks_baseline.append(mean_licks)
-        elif sess in [2, 3]:
-            lick_drugs.append(mean_licks)
-
-    mean_speeds_drug.append(np.mean(speed_drugs, axis=0))
-    mean_licks_drug.append(np.mean(lick_drugs, axis=0))
-    reward_percentages_drug.append(np.mean(reward_percentages_drugs))
+        if i == 0:
+            mean_licks_baseline.append(np.mean(lick_dist, axis=0))
+        elif i == 1:
+            mean_licks_drug.append(np.mean(lick_dist, axis=0))
 
 
 #%% convert to arrays
 mean_speeds_baseline = np.array(mean_speeds_baseline)
 mean_speeds_drug     = np.array(mean_speeds_drug)
+
 mean_licks_baseline  = np.array(mean_licks_baseline)
 mean_licks_drug      = np.array(mean_licks_drug)
+
 reward_percentages_baseline = np.array(reward_percentages_baseline)
 reward_percentages_drug     = np.array(reward_percentages_drug)
 
@@ -114,11 +107,17 @@ fig, ax = plt.subplots(figsize=(2, 1.7))
 
 ms_baseline = np.mean(mean_speeds_baseline, axis=0)
 ms_drug     = np.mean(mean_speeds_drug, axis=0)
+
 ss_baseline = sem(mean_speeds_baseline, axis=0)
 ss_drug     = sem(mean_speeds_drug, axis=0)
 
 speed_means_baseline = np.mean(mean_speeds_baseline, axis=1)
 speed_means_drug     = np.mean(mean_speeds_drug, axis=1)
+
+speed_mean_baseline = np.mean(speed_means_baseline)
+speed_sem_baseline  = sem(speed_means_baseline)
+speed_mean_drug     = np.mean(speed_means_drug)
+speed_sem_drug      = sem(speed_means_drug)
 
 speed_med_baseline = np.median(speed_means_baseline)
 speed_p25_baseline = np.percentile(speed_means_baseline, 25)
@@ -131,21 +130,26 @@ speed_p75_drug = np.percentile(speed_means_drug, 75)
 _, p_speed = wilcoxon(speed_means_baseline, speed_means_drug)
 
 print(
-    f'Speed baseline: median {speed_med_baseline:.4f} '
-    f'[{speed_p25_baseline:.4f}, {speed_p75_baseline:.4f}]'
+    f'Speed baseline: mean {speed_mean_baseline:.4f} ± {speed_sem_baseline:.4f}, '
+    f'median {speed_med_baseline:.4f} [{speed_p25_baseline:.4f}, {speed_p75_baseline:.4f}]'
 )
 print(
-    f'Speed drug    : median {speed_med_drug:.4f} '
-    f'[{speed_p25_drug:.4f}, {speed_p75_drug:.4f}]'
+    f'Speed drug    : mean {speed_mean_drug:.4f} ± {speed_sem_drug:.4f}, '
+    f'median {speed_med_drug:.4f} [{speed_p25_drug:.4f}, {speed_p75_drug:.4f}]'
 )
 print(f'Speed Wilcoxon p = {p_speed:.4g}')
 
-ax.plot(XAXIS, ms_baseline, color='grey')
+lp, = ax.plot(XAXIS, ms_baseline, color='grey')
 ax.fill_between(XAXIS, ms_baseline + ss_baseline, ms_baseline - ss_baseline,
                 color='grey', alpha=.15, edgecolor='none')
-ax.plot(XAXIS, ms_drug, color='#004D80')
+
+ld, = ax.plot(XAXIS, ms_drug, color='darkcyan')
 ax.fill_between(XAXIS, ms_drug + ss_drug, ms_drug - ss_drug,
-                color='#004D80', alpha=.15, edgecolor='none')
+                color='darkcyan', alpha=.15, edgecolor='none')
+
+ax.legend([lp, ld], ['Baseline', 'Propranolol'], frameon=False)
+ax.set(xlim=(0, 180), ylim=(0, 75),
+       xlabel='Distance (cm)', ylabel='Speed (cm/s)')
 
 ax.text(
     0.02, 0.98,
@@ -154,29 +158,35 @@ ax.text(
     f'drug: {speed_med_drug:.2f} '
     f'[{speed_p25_drug:.2f}, {speed_p75_drug:.2f}]\n'
     f'wilcoxon p={p_speed:.3g}',
-    transform=ax.transAxes, va='top', fontsize=7
+    transform=ax.transAxes, va='top', ha='left', fontsize=7
 )
 
-ax.set(xlim=(0, 180), ylim=(0, 75),
-       xlabel='Distance (cm)', ylabel='Speed (cm/s)')
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(pharmacology_stem / 'SCH23390' / f'speed_profile{ext}',
-                dpi=300, bbox_inches='tight')
+    fig.savefig(
+        pharmacology_stem / 'propranolol' / f'speed_profile_new{ext}',
+        dpi=300, bbox_inches='tight'
+    )
 
 
-#%% LICK PLOT (full track)
+#%% LICK PLOT
 fig, ax = plt.subplots(figsize=(2, 1.7))
 
 ml_baseline = np.mean(mean_licks_baseline, axis=0) / 10
 ml_drug     = np.mean(mean_licks_drug, axis=0) / 10
+
 sl_baseline = sem(mean_licks_baseline, axis=0) / 10
 sl_drug     = sem(mean_licks_drug, axis=0) / 10
 
 lick_means_baseline = np.mean(mean_licks_baseline[:, 1200:1800], axis=1) / 10
 lick_means_drug     = np.mean(mean_licks_drug[:, 1200:1800], axis=1) / 10
+
+lick_mean_baseline = np.mean(lick_means_baseline)
+lick_sem_baseline  = sem(lick_means_baseline)
+lick_mean_drug     = np.mean(lick_means_drug)
+lick_sem_drug      = sem(lick_means_drug)
 
 lick_med_baseline = np.median(lick_means_baseline)
 lick_p25_baseline = np.percentile(lick_means_baseline, 25)
@@ -189,21 +199,28 @@ lick_p75_drug = np.percentile(lick_means_drug, 75)
 _, p_lick = wilcoxon(lick_means_baseline, lick_means_drug)
 
 print(
-    f'Lick baseline: median {lick_med_baseline:.4f} '
-    f'[{lick_p25_baseline:.4f}, {lick_p75_baseline:.4f}]'
+    f'Lick baseline: mean {lick_mean_baseline:.4f} ± {lick_sem_baseline:.4f}, '
+    f'median {lick_med_baseline:.4f} [{lick_p25_baseline:.4f}, {lick_p75_baseline:.4f}]'
 )
 print(
-    f'Lick drug    : median {lick_med_drug:.4f} '
-    f'[{lick_p25_drug:.4f}, {lick_p75_drug:.4f}]'
+    f'Lick drug    : mean {lick_mean_drug:.4f} ± {lick_sem_drug:.4f}, '
+    f'median {lick_med_drug:.4f} [{lick_p25_drug:.4f}, {lick_p75_drug:.4f}]'
 )
 print(f'Lick Wilcoxon p = {p_lick:.4g}')
 
-ax.plot(XAXIS, ml_baseline, color='grey')
+lp, = ax.plot(XAXIS, ml_baseline, color='grey')
 ax.fill_between(XAXIS, ml_baseline + sl_baseline, ml_baseline - sl_baseline,
                 color='grey', alpha=.15, edgecolor='none')
-ax.plot(XAXIS, ml_drug, color='#004D80')
+
+ld, = ax.plot(XAXIS, ml_drug, color='darkcyan')
 ax.fill_between(XAXIS, ml_drug + sl_drug, ml_drug - sl_drug,
-                color='#004D80', alpha=.15, edgecolor='none')
+                color='darkcyan', alpha=.15, edgecolor='none')
+
+ax.set(xlim=(30, 219), ylim=(0, 0.6),
+       xlabel='Distance (cm)', ylabel='Lick density (count/cm)',
+       yticks=[0, 0.3, 0.6])
+
+ax.legend([lp, ld], ['Baseline', 'Propranolol'], frameon=False)
 
 ax.text(
     0.02, 0.98,
@@ -212,28 +229,27 @@ ax.text(
     f'drug: {lick_med_drug:.3f} '
     f'[{lick_p25_drug:.3f}, {lick_p75_drug:.3f}]\n'
     f'wilcoxon p={p_lick:.3g}',
-    transform=ax.transAxes, va='top', fontsize=7
+    transform=ax.transAxes, va='top', ha='left', fontsize=7
 )
 
-ax.set(xlim=(30, 219), ylim=(0, 0.28),
-       xlabel='Distance (cm)', ylabel='Lick density (count/cm)',
-       yticks=[0, 0.2])
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(pharmacology_stem / 'SCH23390' / f'lick_profile{ext}',
-                dpi=300, bbox_inches='tight')
+    fig.savefig(
+        pharmacology_stem / 'propranolol' / f'lick_profile_new{ext}',
+        dpi=300, bbox_inches='tight'
+    )
 
 
 #%% REWARD PERCENTAGE
 plot_violin_with_scatter(reward_percentages_baseline, reward_percentages_drug, 
-                         'grey', '#004D80',
+                         'grey', 'darkcyan',
                          figsize=(1.8, 1.8),
                          ylim=(-0.1, 1.05),
                          print_statistics=True,
                          save=True,
-                         savepath=pharmacology_stem / 'SCH23390' / 'reward_percentage')
+                         savepath=pharmacology_stem / 'propranolol' / 'reward_percentage')
 
 
 #%% lick comparison: 30–100 cm

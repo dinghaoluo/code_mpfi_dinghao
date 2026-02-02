@@ -11,8 +11,7 @@ controls for LC run-onset peaks for opto
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pickle
-from scipy.stats import sem  
-import sys 
+from scipy.stats import sem, ttest_rel, wilcoxon
 
 import rec_list
 paths = rec_list.pathLCopt
@@ -183,48 +182,138 @@ mean_stim_time = np.mean(all_mean_stim_speeds_time, axis=0)
 sem_stim_time = sem(all_mean_stim_speeds_time, axis=0)
 
 
-#%% plotting 
-fig, ax = plt.subplots(figsize=(1.65,1.4))
+#%% aligned to dist
+ctrl_dist_scalar = np.nanmean(all_mean_ctrl_speeds, axis=1)
+stim_dist_scalar = np.nanmean(all_mean_stim_speeds, axis=1)
+
+# stats
+ctrl_mean = np.mean(ctrl_dist_scalar)
+ctrl_sem  = sem(ctrl_dist_scalar)
+ctrl_med  = np.median(ctrl_dist_scalar)
+ctrl_q25, ctrl_q75 = np.percentile(ctrl_dist_scalar, [25, 75])
+
+stim_mean = np.mean(stim_dist_scalar)
+stim_sem  = sem(stim_dist_scalar)
+stim_med  = np.median(stim_dist_scalar)
+stim_q25, stim_q75 = np.percentile(stim_dist_scalar, [25, 75])
+
+t_stat, p_t = ttest_rel(ctrl_dist_scalar, stim_dist_scalar,
+                        equal_var=False, nan_policy='omit')
+z_stat, p_r = wilcoxon(ctrl_dist_scalar, stim_dist_scalar)
+
+p_t_str = f'{p_t:.2g}' if p_t < 0.01 else f'{p_t:.3f}'
+p_r_str = f'{p_r:.2g}' if p_r < 0.01 else f'{p_r:.3f}'
+
+
+fig, ax = plt.subplots(figsize=(1.65, 1.4))
 
 ax.plot(XAXIS_DIST, mean_ctrl, c='grey', label='control')
-ax.fill_between(XAXIS_DIST, mean_ctrl+sem_ctrl, mean_ctrl-sem_ctrl,
-                color='grey', edgecolor='none', alpha=.25)
-ax.plot(XAXIS_DIST, mean_stim, c='royalblue', label='stim')
-ax.fill_between(XAXIS_DIST, mean_stim+sem_stim, mean_stim-sem_stim,
-                color='royalblue', edgecolor='none', alpha=.25)
+ax.fill_between(XAXIS_DIST, mean_ctrl + sem_ctrl, mean_ctrl - sem_ctrl,
+                color='grey', alpha=.25, edgecolor='none')
 
-ax.set(xlabel='distance (cm)', ylabel='speed (cm·s$^{-1}$)',
-       xlim=(0, 200),
-       ylim=(0, max(np.max(mean_ctrl + sem_ctrl), np.max(mean_stim + sem_stim)) + 5),
-       title='mean across sessions')
+ax.plot(XAXIS_DIST, mean_stim, c='royalblue', label='stim')
+ax.fill_between(XAXIS_DIST, mean_stim + sem_stim, mean_stim - sem_stim,
+                color='royalblue', alpha=.25, edgecolor='none')
+
+stats_txt = (
+    f'mean speed (0–200 cm)\n'
+    f'ctrl: mean {ctrl_mean:.2f} ± {ctrl_sem:.2f}\n'
+    f'      med  {ctrl_med:.2f} [{ctrl_q25:.2f}, {ctrl_q75:.2f}]\n'
+    f'stim: mean {stim_mean:.2f} ± {stim_sem:.2f}\n'
+    f'      med  {stim_med:.2f} [{stim_q25:.2f}, {stim_q75:.2f}]\n'
+    f't-test p = {p_t_str}\n'
+    f'wilcoxon p = {p_r_str}'
+)
+
+ax.text(0.02, 0.98, stats_txt,
+        transform=ax.transAxes, ha='left', va='top', fontsize=6)
+
+ax.set(
+    xlabel='distance (cm)',
+    ylabel='speed (cm·s$^{-1}$)',
+    xlim=(0, 200),
+    ylim=(0, max(np.max(mean_ctrl + sem_ctrl),
+                 np.max(mean_stim + sem_stim)) + 5),
+    title='mean across sessions'
+)
 
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
+
 ax.legend(frameon=False)
+fig.tight_layout()
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_controls\mean_speed_curve_dist{ext}',
-                dpi=300, bbox_inches='tight')
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_controls\mean_speed_curve_dist{ext}',
+        dpi=300, bbox_inches='tight'
+    )
     
-    
-fig, ax = plt.subplots(figsize=(1.65,1.4))
+
+#%% aligned to time 
+ctrl_time_scalar = np.nanmean(all_mean_ctrl_speeds_time, axis=1)
+stim_time_scalar = np.nanmean(all_mean_stim_speeds_time, axis=1)
+
+# stats
+ctrl_mean = np.mean(ctrl_time_scalar)
+ctrl_sem  = sem(ctrl_time_scalar)
+ctrl_med  = np.median(ctrl_time_scalar)
+ctrl_q25, ctrl_q75 = np.percentile(ctrl_time_scalar, [25, 75])
+
+stim_mean = np.mean(stim_time_scalar)
+stim_sem  = sem(stim_time_scalar)
+stim_med  = np.median(stim_time_scalar)
+stim_q25, stim_q75 = np.percentile(stim_time_scalar, [25, 75])
+
+t_stat, p_t = ttest_rel(ctrl_time_scalar, stim_time_scalar,
+                        equal_var=False, nan_policy='omit')
+z_stat, p_r = wilcoxon(ctrl_time_scalar, stim_time_scalar)
+
+p_t_str = f'{p_t:.2g}' if p_t < 0.01 else f'{p_t:.3f}'
+p_r_str = f'{p_r:.2g}' if p_r < 0.01 else f'{p_r:.3f}'
+
+fig, ax = plt.subplots(figsize=(1.65, 1.4))
 
 ax.plot(XAXIS_TIME, mean_ctrl_time, c='grey', label='control')
-ax.fill_between(XAXIS_TIME, mean_ctrl_time+sem_ctrl_time, mean_ctrl_time-sem_ctrl_time,
-                color='grey', edgecolor='none', alpha=.25)
-ax.plot(XAXIS_TIME, mean_stim_time, c='royalblue', label='stim')
-ax.fill_between(XAXIS_TIME, mean_stim_time+sem_stim_time, mean_stim_time-sem_stim_time,
-                color='royalblue', edgecolor='none', alpha=.25)
+ax.fill_between(XAXIS_TIME, mean_ctrl_time + sem_ctrl_time,
+                mean_ctrl_time - sem_ctrl_time,
+                color='grey', alpha=.25, edgecolor='none')
 
-ax.set(xlabel='time from run onset (s)', ylabel='speed (cm·s$^{-1}$)',
-       xlim=(0, 4),
-       ylim=(0, max(np.max(mean_ctrl_time + sem_ctrl_time), np.max(mean_stim_time + sem_stim_time)) + 5),
-       title='mean across sessions')
+ax.plot(XAXIS_TIME, mean_stim_time, c='royalblue', label='stim')
+ax.fill_between(XAXIS_TIME, mean_stim_time + sem_stim_time,
+                mean_stim_time - sem_stim_time,
+                color='royalblue', alpha=.25, edgecolor='none')
+
+stats_txt = (
+    f'mean speed (0–4 s)\n'
+    f'ctrl: mean {ctrl_mean:.2f} ± {ctrl_sem:.2f}\n'
+    f'      med  {ctrl_med:.2f} [{ctrl_q25:.2f}, {ctrl_q75:.2f}]\n'
+    f'stim: mean {stim_mean:.2f} ± {stim_sem:.2f}\n'
+    f'      med  {stim_med:.2f} [{stim_q25:.2f}, {stim_q75:.2f}]\n'
+    f't-test p = {p_t_str}\n'
+    f'wilcoxon p = {p_r_str}'
+)
+
+ax.text(0.02, 0.98, stats_txt,
+        transform=ax.transAxes, ha='left', va='top', fontsize=6)
+
+ax.set(
+    xlabel='time from run onset (s)',
+    ylabel='speed (cm·s$^{-1}$)',
+    xlim=(0, 4),
+    ylim=(0, max(np.max(mean_ctrl_time + sem_ctrl_time),
+                 np.max(mean_stim_time + sem_stim_time)) + 5),
+    title='mean across sessions'
+)
 
 for s in ['top', 'right']:
     ax.spines[s].set_visible(False)
+
 ax.legend(frameon=False)
+fig.tight_layout()
 
 for ext in ['.png', '.pdf']:
-    fig.savefig(rf'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_controls\mean_speed_curve_time{ext}',
-                dpi=300, bbox_inches='tight')
+    fig.savefig(
+        rf'Z:\Dinghao\code_dinghao\LC_opto_ephys\opto_020_controls\mean_speed_curve_time{ext}',
+        dpi=300, bbox_inches='tight'
+    )

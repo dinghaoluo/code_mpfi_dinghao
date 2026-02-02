@@ -457,6 +457,10 @@ if save:
 tval, p_t = ttest_1samp(regress_r, 0)
 wstat, p_w = wilcoxon(regress_r)
 
+# IQR
+q25, q75 = np.percentile(regress_r, [25, 75])
+iqr_r = q75 - q25
+
 # compute shuffle 95% interval across sessions
 shuf_mean = np.nanmean(regress_shuf_r)
 shuf_std  = np.nanstd(regress_shuf_r)
@@ -479,31 +483,42 @@ parts['cmedians'].set_linewidth(1.2)
 ax.scatter(np.ones(len(regress_r)), regress_r,
            color='forestgreen', ec='none', s=10, alpha=0.5, zorder=3)
 
-
 # shuffle + CI
 ax.axhline(shuf_mean, color='gray', lw=1.2, ls='--')
 ax.fill_between([0.5, 1.5], [ci_low, ci_low], [ci_high, ci_high],
                 color='gray', alpha=0.20, edgecolor='none')
 
-# real mean ± sem
+# real mean ± sem + IQR
 mean_r, sem_r = np.nanmean(regress_r), sem(regress_r)
 ymax = np.max(regress_r)
-ax.text(1, ymax + 0.05*(ymax - np.min(regress_r)),
-        f'{mean_r:.2f} ± {sem_r:.2f}',
-        ha='center', va='bottom', fontsize=7, color='forestgreen')
+ymin = np.min(regress_r)
+
+ax.text(
+    1,
+    ymax + 0.05*(ymax - ymin),
+    f'Med = {np.median(regress_r):.2f}\n'
+    f'IQR = [{q25:.2f}, {q75:.2f}]\n'
+    f'{mean_r:.2f} ± {sem_r:.2f}',
+    ha='center', va='bottom', fontsize=7, color='forestgreen'
+)
 
 # significance
-ax.text(1, np.min(regress_r) - 0.10*(ymax - np.min(regress_r)),
-        f't(1-samp)={tval:.2f}, p={p_t:.2e}\n'
-        f'Wilcoxon={wstat:.2f}, p={p_w:.2e}',
-        ha='center', va='top', fontsize=6.5, color='black')
+ax.text(
+    1,
+    ymin - 0.10*(ymax - ymin),
+    f't(1-samp)={tval:.2f}, p={p_t:.2e}\n'
+    f'Wilcoxon={wstat:.2f}, p={p_w:.2e}',
+    ha='center', va='top', fontsize=6.5, color='black'
+)
 
 # formatting
-ax.set(xlim=(0.5, 1.5),
-       xticks=[1],
-       xticklabels=['Real r'],
-       ylabel='Correlation (r)',
-       title='Across-sess. r')
+ax.set(
+    xlim=(0.5, 1.5),
+    xticks=[1],
+    xticklabels=['Real r'],
+    ylabel='Correlation (r)',
+    title='Across-sess. r'
+)
 ax.spines[['top', 'right', 'bottom']].set_visible(False)
 
 plt.tight_layout()
@@ -549,99 +564,3 @@ plot_violin_with_scatter(low_rates_cells, high_rates_cells,
                          save=True,
                          savepath=GLM_stem / 'rew_to_run_FR_violinplot',
                          print_statistics=True)
-
-    
-#%% reward-aligned train
-fig, ax = plt.subplots(figsize=(3, 2.4))
-
-for bi in range(N_BINS):
-    if xaxis_bins[bi] is None:
-        continue
-
-    colour = plt.cm.Greens(0.3 + 0.6 * bi / (N_BINS - 1))
-    label = f'{BIN_START + bi*BIN_WIDTH:.1f}-{BIN_START + (bi+1)*BIN_WIDTH:.1f} s'
-
-    # plot the curve
-    ax.plot(xaxis_bins[bi], mean_prof_rew_bins[bi], color=colour, label=label, linewidth=1.2, alpha=1.0)
-    
-    x_end = xaxis_bins[bi][-1]
-    ax.axvline(x_end, color=colour, linestyle='--', linewidth=.8, alpha=.6)
-
-ax.set(xlabel='Time from last reward (s)',
-       ylabel='Firing rate (Hz)')
-
-ax.spines[['top', 'right']].set_visible(False)
-ax.legend(frameon=False, fontsize=6, ncol=2)
-
-# colorbar
-norm = plt.Normalize(vmin=BIN_START, vmax=BIN_START + (N_BINS-1)*BIN_WIDTH)
-cmap = plt.cm.Greens
-sm = ScalarMappable(norm=norm, cmap=cmap)
-sm.set_array([])
-cbar = fig.colorbar(sm, ax=ax, pad=0.01, shrink=.35, aspect=10)
-cbar.set_label('Time bin (s)', fontsize=8)
-cbar.set_ticks([1, 2])
-
-plt.tight_layout()
-plt.show()
-
-if save:
-    for ext in ['.pdf', '.png']:
-        fig.savefig(
-            GLM_stem / f'rew_to_run_rew_aligned_profiles{ext}',
-            dpi=300,
-            bbox_inches='tight'
-            )
-        
-
-#%% plot fitted 
-fig, ax = plt.subplots(figsize=(3, 2.4))
-
-for bi in range(N_BINS):
-    if xaxis_bins[bi] is None:
-        continue
-
-    colour = plt.cm.Greens(0.3 + 0.6 * bi / (N_BINS - 1))
-    label = f'{BIN_START + bi*BIN_WIDTH:.1f}-{BIN_START + (bi+1)*BIN_WIDTH:.1f} s'
-
-    # plot the curve
-    ax.plot(xaxis_bins[bi], mean_prof_rew_bins[bi], color=colour, label=label, linewidth=1.2, alpha=.75)
-    
-    x_end = xaxis_bins[bi][-1]
-    ax.axvline(x_end, color=colour, linestyle='--', linewidth=.8, alpha=.6)
-
-## ---- fit curves ---- ## 
-curves_padded = np.zeros((len(mean_prof_rew_bins), len(mean_prof_rew_bins[-1])), dtype=float)
-curves_padded[curves_padded==0] = np.nan
-for i, prof in enumerate(mean_prof_rew_bins):
-    curves_padded[i, :len(prof)] = prof
-smooth_axis = xaxis_bins[-1]
-smooth_prof = smooth_convolve(np.nanmean(curves_padded, axis=0), 50)
-ax.plot(smooth_axis, smooth_prof, color='k', linewidth=2)
-## ---- fit curves end ---- ##
-
-ax.set(xlabel='Time from last reward (s)',
-       ylabel='Firing rate (Hz)')
-
-ax.spines[['top', 'right']].set_visible(False)
-ax.legend(frameon=False, fontsize=6, ncol=2)
-
-# colorbar
-norm = plt.Normalize(vmin=BIN_START, vmax=BIN_START + (N_BINS-1)*BIN_WIDTH)
-cmap = plt.cm.Greens
-sm = ScalarMappable(norm=norm, cmap=cmap)
-sm.set_array([])
-cbar = fig.colorbar(sm, ax=ax, pad=0.01, shrink=.35, aspect=10)
-cbar.set_label('Time bin (s)', fontsize=8)
-cbar.set_ticks([1, 2])
-
-plt.tight_layout()
-plt.show()
-
-if save:
-    for ext in ['.pdf', '.png']:
-        fig.savefig(
-            GLM_stem / f'rew_to_run_rew_aligned_profiles_fitted{ext}',
-            dpi=300,
-            bbox_inches='tight'
-            )

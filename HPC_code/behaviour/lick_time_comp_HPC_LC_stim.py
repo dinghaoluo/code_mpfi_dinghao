@@ -305,6 +305,7 @@ if comp_method == 'baseline':
                              'grey', 'royalblue',
                              xticklabels=('ctrl.', 'stim.'),
                              ylabel='Peak speed (m/s)',
+                             print_statistics=True,
                              save=True,
                              savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_HPC_LC_stim\summary_wilc_control_peak_velocity')
 elif comp_method == 'stim_cont':
@@ -321,6 +322,7 @@ if comp_method == 'baseline':
                              'grey', 'royalblue',
                              xticklabels=('ctrl.', 'stim.'),
                              ylabel='Init. accel. (m/s^2)',
+                             print_statistics=True,
                              save=True,
                              savepath=r'Z:\Dinghao\code_dinghao\behaviour\HPC_opto\opto_licktime_020_HPC_LC_stim\summary_wilc_control_init_accel')
 elif comp_method == 'stim_cont':

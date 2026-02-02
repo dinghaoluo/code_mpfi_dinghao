@@ -90,8 +90,8 @@ def plot_bar_with_paired_scatter(
 
     y1 = top_y
     y2 = y1
-    annotate(ax, 0, 1, y1, f"Wilcoxon p={w_p:.3g} ({sigstars(w_p)})", yrange)
-    annotate(ax, 0, 1, y2, f"t-test p={t_p:.3g} ({sigstars(t_p)})", yrange)
+    annotate(ax, 0, 1, y1, f"Wilcoxon p={w_p:.4g} ({sigstars(w_p)})", yrange)
+    annotate(ax, 0, 1, y2, f"t-test p={t_p:.4g} ({sigstars(t_p)})", yrange)
     ax.set_ylim(ylims[0], max(ylims[1], y2 + 0.08 * yrange))
 
     print(f'Wilc p = {w_p}\nttest p = {t_p}')
@@ -279,15 +279,30 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
     # --- NEW SECTION: print mean ± sem above violins ---
     mean0, mean1 = np.nanmean(data0), np.nanmean(data1)
     sem0, sem1   = sem(data0, nan_policy='omit'), sem(data1, nan_policy='omit')
+    
+    med0, med1 = np.nanmedian(data0), np.nanmedian(data1)
+    q25_0, q75_0 = np.percentile(data0, [25, 75])
+    q25_1, q75_1 = np.percentile(data1, [25, 75])
+    
     y_max = max(np.nanmax(data0), np.nanmax(data1))
-    y_offset = (ylim[1] - ylim[0]) * 0.05 if ylim else 0.05 * (y_max - min(np.nanmin(data0), np.nanmin(data1)))
-
-    ax.text(1.1, y_max + y_offset,
-            f'{mean0:.2f} ± {sem0:.2f}', ha='center', va='bottom',
-            fontsize=7, color=colour0)
-    ax.text(1.9, y_max + y_offset,
-            f'{mean1:.2f} ± {sem1:.2f}', ha='center', va='bottom',
-            fontsize=7, color=colour1)
+    y_min = min(np.nanmin(data0), np.nanmin(data1))
+    y_offset = (ylim[1] - ylim[0]) * 0.05 if ylim else 0.05 * (y_max - y_min)
+    
+    ax.text(
+        1.1, y_max + y_offset,
+        f'Med = {med0:.2f}\n'
+        f'IQR = [{q25_0:.2f}, {q75_0:.2f}]\n'
+        f'{mean0:.2f} ± {sem0:.2f}',
+        ha='center', va='bottom', fontsize=7, color=colour0
+    )
+    
+    ax.text(
+        1.9, y_max + y_offset,
+        f'Med = {med1:.2f}\n'
+        f'IQR = [{q25_1:.2f}, {q75_1:.2f}]\n'
+        f'{mean1:.2f} ± {sem1:.2f}',
+        ha='center', va='bottom', fontsize=7, color=colour1
+    )
 
     if xlim is not None:
         ax.set(xlim=xlim)
@@ -308,10 +323,18 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         wilc_p_str = '{:.2e}'.format(wilc_p)
         ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
-            print(f'\ndata 0 mean={mean0}, sem={sem0}')
-            print(f'data 1 mean={mean1}, sem={sem1}')
-            print(f'wilc: {wilc_stat}, p={wilc_p_str}')
-            print(f'ttest: {ttest_stat}, p={ttest_p_str}')
+            print('\ndata 0:')
+            print(f'  median = {med0:.4g}')
+            print(f'  IQR    = [{q25_0:.4g}, {q75_0:.4g}]')
+            print(f'  mean ± SEM = {mean0:.4g} ± {sem0:.4g}')
+        
+            print('data 1:')
+            print(f'  median = {med1:.4g}')
+            print(f'  IQR    = [{q25_1:.4g}, {q75_1:.4g}]')
+            print(f'  mean ± SEM = {mean1:.4g} ± {sem1:.4g}')
+        
+            print(f'wilcoxon: W={wilc_stat:.4g}, p={wilc_p_str}')
+            print(f'ttest:    t={ttest_stat:.4g}, p={ttest_p_str}')
         if plot_statistics:
             ax.plot([1.1, 1.9], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
             ax.text(1.5, y_range[0]+y_range_tot*.05, 
@@ -323,10 +346,18 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
         wilc_p_str = '{:.2e}'.format(wilc_p)
         ttest_p_str = '{:.2e}'.format(ttest_p)
         if print_statistics:
-            print(f'\ndata 0 mean={mean0}, sem={sem0}')
-            print(f'data 1 mean={mean1}, sem={sem1}')
-            print(f'ranksums: {wilc_stat}, p={wilc_p_str}')
-            print(f'ttest: {ttest_stat}, p={ttest_p_str}')
+            print('\ndata 0:')
+            print(f'  median = {med0:.4g}')
+            print(f'  IQR    = [{q25_0:.4g}, {q75_0:.4g}]')
+            print(f'  mean ± SEM = {mean0:.4g} ± {sem0:.4g}')
+        
+            print('data 1:')
+            print(f'  median = {med1:.4g}')
+            print(f'  IQR    = [{q25_1:.4g}, {q75_1:.4g}]')
+            print(f'  mean ± SEM = {mean1:.4g} ± {sem1:.4g}')
+        
+            print(f'ranksums: z={wilc_stat:.4g}, p={wilc_p_str}')
+            print(f'ttest:    t={ttest_stat:.4g}, p={ttest_p_str}')
         if plot_statistics:
             ax.plot([1.1, 1.9], [y_range[0]+y_range_tot*.05, y_range[0]+y_range_tot*.05], c='k', lw=.5)
             ax.text(1.5, y_range[0]+y_range_tot*.05, 

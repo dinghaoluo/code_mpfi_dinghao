@@ -26,8 +26,8 @@ pathLCBehopt = rec_list.pathLCBehopt
 sessLCBehopt = rec_list.sessLCBehopt
 condLCBehopt = rec_list.condLCBehopt
 
-pathLCopt = rec_list.pathLCopt
-pathHPCopt = rec_list.pathHPCLCopt
+pathLCopt        = rec_list.pathLCopt
+pathHPCopt       = rec_list.pathHPCLCopt
 pathHPCLCtermopt = rec_list.pathHPCLCtermopt_beh
 
 
@@ -39,10 +39,13 @@ stim_lick_distances_020 = []
 
 ctrl_mean_speeds_020 = []
 stim_mean_speeds_020 = []
+ctrl_mean_accels_020 = [] 
+stim_mean_accels_020 = []
 ctrl_perc_rew_020 = []
 stim_perc_rew_020 = [] 
 
-n_sess = 0
+animals = set()
+n_sess  = 0
 
 for i, pathname in enumerate(pathLCBehopt):
     sessname = pathname[-13:]
@@ -53,6 +56,8 @@ for i, pathname in enumerate(pathLCBehopt):
     if str([0,2,0])[1:-1] not in str(curr_cond)[1:-1]: 
         continue
     print(sessname)
+    anmname = sessname.split('-')[0]
+    animals.add(anmname)
     n_sess -= -1  # if yes, then increment n_sess
     
     file_idx = curr_sess[curr_cond.index(2)]
@@ -139,23 +144,30 @@ for i, pathname in enumerate(pathLCBehopt):
     ctrl_lick_dist_distance = [t for trial in ctrl_lick_distances for t in trial if 100<t<220]
     stim_lick_dist_distance = [t for trial in stim_lick_distances for t in trial if 100<t<220]
     
-    # mean speed     
+    # mean speed and run-onset acceleration
     speed_times_aligned = curr_txt['speed_times_aligned']
+    
     ctrl_mean_speeds = []
+    ctrl_mean_accels = []
     for trial in baseline_trials:
         speed_times = speed_times_aligned[trial]
         if speed_times:
             speeds = [s[1] for s in speed_times]
             ctrl_mean_speeds.append(np.mean(speeds))
+            ctrl_mean_accels.append(np.mean(np.diff(speeds[:500])) * 1_000)
     ctrl_mean_speeds_020.append(np.mean(ctrl_mean_speeds))
+    ctrl_mean_accels_020.append(np.mean(ctrl_mean_accels))
     
     stim_mean_speeds = []
+    stim_mean_accels = []
     for trial in opto_stim_trials:
         speed_times = speed_times_aligned[trial]
         if speed_times:
             speeds = [s[1] for s in speed_times]
             stim_mean_speeds.append(np.mean(speeds))
+            stim_mean_accels.append(np.mean(np.diff(speeds[:500])) * 1_000)
     stim_mean_speeds_020.append(np.mean(stim_mean_speeds))
+    stim_mean_accels_020.append(np.mean(stim_mean_accels))
     
     # percent rewarded 
     reward_times = curr_txt['reward_times']
@@ -179,6 +191,8 @@ for i, pathname in enumerate(pathLCopt):
     optogenetic_protocol = [t[15] for t in curr_txt['trial_statements']]
     if '2' not in np.unique(optogenetic_protocol):
         continue
+    anmname = sessname.split('-')[0]
+    animals.add(anmname)
     n_sess -= -1  # if yes, then increment n_sess
     
     start_idx = end_idx = None  # handle edge-cases
@@ -252,23 +266,30 @@ for i, pathname in enumerate(pathLCopt):
         ctrl_lick_distances_020.append(ctrl_first_lick_distance)
         stim_lick_distances_020.append(stim_first_lick_distance)
         
-    # mean speed     
+    # mean speed and run-onset acceleration
     speed_times_aligned = curr_txt['speed_times_aligned']
+    
     ctrl_mean_speeds = []
+    ctrl_mean_accels = []
     for trial in baseline_trials:
         speed_times = speed_times_aligned[trial]
         if speed_times:
             speeds = [s[1] for s in speed_times]
             ctrl_mean_speeds.append(np.mean(speeds))
+            ctrl_mean_accels.append(np.mean(np.diff(speeds[:500])) * 1_000)
     ctrl_mean_speeds_020.append(np.mean(ctrl_mean_speeds))
+    ctrl_mean_accels_020.append(np.mean(ctrl_mean_accels))
     
     stim_mean_speeds = []
+    stim_mean_accels = []
     for trial in opto_stim_trials:
         speed_times = speed_times_aligned[trial]
         if speed_times:
             speeds = [s[1] for s in speed_times]
             stim_mean_speeds.append(np.mean(speeds))
+            stim_mean_accels.append(np.mean(np.diff(speeds[:500])) * 1_000)
     stim_mean_speeds_020.append(np.mean(stim_mean_speeds))
+    stim_mean_accels_020.append(np.mean(stim_mean_accels))
     
     # percent rewarded 
     reward_times = curr_txt['reward_times']
@@ -292,6 +313,8 @@ for i, pathname in enumerate(pathHPCopt):
     optogenetic_protocol = [t[15] for t in curr_txt['trial_statements']]
     if '2' not in np.unique(optogenetic_protocol):
         continue
+    anmname = sessname.split('-')[0]
+    animals.add(anmname)
     n_sess -= -1  # if yes, then increment n_sess
     
     start_idx = end_idx = None  # handle edge-cases
@@ -364,23 +387,30 @@ for i, pathname in enumerate(pathHPCopt):
         ctrl_lick_distances_020.append(ctrl_first_lick_distance)
         stim_lick_distances_020.append(stim_first_lick_distance)
         
-    # mean speed     
+    # mean speed and run-onset acceleration
     speed_times_aligned = curr_txt['speed_times_aligned']
+    
     ctrl_mean_speeds = []
+    ctrl_mean_accels = []
     for trial in baseline_trials:
         speed_times = speed_times_aligned[trial]
         if speed_times:
             speeds = [s[1] for s in speed_times]
             ctrl_mean_speeds.append(np.mean(speeds))
+            ctrl_mean_accels.append(np.mean(np.diff(speeds[:500])) * 1_000)
     ctrl_mean_speeds_020.append(np.mean(ctrl_mean_speeds))
+    ctrl_mean_accels_020.append(np.mean(ctrl_mean_accels))
     
     stim_mean_speeds = []
+    stim_mean_accels = []
     for trial in opto_stim_trials:
         speed_times = speed_times_aligned[trial]
         if speed_times:
             speeds = [s[1] for s in speed_times]
             stim_mean_speeds.append(np.mean(speeds))
+            stim_mean_accels.append(np.mean(np.diff(speeds[:500])) * 1_000)
     stim_mean_speeds_020.append(np.mean(stim_mean_speeds))
+    stim_mean_accels_020.append(np.mean(stim_mean_accels))
     
     # percent rewarded 
     reward_times = curr_txt['reward_times']
@@ -422,6 +452,17 @@ pf.plot_violin_with_scatter(
     print_statistics=True,
     save=True,
     savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_mean_speed',
+    dpi=300
+    )
+
+pf.plot_violin_with_scatter(
+    ctrl_mean_accels_020, stim_mean_accels_020, 
+    'grey', 'royalblue',
+    xticklabels=['Ctrl.', 'Stim.'],
+    ylabel='Mean accel. (cm/s2)',
+    print_statistics=True,
+    save=True,
+    savepath=r'Z:\Dinghao\code_dinghao\behaviour\LC_opto\020_mean_accel',
     dpi=300
     )
 

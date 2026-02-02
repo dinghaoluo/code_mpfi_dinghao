@@ -17,8 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pickle 
 from tqdm import tqdm
-from scipy.stats import sem 
-from statsmodels.stats.proportion import proportions_ztest
+from scipy.stats import sem, wilcoxon
 
 import rec_list
 paths = rec_list.pathLC
@@ -608,79 +607,56 @@ for ext in ['.png', '.pdf']:
     
     
 #%% statistics for alignment test
-n_tagged = len(all_tagged_run_sorted)
+# TAGGED Dbh+ cells (session-level)
+print('\n--- TAGGED LC (session-level) ---')
 
-# convert proportions back to counts
-k_run = int(p_tagged_run * n_tagged)
-k_cue = int(p_tagged_cue * n_tagged)
-k_rew = int(p_tagged_rew * n_tagged)
+med_run = np.median(sess_p_tagged_run)
+q1_run, q3_run = np.percentile(sess_p_tagged_run, [25, 75])
 
-print('\n--- TAGGED LC: counts and proportions ---')
-print(f'run-aligned:    {k_run}/{n_tagged}  ({k_run/n_tagged*100:.2f}%)')
-print(f'cue-aligned:    {k_cue}/{n_tagged}  ({k_cue/n_tagged*100:.2f}%)')
-print(f'reward-aligned: {k_rew}/{n_tagged}  ({k_rew/n_tagged*100:.2f}%)')
+med_cue = np.median(sess_p_tagged_cue)
+q1_cue, q3_cue = np.percentile(sess_p_tagged_cue, [25, 75])
 
-# Two-proportion z-tests
-# run vs cue
-stat_run_cue, p_run_cue = proportions_ztest(
-    [k_run, k_cue],
-    [n_tagged, n_tagged]
-)
+med_rew = np.median(sess_p_tagged_rew)
+q1_rew, q3_rew = np.percentile(sess_p_tagged_rew, [25, 75])
 
-# run vs reward
-stat_run_rew, p_run_rew = proportions_ztest(
-    [k_run, k_rew],
-    [n_tagged, n_tagged]
-)
+print(f'run:    median = {med_run:.3f}, IQR = [{q1_run:.3f}, {q3_run:.3f}]')
+print(f'cue:    median = {med_cue:.3f}, IQR = [{q1_cue:.3f}, {q3_cue:.3f}]')
+print(f'reward: median = {med_rew:.3f}, IQR = [{q1_rew:.3f}, {q3_rew:.3f}]')
 
-# cue vs reward
-stat_cue_rew, p_cue_rew = proportions_ztest(
-    [k_cue, k_rew],
-    [n_tagged, n_tagged]
-)
+stat, p = wilcoxon(sess_p_tagged_run, sess_p_tagged_cue)
+print(f'run vs cue:    W = {stat:.3f}, p = {p:.3e}')
 
-print('\n--- Two-proportion z-tests (tagged LC) ---')
-print(f'run vs cue:    z = {stat_run_cue:.3f}, p = {p_run_cue:.3e}')
-print(f'run vs reward: z = {stat_run_rew:.3f}, p = {p_run_rew:.3e}')
-print(f'cue vs reward: z = {stat_cue_rew:.3f}, p = {p_cue_rew:.3e}')
+stat, p = wilcoxon(sess_p_tagged_run, sess_p_tagged_rew)
+print(f'run vs reward: W = {stat:.3f}, p = {p:.3e}')
+
+stat, p = wilcoxon(sess_p_tagged_cue, sess_p_tagged_rew)
+print(f'cue vs reward: W = {stat:.3f}, p = {p:.3e}')
 
 
-#%% same but for putative Dbh+
-n_put = len(all_putative_run_sorted)
+# PUTATIVE Dbh+ cells (session-level)
+print('\n--- PUTATIVE LC (session-level) ---')
 
-# convert proportions back to counts
-k_put_run = int(p_put_run * n_put)
-k_put_cue = int(p_put_cue * n_put)
-k_put_rew = int(p_put_rew * n_put)
+med_run = np.median(sess_p_put_run)
+q1_run, q3_run = np.percentile(sess_p_put_run, [25, 75])
 
-print('\n--- PUTATIVE LC: counts and proportions ---')
-print(f'run-aligned:    {k_put_run}/{n_put}  ({k_put_run/n_put*100:.2f}%)')
-print(f'cue-aligned:    {k_put_cue}/{n_put}  ({k_put_cue/n_put*100:.2f}%)')
-print(f'reward-aligned: {k_put_rew}/{n_put}  ({k_put_rew/n_put*100:.2f}%)')
+med_cue = np.median(sess_p_put_cue)
+q1_cue, q3_cue = np.percentile(sess_p_put_cue, [25, 75])
 
-# Two-proportion z-tests
-# run vs cue
-stat_put_run_cue, p_put_run_cue = proportions_ztest(
-    [k_put_run, k_put_cue],
-    [n_put, n_put]
-)
+med_rew = np.median(sess_p_put_rew)
+q1_rew, q3_rew = np.percentile(sess_p_put_rew, [25, 75])
 
-# run vs reward
-stat_put_run_rew, p_put_run_rew = proportions_ztest(
-    [k_put_run, k_put_rew],
-    [n_put, n_put]
-)
+print(f'run:    median = {med_run:.3f}, IQR = [{q1_run:.3f}, {q3_run:.3f}]')
+print(f'cue:    median = {med_cue:.3f}, IQR = [{q1_cue:.3f}, {q3_cue:.3f}]')
+print(f'reward: median = {med_rew:.3f}, IQR = [{q1_rew:.3f}, {q3_rew:.3f}]')
 
-# cue vs reward
-stat_put_cue_rew, p_put_cue_rew = proportions_ztest(
-    [k_put_cue, k_put_rew],
-    [n_put, n_put]
-)
+stat, p = wilcoxon(sess_p_put_run, sess_p_put_cue)
+print(f'run vs cue:    W = {stat:.3f}, p = {p:.3e}')
 
-print('\n--- Two-proportion z-tests (putative LC) ---')
-print(f'run vs cue:    z = {stat_put_run_cue:.3f}, p = {p_put_run_cue:.3e}')
-print(f'run vs reward: z = {stat_put_run_rew:.3f}, p = {p_put_run_rew:.3e}')
-print(f'cue vs reward: z = {stat_put_cue_rew:.3f}, p = {p_put_cue_rew:.3e}')
+stat, p = wilcoxon(sess_p_put_run, sess_p_put_rew)
+print(f'run vs reward: W = {stat:.3f}, p = {p:.3e}')
+
+stat, p = wilcoxon(sess_p_put_cue, sess_p_put_rew)
+print(f'cue vs reward: W = {stat:.3f}, p = {p:.3e}')
 
 
 #%% peak time 

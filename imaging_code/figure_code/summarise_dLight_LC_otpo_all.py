@@ -43,9 +43,16 @@ STIM_WIN     = [int(SAMP_FREQ * (2+1.15)), int(SAMP_FREQ * (2+2))]
 all_dFF  = []
 all_dFF2 = []
 
+animals = set()
+n_sess  = 0
+
 for path in paths:
     recname = Path(path).name
     print(recname)
+    
+    anmname = recname.split('-')[0]
+    animals.add(anmname)
+    n_sess -= -1
     
     dFF_path  = all_sess_stem / recname / 'processed_data' / f'{recname}_wholefield_dFF_stim.npy'
     dFF2_path = all_sess_stem / recname / 'processed_data' / f'{recname}_wholefield_dFF2_stim.npy'
@@ -67,6 +74,10 @@ for path in paths:
     
 all_dFF  = np.array(all_dFF)
 all_dFF2 = np.array(all_dFF2)
+
+
+#%% printout
+print(f'n_animals = {len(animals)}\nn_sessions = {n_sess}')
 
     
 #%% data wrangling
@@ -118,11 +129,13 @@ for ext in ['.png', '.pdf']:
 plot_violin_with_scatter(dFF_baselines, dFF_stims, 
                          'darkgreen', 'royalblue',
                          save=True,
+                         print_statistics=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_all_violin')
 
 plot_violin_with_scatter(dFF2_baselines, dFF2_stims, 
                          'darkred', 'royalblue',
                          save=True,
+                         print_statistics=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_all_violin_ch2')
 
 

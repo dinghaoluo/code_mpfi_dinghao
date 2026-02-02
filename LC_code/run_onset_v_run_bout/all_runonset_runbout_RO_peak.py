@@ -76,7 +76,7 @@ def main(keys, list_identity):
     mean_run_onset = []
     mean_run_bout = []
     
-    # signal to noise defined as -.25 ~ .25 divided by -1~-.5 & .5~1
+    # signal to noise defined as -.5 ~ .5 divided by -1~-.5 & .5~1
     s2n_run_onset = []
     s2n_run_bout = []
     
@@ -325,7 +325,7 @@ def main(keys, list_identity):
         # signal to noise calculation
         run_onset_peak = max(
             run_onset_mean[
-                int(RUN_ONSET_BIN - .25 * SAMP_FREQ) : int(RUN_ONSET_BIN + .25 * SAMP_FREQ)
+                int(RUN_ONSET_BIN - .5 * SAMP_FREQ) : int(RUN_ONSET_BIN + .5 * SAMP_FREQ)
                 ]
             )  # peak
         run_onset_baseline = (
@@ -358,7 +358,7 @@ def main(keys, list_identity):
         
         run_bout_peak = max(
             fsa_mean[
-                int(RUN_ONSET_BIN_RUNBOUT - .25 * SAMP_FREQ_RUNBOUT) : int(RUN_ONSET_BIN_RUNBOUT + .25 * SAMP_FREQ_RUNBOUT)])
+                int(RUN_ONSET_BIN_RUNBOUT - .5 * SAMP_FREQ_RUNBOUT) : int(RUN_ONSET_BIN_RUNBOUT + .5 * SAMP_FREQ_RUNBOUT)])
         run_bout_baseline = (
             np.mean(
                 fsa_mean[
@@ -375,14 +375,14 @@ def main(keys, list_identity):
         RO_run_bout.append(
             np.mean(
                 fsa_mean[
-                    int(RUN_ONSET_BIN_RUNBOUT - .25 * SAMP_FREQ_RUNBOUT) : int(RUN_ONSET_BIN_RUNBOUT + .25 * SAMP_FREQ_RUNBOUT)
+                    int(RUN_ONSET_BIN_RUNBOUT - .5 * SAMP_FREQ_RUNBOUT) : int(RUN_ONSET_BIN_RUNBOUT + .5 * SAMP_FREQ_RUNBOUT)
                     ]
                 )
             )
         s2n_run_bout.append(
             np.mean(
                 fsa_mean[
-                    int(RUN_ONSET_BIN_RUNBOUT - .25 * SAMP_FREQ_RUNBOUT) : int(RUN_ONSET_BIN_RUNBOUT + .25 * SAMP_FREQ_RUNBOUT)
+                    int(RUN_ONSET_BIN_RUNBOUT - .5 * SAMP_FREQ_RUNBOUT) : int(RUN_ONSET_BIN_RUNBOUT + .5 * SAMP_FREQ_RUNBOUT)
                     ]
                 ) / run_bout_baseline
             )
@@ -391,14 +391,14 @@ def main(keys, list_identity):
         RO_run_onset.append(
             np.mean(
                 run_onset_mean[
-                    int(RUN_ONSET_BIN - .25 * SAMP_FREQ) : int(RUN_ONSET_BIN + .25 * SAMP_FREQ)
+                    int(RUN_ONSET_BIN - .5 * SAMP_FREQ) : int(RUN_ONSET_BIN + .5 * SAMP_FREQ)
                     ]
                 )
             )
         s2n_run_onset.append(
             np.mean(
                 run_onset_mean[
-                    int(RUN_ONSET_BIN - .25 * SAMP_FREQ) : int(RUN_ONSET_BIN + .25 * SAMP_FREQ)
+                    int(RUN_ONSET_BIN - .5 * SAMP_FREQ) : int(RUN_ONSET_BIN + .5 * SAMP_FREQ)
                     ]
                 ) / run_onset_baseline
             )
@@ -480,12 +480,12 @@ def main(keys, list_identity):
                     mean_run_onset_plot+sem_run_onset_plot,
                     mean_run_onset_plot-sem_run_onset_plot,
                     color='royalblue',
-                    alpha=.25, edgecolor='none', zorder=10)
+                    alpha=.3, edgecolor='none', zorder=10)
     ax.fill_between(run_bout_xaxis,
                     mean_run_bout_plot+sem_run_bout_plot,
                     mean_run_bout_plot-sem_run_bout_plot,
                     color='gainsboro',
-                    alpha=.25, edgecolor='none')
+                    alpha=.3, edgecolor='none')
     ax.set(xlim=(-1,4), xticks=[0,2,4],
            ylim=(1.8,5.3), yticks=[2,4], 
            title=f'Run-onset v run-bout-onset\n({list_identity} Dbh+)',

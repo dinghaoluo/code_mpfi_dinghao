@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import wilcoxon 
 from scipy.ndimage import binary_dilation
 
 from plotting_functions import plot_violin_with_scatter
@@ -24,7 +25,7 @@ paths = rec_list.pathdLightLCOpto
 
 
 #%% helper
-def build_roi_mask(roi_dict):
+def _build_roi_mask(roi_dict):
     """build combined mask from all ROIs"""
     mask = np.zeros((512, 512), dtype=bool)
     for roi_id, roi in roi_dict.items():
@@ -38,12 +39,11 @@ save_stem     = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\ROI_vs_neuropi
 
 
 #%% parameters
-EDGE = 6
-
 # how far away from ROI to count as neuropil 
 DISTANCE_FROM_ROI = 9  # 9 pixels ~ 5 um
 
-ALPHA = 0.05
+ALPHA  = 0.05
+MIN_RI = 0.1
 
 
 #%% main
@@ -77,23 +77,37 @@ for path in paths:
     pixel_RI_stim = np.load(pixel_RI_stim_path, allow_pickle=True)
     roi_dict      = np.load(roi_dict_path, allow_pickle=True).item()
 
+    # ---- identify releasing ROIs ----
+    releasing = {}
+    
+    for rid, roi in roi_dict.items():
+        vals  = pixel_RI_stim[roi['ypix'], roi['xpix'], :]
+        means = np.nanmean(vals, axis=0)  # mean over pixels 
+        means = [mean for mean in means if np.isfinite(mean)]  # filtering first 
+        if len(means) > 2:
+            _, p = wilcoxon(means, alternative='greater')
+            if p < ALPHA and np.mean(means) > MIN_RI:
+                releasing[rid] = roi
+    
+    if len(releasing) == 0:
+        print('No releasing ROI; skipped')
+        continue 
+    # ---- identification ends ----
+
     # build mask of all ROIs
-    ROI_mask = build_roi_mask(roi_dict)
+    releasing_mask = _build_roi_mask(releasing)
     
     # build dilated mask and then the anti-mask 
+    ROI_mask = _build_roi_mask(roi_dict)
     ROI_dilated = binary_dilation(ROI_mask, iterations=DISTANCE_FROM_ROI)
     anti_ROI_mask = ~ROI_dilated 
     
-    # shave off the edges 
-    ROI_mask      = ROI_mask[EDGE:-EDGE, EDGE:-EDGE]
-    neuropil_mask = anti_ROI_mask[EDGE:-EDGE, EDGE:-EDGE]
+    # get med of pixel_RI_stim 
+    pixel_RI_stim_med = np.nanmedian(pixel_RI_stim, axis=2)
     
-    # get median of pixel_RI_stim 
-    pixel_RI_stim_med = np.nanmedian(pixel_RI_stim, axis=2)[EDGE:-EDGE, EDGE:-EDGE]
-    
-    # get ROI and neuropil RI med 
-    ROI_RI_med      = np.nanmean(pixel_RI_stim_med[ROI_mask])
-    neuropil_RI_med = np.nanmean(pixel_RI_stim_med[neuropil_mask])
+    # get ROI and neuropil RI medians
+    ROI_RI_med      = np.nanmedian(pixel_RI_stim_med[releasing_mask])
+    neuropil_RI_med = np.nanmedian(pixel_RI_stim_med[anti_ROI_mask])
     
     # append 
     all_ROI_RIs.append(ROI_RI_med)
@@ -111,7 +125,7 @@ for path in paths:
     ax[1].set_title('ROI mask')
     ax[1].axis('off')
     
-    ax[2].imshow(neuropil_mask, cmap='Blues')
+    ax[2].imshow(anti_ROI_mask, cmap='Blues')
     ax[2].set_title(f'neuropil (>{DISTANCE_FROM_ROI}px from ROI)')
     ax[2].axis('off')
     
@@ -121,6 +135,8 @@ for path in paths:
                 dpi=300,
                 bbox_inches='tight')
     
+    plt.close(fig)
+    
 
 #%% statistics 
 plot_violin_with_scatter(all_neuropil_RIs, all_ROI_RIs, 
@@ -128,4 +144,5 @@ plot_violin_with_scatter(all_neuropil_RIs, all_ROI_RIs,
                          xticklabels=['Neuropil', 'ROI'],
                          ylabel='RI',
                          save=True,
+                         print_statistics=True,
                          savepath=save_stem / 'neuropil_vs_ROI_violin')

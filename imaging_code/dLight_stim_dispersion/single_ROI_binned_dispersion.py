@@ -73,19 +73,21 @@ for path in paths:
     H, W, _ = pixel_RI_bins.shape
 
     # ---- identify releasing ROIs ----
-    pixel_med = np.nanmedian(pixel_RI_stim, axis=2)
     releasing = {}
 
     for rid, roi in roi_dict.items():
-        vals = pixel_med[roi['ypix'], roi['xpix']]
-        if np.all(np.isfinite(vals)) and len(vals) > 2:
-            _, p = ttest_1samp(vals, 0, alternative='greater')
+        vals  = pixel_RI_stim[roi['ypix'], roi['xpix'], :]
+        means = np.nanmean(vals, axis=0)  # mean over pixels 
+        means = [mean for mean in means if np.isfinite(mean)]  # filtering first 
+        if len(means) > 2:
+            _, p = ttest_1samp(means, 0, alternative='greater')
             if p < ALPHA:
                 releasing[rid] = roi
 
     if len(releasing) == 0:
         print('No releasing ROI; skipped')
         continue 
+    # ---- identification ends ----
 
     # original mask to avoid colllision
     orig_mask = np.zeros((H, W), bool)

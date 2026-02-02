@@ -208,11 +208,11 @@ def process_behavioural_data(
                 lick_dists = lick_dists[~np.isnan(lick_dists)]
                 lick_distances_aligned.append(lick_dists)
     
-                # construct binary lick map over distance base
+                # construct lick map over distance base
                 lick_map = np.zeros_like(common_distance_base)
                 lick_bin_indices = np.searchsorted(common_distance_base, lick_dists)
                 valid = lick_bin_indices < len(lick_map)
-                lick_map[lick_bin_indices[valid]] = 1
+                np.add.at(lick_map, lick_bin_indices[valid], 1)  # accumulate licks
                 lick_maps.append(lick_map)
                 
                 # compute lick selectivity 
@@ -507,10 +507,10 @@ def find_nearest(value, arr):
 
 def lick_index(lick_map):
     '''
-    compute post-vs-pre lick selectivity from a binary lick map.
+    compute post-vs-pre lick selectivity from a lick map.
     
     parameters:
-    - lick_map: binary 1d array indicating presence of licks at each distance bin->2200 bins
+    - lick_map: 1d array indicating presence of licks at each distance bin->2200 bins
     
     returns:
     - float: selectivity index (nan if no licks present).

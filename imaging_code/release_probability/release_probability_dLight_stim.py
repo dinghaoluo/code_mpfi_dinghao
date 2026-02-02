@@ -71,8 +71,8 @@ for path in paths:
 
     # load data
     print('Loading data...')
-    pixel_RI = np.load(pixel_RI_path, allow_pickle=True)  # (512,512,40)
-    roi_dict = np.load(roi_dict_path, allow_pickle=True).item()
+    pixel_RI_stim = np.load(pixel_RI_path, allow_pickle=True)  # (512,512,40)
+    roi_dict      = np.load(roi_dict_path, allow_pickle=True).item()
     
     # load 1100-nm ref. or ref2 (we used 1100-nm references for very early recordings)
     if ref1100_path.exists():
@@ -82,27 +82,29 @@ for path in paths:
         print('Using channel 2 ref.')
         ref2 = np.load(ref2_path, allow_pickle=True)
     
-    # identify releasing ROIs
-    print(f'Identifying releasing ROIs with alpha={ALPHA}...')
+    # ---- identify releasing ROIs ----
     releasing_rois = {}
-    for roi_id, roi in roi_dict.items():
-        ypix, xpix = roi['ypix'], roi['xpix']
-        if len(roi['ypix']) != len(roi['xpix']):
-            print(f'WARNING: y-, x-pixel counts mismatch for {roi_id}')
-            continue
-        roi_vals = pixel_RI[roi['ypix'], roi['xpix'], :]
-        med_roi_vals = np.nanmedian(roi_vals, axis=0)
-        
-        _, p_val = ttest_1samp(med_roi_vals, popmean=0, alternative='greater')
-        if p_val < ALPHA:
-            releasing_rois[roi_id] = roi
+    
+    for rid, roi in roi_dict.items():
+        vals  = pixel_RI_stim[roi['ypix'], roi['xpix'], :]
+        means = np.nanmean(vals, axis=0)  # mean over pixels 
+        means = [mean for mean in means if np.isfinite(mean)]  # filtering first 
+        if len(means) > 2:
+            _, p = ttest_1samp(means, 0, alternative='greater')
+            if p < ALPHA:
+                releasing_rois[rid] = roi
+    
+    if len(releasing_rois) == 0:
+        print('No releasing ROI; skipped')
+        continue 
+    # ---- identification ends ----
             
     # get proportion of releasing ROIs
     curr_prop = len(releasing_rois) / len(roi_dict)
     all_release_proportions.append(curr_prop)
     
     # get min and max 
-    pixel_RI_med = np.nanmedian(pixel_RI, axis=2)
+    pixel_RI_med = np.nanmedian(pixel_RI_stim, axis=2)
     global_min = np.nanmin(pixel_RI_med[EDGE:-EDGE, EDGE:-EDGE])
     global_max = np.nanmax(pixel_RI_med[EDGE:-EDGE, EDGE:-EDGE])
     

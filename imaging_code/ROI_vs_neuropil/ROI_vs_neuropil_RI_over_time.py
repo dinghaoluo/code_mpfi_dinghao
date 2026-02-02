@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np 
 import matplotlib.pyplot as plt 
-from scipy.stats import ttest_1samp, sem
+from scipy.stats import wilcoxon, sem
 from scipy.optimize import curve_fit
 from scipy.ndimage import binary_dilation
 
@@ -43,12 +43,11 @@ dLight_stem   = Path('Z:/Dinghao/code_dinghao/HPC_dLight_LC_opto')
 all_sess_stem = dLight_stem / 'all_sessions'
 save_stem     = dLight_stem / 'ROI_vs_neuropil'
 
-EDGE = 6
-
 # how far away from ROI to count as neuropil 
 DISTANCE_FROM_ROI = 9  # 9 pixels ~ 5 um
 
 ALPHA    = 0.05
+MIN_RI   = 0.1
 R2_THRES = 0.7
 N_BINS   = 40
 XAXIS    = np.arange(N_BINS) / 10
@@ -89,43 +88,34 @@ for path in paths:
 
     # ---- identify releasing ROIs ----
     releasing = {}
-
+    
     for rid, roi in roi_dict.items():
         vals  = pixel_RI_stim[roi['ypix'], roi['xpix'], :]
         means = np.nanmean(vals, axis=0)  # mean over pixels 
         means = [mean for mean in means if np.isfinite(mean)]  # filtering first 
         if len(means) > 2:
-            _, p = ttest_1samp(means, 0, alternative='greater')
-            if p < ALPHA:
+            _, p = wilcoxon(means, alternative='greater')
+            if p < ALPHA and np.mean(means) > MIN_RI:
                 releasing[rid] = roi
-
+    
     if len(releasing) == 0:
         print('No releasing ROI; skipped')
         continue 
+    # ---- identification ends ----
     
-    # build mask of all ROIs
-    ROI_mask = _build_roi_mask(releasing)
+    # build mask of releasing ROIs
+    releasing_mask = _build_roi_mask(releasing)
     
     # build dilated mask and then the anti-mask 
-    ROI_dilated = binary_dilation(ROI_mask, iterations=DISTANCE_FROM_ROI)
+    ROI_mask      = _build_roi_mask(roi_dict)
+    ROI_dilated   = binary_dilation(ROI_mask, iterations=DISTANCE_FROM_ROI)
     anti_ROI_mask = ~ROI_dilated 
-    
-    # shave off the edges 
-    ROI_mask[:EDGE, :]  = False
-    ROI_mask[-EDGE:, :] = False
-    ROI_mask[:, :EDGE]  = False
-    ROI_mask[:, -EDGE:] = False
-    
-    anti_ROI_mask[:EDGE, :]  = False
-    anti_ROI_mask[-EDGE:, :] = False
-    anti_ROI_mask[:, :EDGE]  = False
-    anti_ROI_mask[:, -EDGE:] = False
     
     # ------------------
     # EXTRACT RI TRACES
     # ------------------
     # ... from ROI_mask 
-    ROI_RI_bins      = np.nanmean(pixel_RI_bins[ROI_mask, :], axis=0)
+    ROI_RI_bins      = np.nanmean(pixel_RI_bins[releasing_mask, :], axis=0)
     
     # ... and from anti_ROI_mask 
     neuropil_RI_bins = np.nanmean(pixel_RI_bins[anti_ROI_mask, :], axis=0)
@@ -276,7 +266,7 @@ ax.hist(
     bins=bins,
     color='darkgreen',
     alpha=0.6,
-    edgecolor='black',
+    edgecolor='none',
     label='ROI'
     )
 
@@ -285,28 +275,28 @@ ax.hist(
     bins=bins,
     color='grey',
     alpha=0.6,
-    edgecolor='black',
+    edgecolor='none',
     label='Neuropil'
     )
 
-# medians
+# medians + IQRs
 if ROI_taus.size > 0:
-    med_roi = np.median(ROI_taus)
+    q1_roi, med_roi, q3_roi = np.percentile(ROI_taus, [25, 50, 75])
     ax.axvline(med_roi, color='darkgreen', linestyle='--', lw=1)
     ax.text(
         0.02, 0.95,
-        f'ROI median = {med_roi:.2f}s',
+        f'ROI median = {med_roi:.2f}s\nIQR = [{q1_roi:.2f}, {q3_roi:.2f}]',
         transform=ax.transAxes,
         va='top', ha='left',
         fontsize=7, color='darkgreen'
     )
 
 if NEU_taus.size > 0:
-    med_neu = np.median(NEU_taus)
+    q1_neu, med_neu, q3_neu = np.percentile(NEU_taus, [25, 50, 75])
     ax.axvline(med_neu, color='grey', linestyle='--', lw=1)
     ax.text(
-        0.02, 0.88,
-        f'Neuropil median = {med_neu:.2f}s',
+        0.02, 0.85,
+        f'Neuropil median = {med_neu:.2f}s\nIQR = [{q1_neu:.2f}, {q3_neu:.2f}]',
         transform=ax.transAxes,
         va='top', ha='left',
         fontsize=7, color='grey'

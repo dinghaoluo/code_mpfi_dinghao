@@ -24,9 +24,10 @@ from common import mpl_formatting
 mpl_formatting()
 
 import rec_list
-paths    = rec_list.pathHPC_Raphi
+bad_behs = rec_list.pathHPCbadbeh
+paths    = rec_list.pathHPCLCopt + rec_list.pathHPCLCtermopt + rec_list.pathHPC_Raphi
+paths    = [p for p in paths if p not in bad_behs]
 recnames = [Path(path).name for path in paths]
-mazes    = rec_list.pathHPC_Raphi_maze_sess
 
 
 #%% parameters 
@@ -47,7 +48,9 @@ late_c  = (102/255, 83/255 , 162/255)
 HPC_stem        = Path('Z:/Dinghao/code_dinghao/HPC_ephys')
 first_lick_stem = HPC_stem / 'first_lick_analysis_raphi'
 
-all_exp_stem    = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCRaphi')
+all_exp_stem       = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCLC')
+all_exp_term_stem  = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCLCterm')
+all_exp_raphi_stem = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/HPCRaphi')
 
 
 #%% helper 
@@ -93,6 +96,7 @@ def _annotate_pvals_all(ax, p_ind, p_rs, p_rel, p_wil,
 def _binwise_test_all(early_profiles, late_profiles,
                       SAMP_FREQ=1250, BEF=1,
                       start=-0.5, end=3.5, bin_size=.5,
+                      verbose=False,
                       label='profiles'):
     
     bins = np.arange(start, end, bin_size)
@@ -102,10 +106,11 @@ def _binwise_test_all(early_profiles, late_profiles,
     p_rs   = []
     p_rel  = []
     p_wil  = []
-
-    print(f'\nBinwise stats for {label}:')
-    print('bin(s) | early mean ± SEM (n) | late mean ± SEM (n) | '
-          'ind | rs | rel | wil')
+    
+    if verbose:
+        print(f'\nBinwise stats for {label}:')
+        print('bin(s) | early mean ± SEM (n) | late mean ± SEM (n) | '
+              'ind | rs | rel | wil')
 
     for b in range(n_bins):
         lo, hi = bins[b], bins[b] + bin_size
@@ -147,10 +152,11 @@ def _binwise_test_all(early_profiles, late_profiles,
         p_rel.append(p_p)
         p_wil.append(p_w)
 
-        print(f'{lo:>4.1f}–{hi:<4.1f} | '
-              f'{e_mean:.3f} ± {e_sem:.3f} | '
-              f'{l_mean:.3f} ± {l_sem:.3f} | '
-              f'{p_i:.2e} {p_r:.2e} {p_p:.2e} {p_w:.2e}')
+        if verbose:
+            print(f'{lo:>4.1f}–{hi:<4.1f} | '
+                  f'{e_mean:.3f} ± {e_sem:.3f} | '
+                  f'{l_mean:.3f} ± {l_sem:.3f} | '
+                  f'{p_i:.2e} {p_r:.2e} {p_p:.2e} {p_w:.2e}')
 
     return (np.array(p_ind),
             np.array(p_rs),
@@ -211,11 +217,34 @@ def _trial_bin_means(trial_idx_list, bin_size=500, total_len=3500, n_bins=7):
 
 #%% load data 
 print('Loading dataframes...')
-cell_profiles_path = HPC_stem / 'HPC_all_profiles_raphi.pkl'
+
+cell_profiles_path = HPC_stem / 'HPC_all_profiles.pkl'
 cell_profiles = pd.read_pickle(cell_profiles_path)
 df_pyr = cell_profiles[cell_profiles['cell_identity'] == 'pyr']
 pyrON = df_pyr[df_pyr['class'] == 'run-onset ON']
 pyrOFF = df_pyr[df_pyr['class'] == 'run-onset OFF']
+
+cell_profiles_raphi_path = HPC_stem / 'HPC_all_profiles_raphi.pkl'
+cell_profiles_raphi = pd.read_pickle(cell_profiles_raphi_path)
+df_pyr_raphi = cell_profiles_raphi[cell_profiles_raphi['cell_identity'] == 'pyr']
+pyrON_raphi = df_pyr_raphi[df_pyr_raphi['class'] == 'run-onset ON']
+pyrOFF_raphi = df_pyr_raphi[df_pyr_raphi['class'] == 'run-onset OFF']
+
+pyrON = pd.concat(
+    [
+        pyrON[['recname']],
+        pyrON_raphi[['recname']]
+    ],
+    axis=0
+)
+
+pyrOFF = pd.concat(
+    [
+        pyrOFF[['recname']],
+        pyrOFF_raphi[['recname']]
+    ],
+    axis=0
+)
 
 
 #%% main
@@ -229,10 +258,6 @@ sess_late_speed_means = []
 # speed BEFORE matching 
 sess_early_speed_means_raw = []
 sess_late_speed_means_raw = []
-
-# counters 
-animals = set()
-n_sess  = 0
 
 # cell loop
 recname   = ''
@@ -259,14 +284,6 @@ for cluname in all_valid_clunames:
             'late OFF' : current_session_OFF_late
             }
         profiles[recname] = curr_profiles
-        
-        # if the last session has been skipped, decrement n_sess
-        if skip_flag:
-            n_sess += -1
-            try:
-                animals.remove(anmname)
-            except KeyError:
-                pass
             
         current_session_ON_early  = []
         current_session_ON_late   = []
@@ -282,10 +299,6 @@ for cluname in all_valid_clunames:
         print(f'\n{recname}')
         skip_flag = False
         
-        n_sess -= -1
-        anmname = recname.split('-')[0]
-        animals.add(anmname)
-        
         for maze_section in range(6):
             alignRun_path = Path(
                 f'Z:/Raphael_tests/mice_expdata/ANM{recname[1:4]}/{recname[:-3]}/' \
@@ -294,7 +307,14 @@ for cluname in all_valid_clunames:
             if alignRun_path.exists():
                 break
             else:
-                continue
+                alignRun_path = Path(
+                    rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}\{recname[:-3]}'
+                    rf'\{recname}\{recname}_DataStructure_mazeSection1_'
+                    r'TrialType1_alignRun_msess1.mat')
+                if alignRun_path.exists():
+                    break
+                else:
+                    continue
         try:
             alignRun = sio.loadmat(alignRun_path)
         except FileNotFoundError:
@@ -305,11 +325,18 @@ for cluname in all_valid_clunames:
         starts = alignRun['trialsRun']['startLfpInd'][0][0][0][1:]
         tot_trial = licks.shape[0]
         
-        behPar = sio.loadmat(
-            rf'Z:\Raphael_tests\mice_expdata\ANM{recname[1:4]}\{recname[:-3]}'
-            rf'\{recname}\{recname}_DataStructure_mazeSection1_'
-            rf'TrialType1_behPar_msess{maze_section}.mat'
-        )
+        try:
+            behPar = sio.loadmat(
+                rf'Z:\Dinghao\MiceExp\ANMD{recname[1:5]}\{recname[:-3]}'
+                rf'\{recname}\{recname}_DataStructure_mazeSection1_'
+                r'TrialType1_behPar_msess1.mat'
+            )
+        except FileNotFoundError:
+            behPar = sio.loadmat(
+                rf'Z:\Raphael_tests\mice_expdata\ANM{recname[1:4]}\{recname[:-3]}'
+                rf'\{recname}\{recname}_DataStructure_mazeSection1_'
+                rf'TrialType1_behPar_msess{maze_section}.mat'
+            )
         bad_idx  = np.where(behPar['behPar'][0]['indTrBadBeh'][0]==1)[1]-1
         stim_idx = np.where(behPar['behPar'][0]['stimOn'][0]!=0)[1]-1
         
@@ -317,150 +344,171 @@ for cluname in all_valid_clunames:
             beh_path = all_exp_stem / f'{recname}.pkl'
             with open(beh_path, 'rb') as f:
                 beh = pickle.load(f)
+            print('Loaded HPCLC beh file')
         except FileNotFoundError:
-            print('No behaviour file; skipped')
-            skip_flag = True 
+            try:
+                beh_path = all_exp_term_stem / f'{recname}.pkl'
+                with open(beh_path, 'rb') as f:
+                    beh = pickle.load(f)
+                print('Loaded HPCLCterm beh file')
+            except FileNotFoundError:
+                try:
+                    beh_path = all_exp_raphi_stem / f'{recname}.pkl'
+                    with open(beh_path, 'rb') as f:
+                        beh = pickle.load(f)
+                    print('Loaded HPC Raphi beh file')
+                except:
+                    print('No behaviour file; skipped')
+                    skip_flag = True 
+                
+        if not skip_flag:
+            # get first-lick time
+            first_licks = []
+            for trial in range(tot_trial):
+                lk = [l for l in licks[trial] 
+                      if l-starts[trial] > .5*SAMP_FREQ]  # only if the animal does not lick in the first half a second (carry-over licks)
+                
+                if len(lk)==0:  # no licks in the current trial
+                    first_licks.append(np.nan)
+                else:  # if there are licks, append relative time of first lick
+                    first_licks.extend(lk[0]-starts[trial])
             
-        # get first-lick time
-        first_licks = []
-        for trial in range(tot_trial):
-            lk = [l for l in licks[trial] 
-                  if l-starts[trial] > .5*SAMP_FREQ]  # only if the animal does not lick in the first half a second (carry-over licks)
+            # convert first licks to seconds
+            first_licks_sec = np.array(first_licks) / SAMP_FREQ
+    
+            early_trials = []
+            late_trials = []
+            for trial, t in enumerate(first_licks_sec):
+                if trial in bad_idx or trial in stim_idx or trial-1 in stim_idx or np.isnan(t): continue
+                if t < 2.5:
+                    early_trials.append(trial)
+                elif 2.5 < t < 3.5:
+                    late_trials.append(trial)
+    
+            if len(early_trials) < 10 or len(late_trials) < 10:
+                print('Not enough trials; skipped')
+                skip_flag = True
+                continue
+    
+            try:
+                all_trains = np.load(
+                    rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions\{recname}'
+                    rf'\{recname}_all_trains_run.npy',
+                    allow_pickle=True
+                ).item()
+            except FileNotFoundError:
+                all_trains = np.load(
+                    rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions_raphi\{recname}'
+                    rf'\{recname}_all_trains.npy',
+                    allow_pickle=True
+                ).item()
+    
+            speed_times = beh['speed_times_aligned'][1:]
             
-            if len(lk)==0:  # no licks in the current trial
-                first_licks.append(np.nan)
-            else:  # if there are licks, append relative time of first lick
-                first_licks.extend(lk[0]-starts[trial])
-        
-        # convert first licks to seconds
-        first_licks_sec = np.array(first_licks) / SAMP_FREQ
-
-        early_trials = []
-        late_trials = []
-        for trial, t in enumerate(first_licks_sec):
-            if trial in bad_idx or trial in stim_idx or trial-1 in stim_idx or np.isnan(t): continue
-            if t < 2.5:
-                early_trials.append(trial)
-            elif 2.5 < t < 3.5:
-                late_trials.append(trial)
-
-        if len(early_trials) < 10 or len(late_trials) < 10:
-            print('Not enough trials; skipped')
-            skip_flag = True
-            continue
-
-        all_trains = np.load(
-            rf'Z:\Dinghao\code_dinghao\HPC_ephys\all_sessions_raphi\{recname}'
-            rf'\{recname}_all_trains.npy',
-            allow_pickle=True
-        ).item()
-
-        speed_times = beh['speed_times_aligned'][1:]
-        
-        # speed BEFORE matching for visualisation 
-        e_mean_sp_raw = _session_mean_speed(early_trials, speed_times, n=4000)
-        l_mean_sp_raw = _session_mean_speed(late_trials,  speed_times, n=4000)
-        if e_mean_sp_raw is not None and l_mean_sp_raw is not None:
-            sess_early_speed_means_raw.append(e_mean_sp_raw)
-            sess_late_speed_means_raw.append(l_mean_sp_raw)
-        
-        # speed matching begins here 
-        matched_early = []
-        matched_late = []
-
-        # 7-bin speed extraction (0–3500 ms)
-        E_bins, e_valid = _compute_bin_speeds_7(early_trials)  # shape: (nE, 7)
-        L_bins, l_valid = _compute_bin_speeds_7(late_trials)   # shape: (nL, 7)
-        
-        matched_early, matched_late = [], []
-        if len(E_bins) and len(L_bins):
-            k = 1.5
-        
-            # early stats -> bounds that late must satisfy
-            e_mu = E_bins.mean(axis=0)
-            e_sd = E_bins.std(axis=0, ddof=0)
-            e_low, e_high = e_mu - k*e_sd, e_mu + k*e_sd
-        
-            # late stats -> bounds that early must satisfy
-            l_mu = L_bins.mean(axis=0)
-            l_sd = L_bins.std(axis=0, ddof=0)
-            l_low, l_high = l_mu - k*l_sd, l_mu + k*l_sd
+            # speed BEFORE matching for visualisation 
+            e_mean_sp_raw = _session_mean_speed(early_trials, speed_times, n=4000)
+            l_mean_sp_raw = _session_mean_speed(late_trials,  speed_times, n=4000)
+            if e_mean_sp_raw is not None and l_mean_sp_raw is not None:
+                sess_early_speed_means_raw.append(e_mean_sp_raw)
+                sess_late_speed_means_raw.append(l_mean_sp_raw)
             
-            # masks
-            l_mask_in_early_bounds = np.all((L_bins >= e_low) & (L_bins <= e_high), axis=1)
-            e_mask_in_late_bounds  = np.all((E_bins >= l_low) & (E_bins <= l_high), axis=1)
-        
-            # mutually matched sets (symmetric)
-            matched_late  = [l_valid[i] for i in np.where(l_mask_in_early_bounds)[0]]
-            matched_early = [e_valid[i] for i in np.where(e_mask_in_late_bounds)[0]]
-        else:
+            # speed matching begins here 
+            matched_early = []
+            matched_late = []
+    
+            # 7-bin speed extraction (0–3500 ms)
+            E_bins, e_valid = _compute_bin_speeds_7(early_trials)  # shape: (nE, 7)
+            L_bins, l_valid = _compute_bin_speeds_7(late_trials)   # shape: (nL, 7)
+            
             matched_early, matched_late = [], []
-        
-        if len(matched_early) < 10 or len(matched_late) < 10:
-            print('Not enough speed-matched trials; skipped')
-            skip_flag = True
-            continue
-        
-        # collect session means for later plotting 
-        e_mean_sp = _session_mean_speed(matched_early, speed_times, n=4000)
-        l_mean_sp = _session_mean_speed(matched_late, speed_times, n=4000)
-        
-        if e_mean_sp is not None and l_mean_sp is not None:
-            sess_early_speed_means.append(e_mean_sp)
-            sess_late_speed_means.append(l_mean_sp)
-        
-        # plot trace examples + per-bin independent t-tests (500 ms, 7 bins)
-        fig, ax = plt.subplots(figsize=(2.8, 1.6))
-        
-        time_sec = np.arange(3500) / 1000.0
-        for i in range(min(10, len(matched_early))):
-            sp = [pt[1] for pt in speed_times[matched_early[i]]]
-            ax.plot(time_sec, sp[:3500], color='grey', alpha=0.5)
-        for i in range(min(10, len(matched_late))):
-            sp = [pt[1] for pt in speed_times[matched_late[i]]]
-            ax.plot(time_sec, sp[:3500], color=(0.2, 0.35, 0.65), alpha=0.5)
-        
-        E_b = _trial_bin_means(matched_early)  # shape: nE x 7
-        L_b = _trial_bin_means(matched_late)   # shape: nL x 7
-        
-        # per-bin t test for sanity check 
-        n_bins = 7
-        bin_size = 500
-        pvals = np.ones(n_bins)
-        for i in range(n_bins):
-            e = E_b[:, i] if E_b.size else np.array([])
-            l = L_b[:, i] if L_b.size else np.array([])
-            if e.size >= 2 and l.size >= 2:
-                t, p = ttest_ind(e, l, equal_var=False)
-                pvals[i] = p
-        
-        # skip session if any bin differs
-        # if np.any(pvals < 0.05):
-        #     print('Session rejected for unequal speeds (binwise t-test)')
-        #     continue
-        
-        # annotate bars + p-values above each 500 ms bin
-        ymin, ymax = ax.get_ylim()
-        yr = ymax - ymin if ymax > ymin else 1.0
-        bar_y  = ymax + 0.06 * yr
-        text_y = ymax + 0.11 * yr
-        
-        for i in range(n_bins):
-            x_left  = i * bin_size / 1000 + .1
-            x_right = (i + 1) * bin_size / 1000 - .1
-            ax.hlines(bar_y, x_left, x_right, color='k', lw=1)
-            ax.text((x_left + x_right) / 2.0, text_y, f'p={pvals[i]:.3f}',
-                    ha='center', va='bottom', fontsize=5)
-        
-        ax.set(xlabel='Time (s)', ylabel='Speed (cm/s)', title=f'{recname} bin-filtered')
-        for s in ['top', 'right']:
-            ax.spines[s].set_visible(False)
-        fig.tight_layout()
-        
-        vis_path = first_lick_stem / 'single_session_speed_matching' / f'{recname}_bin_filtered_speed_traces'
-        for ext in ['.pdf', '.png']:
-            fig.savefig(f'{vis_path}{ext}', dpi=200)
-        plt.close(fig)
+            if len(E_bins) and len(L_bins):
+                k = 1.5
+            
+                # early stats -> bounds that late must satisfy
+                e_mu = E_bins.mean(axis=0)
+                e_sd = E_bins.std(axis=0, ddof=0)
+                e_low, e_high = e_mu - k*e_sd, e_mu + k*e_sd
+            
+                # late stats -> bounds that early must satisfy
+                l_mu = L_bins.mean(axis=0)
+                l_sd = L_bins.std(axis=0, ddof=0)
+                l_low, l_high = l_mu - k*l_sd, l_mu + k*l_sd
+                
+                # masks
+                l_mask_in_early_bounds = np.all((L_bins >= e_low) & (L_bins <= e_high), axis=1)
+                e_mask_in_late_bounds  = np.all((E_bins >= l_low) & (E_bins <= l_high), axis=1)
+            
+                # mutually matched sets (symmetric)
+                matched_late  = [l_valid[i] for i in np.where(l_mask_in_early_bounds)[0]]
+                matched_early = [e_valid[i] for i in np.where(e_mask_in_late_bounds)[0]]
+            else:
+                matched_early, matched_late = [], []
+            
+            if len(matched_early) < 10 or len(matched_late) < 10:
+                print('Not enough speed-matched trials; skipped')
+                skip_flag = True
+                continue
+            
+            # collect session means for later plotting 
+            e_mean_sp = _session_mean_speed(matched_early, speed_times, n=4000)
+            l_mean_sp = _session_mean_speed(matched_late, speed_times, n=4000)
+            
+            if e_mean_sp is not None and l_mean_sp is not None:
+                sess_early_speed_means.append(e_mean_sp)
+                sess_late_speed_means.append(l_mean_sp)
+            
+            # plot trace examples + per-bin independent t-tests (500 ms, 7 bins)
+            fig, ax = plt.subplots(figsize=(2.8, 1.6))
+            
+            time_sec = np.arange(3500) / 1000.0
+            for i in range(min(10, len(matched_early))):
+                sp = [pt[1] for pt in speed_times[matched_early[i]]]
+                ax.plot(time_sec, sp[:3500], color='grey', alpha=0.5)
+            for i in range(min(10, len(matched_late))):
+                sp = [pt[1] for pt in speed_times[matched_late[i]]]
+                ax.plot(time_sec, sp[:3500], color=(0.2, 0.35, 0.65), alpha=0.5)
+            
+            E_b = _trial_bin_means(matched_early)  # shape: nE x 7
+            L_b = _trial_bin_means(matched_late)   # shape: nL x 7
+            
+            # per-bin t test for sanity check 
+            n_bins = 7
+            bin_size = 500
+            pvals = np.ones(n_bins)
+            for i in range(n_bins):
+                e = E_b[:, i] if E_b.size else np.array([])
+                l = L_b[:, i] if L_b.size else np.array([])
+                if e.size >= 2 and l.size >= 2:
+                    t, p = ttest_ind(e, l, equal_var=False)
+                    pvals[i] = p
+            
+            # skip session if any bin differs
+            # if np.any(pvals < 0.05):
+            #     print('Session rejected for unequal speeds (binwise t-test)')
+            #     continue
+            
+            # annotate bars + p-values above each 500 ms bin
+            ymin, ymax = ax.get_ylim()
+            yr = ymax - ymin if ymax > ymin else 1.0
+            bar_y  = ymax + 0.06 * yr
+            text_y = ymax + 0.11 * yr
+            
+            for i in range(n_bins):
+                x_left  = i * bin_size / 1000 + .1
+                x_right = (i + 1) * bin_size / 1000 - .1
+                ax.hlines(bar_y, x_left, x_right, color='k', lw=1)
+                ax.text((x_left + x_right) / 2.0, text_y, f'p={pvals[i]:.3f}',
+                        ha='center', va='bottom', fontsize=5)
+            
+            ax.set(xlabel='Time (s)', ylabel='Speed (cm/s)', title=f'{recname} bin-filtered')
+            for s in ['top', 'right']:
+                ax.spines[s].set_visible(False)
+            fig.tight_layout()
+            
+            vis_path = first_lick_stem / 'single_session_speed_matching' / f'{recname}_bin_filtered_speed_traces'
+            for ext in ['.pdf', '.png']:
+                fig.savefig(f'{vis_path}{ext}', dpi=200)
+            plt.close(fig)
 
 
     ## ---- accumulate data
@@ -469,7 +517,7 @@ for cluname in all_valid_clunames:
         if cluname in pyrON.index:
             early_profiles = np.nanmean(_get_profiles(trains, matched_early), axis=0)
             late_profiles  = np.nanmean(_get_profiles(trains, matched_late), axis=0)
-            if int(recname[1:4]) > 40:  # for some reason some sessions did not get scaled with SAMP_FREQ when extracting
+            if int(recname[1:4]) > 40 and 'r' not in recname:  # for some reason some sessions did not get scaled with SAMP_FREQ when extracting
                 early_profiles *= SAMP_FREQ
                 late_profiles *= SAMP_FREQ
             
@@ -479,7 +527,7 @@ for cluname in all_valid_clunames:
         if cluname in pyrOFF.index:
             early_profiles = np.nanmean(_get_profiles(trains, matched_early), axis=0)
             late_profiles  = np.nanmean(_get_profiles(trains, matched_late), axis=0)
-            if int(recname[1:4]) > 40:
+            if int(recname[1:4]) > 40 and 'r' not in recname:
                 early_profiles *= SAMP_FREQ
                 late_profiles *= SAMP_FREQ
             
@@ -619,8 +667,13 @@ plot_violin_with_scatter(mean_E, mean_L,
 # organise data
 valid_profiles = {k: v for k, v in profiles.items() if v['early ON']}
 
+# count and report animals and sessions
+reclist = list(valid_profiles.keys())
+anmlist = [s.split('-')[0] for s in reclist]
+anmlist = np.unique(anmlist)
+print(f'n_animals = {len(anmlist)}')
+print(f'n_sessions = {len(reclist)}')
 
-#%% curves and stats 
 early_ON  = [arr
              for key, session in valid_profiles.items()
              for arr in session['early ON']]
@@ -633,6 +686,7 @@ early_OFF = [arr
 late_OFF  = [arr
              for key, session in valid_profiles.items()
              for arr in session['late OFF']]
+
 
 ## ON
 XAXIS = np.arange(5 * SAMP_FREQ) / SAMP_FREQ - 1
@@ -655,14 +709,12 @@ p_ind, p_rs, p_rel, p_wil = _binwise_test_all(
         np.array(early_ON), np.array(late_ON),
         SAMP_FREQ=SAMP_FREQ, BEF=BEF,
         start=-0.5, end=3.5, bin_size=1,
-        label='ON cells'
+        label='ON cells', verbose=True
     )
 _annotate_pvals_all(ax, p_ind, p_rs, p_rel, p_wil,
                     start=-0.5, bin_size=1, fontsize=2.5)
 
-print('\nON cells: bin-by-bin mean ± SEM (Hz)')
 bins = np.arange(-0.5, 3.5, 1)
-
 for i, lo in enumerate(bins):
     hi = lo + 1
     lo_idx = int((lo + BEF) * SAMP_FREQ)
@@ -678,10 +730,6 @@ for i, lo in enumerate(bins):
     e_sem  = sem(e_vals)
     l_mean = np.mean(l_vals)
     l_sem  = sem(l_vals)
-
-    print(f'{lo:>4.1f}–{hi:<4.1f}s: '
-          f'early: {e_mean:.3f} ± {e_sem:.3f}; '
-          f'late:  {l_mean:.3f} ± {l_sem:.3f}')
 
 ax.legend(fontsize=5, frameon=False)
 ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), 
@@ -718,14 +766,13 @@ p_ind, p_rs, p_rel, p_wil = _binwise_test_all(
         np.array(early_OFF), np.array(late_OFF),
         SAMP_FREQ=SAMP_FREQ, BEF=BEF,
         start=-0.5, end=3.5, bin_size=1,
-        label='OFF cells'
+        label='OFF cells',
+        verbose=True
     )
 _annotate_pvals_all(ax, p_ind, p_rs, p_rel, p_wil,
                     start=-0.5, bin_size=1, fontsize=2.5)
 
-print('\nOFF cells: bin-by-bin mean ± SEM (Hz)')
 bins = np.arange(-0.5, 3.5, 1)
-
 for i, lo in enumerate(bins):
     hi = lo + 1
     lo_idx = int((lo + BEF) * SAMP_FREQ)
@@ -741,10 +788,6 @@ for i, lo in enumerate(bins):
     e_sem  = sem(e_vals)
     l_mean = np.mean(l_vals)
     l_sem  = sem(l_vals)
-
-    print(f'{lo:>4.1f}–{hi:<4.1f}s: '
-          f'early: {e_mean:.3f} ± {e_sem:.3f}; '
-          f'late:  {l_mean:.3f} ± {l_sem:.3f}')
 
 ax.legend(fontsize=5, frameon=False)
 ax.set(xlabel='Time from run onset (s)', xlim=(-1, 4), 

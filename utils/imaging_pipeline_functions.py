@@ -294,7 +294,8 @@ def calculate_dFF_percentile(
         GPU_AVAILABLE=False,
         CHUNK=False,
         chunk_size=2000,
-        pct=10
+        pct=10,
+        return_baseline=False
         ):
     """
     calculate dF/F using rolling-percentile baseline
@@ -302,28 +303,31 @@ def calculate_dFF_percentile(
     window = sigma * 6
     T = F_array.shape[t_axis]
 
-    # full array 
+    # ------------------
+    # non-chunked
+    # ------------------
     if not CHUNK:
         if GPU_AVAILABLE:
             import cupy as cp
-            F = cp.array(F_array, dtype=cp.float32)
+            F = cp.asarray(F_array, dtype=cp.float32)
         else:
             F = F_array.astype(np.float32, copy=False)
 
-        # gaussian smoothing
-        baseline = convolve_gaussian(F, sigma, t_axis, GPU_AVAILABLE)
-
-        # rolling 10th percentile baseline
-        baseline = rolling_percentile(baseline, window, pct, t_axis, GPU_AVAILABLE)
-
-        # compute dF/F
+        baseline = rolling_percentile(F, window, pct, t_axis, GPU_AVAILABLE)
         dFF = (F - baseline) / baseline
 
-        return dFF.get() if GPU_AVAILABLE else dFF
+        if GPU_AVAILABLE:
+            dFF = dFF.get()
+            baseline = baseline.get()
 
-    # chunked 
+        return (dFF, baseline) if return_baseline else dFF
+
+    # ------------------
+    # chunked
+    # ------------------
     pad = window // 2
-    slices = []
+    dff_slices = []
+    baseline_slices = [] if return_baseline else None
 
     if GPU_AVAILABLE:
         import cupy as cp
@@ -332,32 +336,28 @@ def calculate_dFF_percentile(
     else:
         xp = np
         device = 'CPU'
-        
+
     for start in tqdm(range(0, T, chunk_size),
                       desc=f'Chunked dFF calculation on {device}...'):
+
         chunk_start = max(0, start - pad)
         chunk_end   = min(T, start + chunk_size + pad)
 
-        # extract chunk
         slicer = [slice(None)] * F_array.ndim
         slicer[t_axis] = slice(chunk_start, chunk_end)
+
         chunk = F_array[tuple(slicer)].astype(np.float32, copy=False)
-
         if GPU_AVAILABLE:
-            chunk = xp.array(chunk)
+            chunk = xp.asarray(chunk)
 
-        # gaussian
-        baseline = convolve_gaussian(chunk, sigma, t_axis, GPU_AVAILABLE)
-
-        # percentile
-        baseline = rolling_percentile(baseline, window, pct, t_axis, GPU_AVAILABLE)
-
-        # dF/F
+        baseline = rolling_percentile(chunk, window, pct, t_axis, GPU_AVAILABLE)
         dFF_chunk = (chunk - baseline) / baseline
+
         if GPU_AVAILABLE:
             dFF_chunk = dFF_chunk.get()
+            baseline = baseline.get()
 
-        # trim overlap correctly
+        # trim padding
         slicer_out = [slice(None)] * dFF_chunk.ndim
         slicer_out[t_axis] = (
             slice(pad, -pad) if (start > 0 and chunk_end < T) else
@@ -365,9 +365,19 @@ def calculate_dFF_percentile(
             slice(None, -pad) if chunk_end < T else
             slice(None)
         )
-        slices.append(dFF_chunk[tuple(slicer_out)])
 
-    return np.concatenate(slices, axis=t_axis)
+        dff_slices.append(dFF_chunk[tuple(slicer_out)])
+
+        if return_baseline:
+            baseline_slices.append(baseline[tuple(slicer_out)])
+
+    dFF_out = np.concatenate(dff_slices, axis=t_axis)
+
+    if return_baseline:
+        baseline_out = np.concatenate(baseline_slices, axis=t_axis)
+        return dFF_out, baseline_out
+
+    return dFF_out
 # ------------------------------
 # dFF calculation functions end 
 # ------------------------------

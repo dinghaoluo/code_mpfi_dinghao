@@ -36,9 +36,11 @@ paths = rec_list.pathLC
 
 
 #%% paths & params
-all_sess_stem = Path('Z:/Dinghao/code_dinghao/LC_ephys/all_sessions')
+LC_stem       = Path('Z:/Dinghao/code_dinghao/LC_ephys')
+all_sess_stem = LC_stem / 'all_sessions'
+GLM_stem      = LC_stem / 'GLM'
+
 LC_beh_stem   = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
-GLM_stem      = Path('Z:/Dinghao/code_dinghao/LC_ephys/GLM')
 
 (GLM_stem / 'single_cell_pred').mkdir(parents=True, exist_ok=True)
 
@@ -47,6 +49,7 @@ SAMP_FREQ_BEH = 1000  # Hz
 RUN_ONSET_IDX = 3 * SAMP_FREQ
 
 eps = 1e-6
+
 scaler = StandardScaler()
 
 # permutation controls
@@ -59,7 +62,7 @@ block_size   = None  # e.g., 5 to preserve short-range structure
 
 
 #%% util
-def block_permute(arr, rng, block):
+def _block_permute(arr, rng, block):
     """block permutation helper; falls back to full permutation if block=None."""
     if block is None or block <= 1:
         return rng.permutation(arr)
@@ -73,8 +76,9 @@ def block_permute(arr, rng, block):
 
 
 #%% load cell table
-print('loading data...')
-cell_prop = pd.read_pickle('Z:/Dinghao/code_dinghao/LC_ephys/LC_all_cell_profiles.pkl')
+print('Loading data...')
+cell_prop_path = LC_stem / 'LC_all_cell_profiles.pkl'
+cell_prop = pd.read_pickle(cell_prop_path)
 
 
 #%% accumulation structures
@@ -426,7 +430,7 @@ for path in paths:
         # build shuffle nulls for this cell
         for s in range(n_shuffles):
             # shuffle y (or block-shuffle)
-            y_shuf = block_permute(y, rng, block_size)
+            y_shuf = _block_permute(y, rng, block_size)
 
             # full model on shuffled
             try:
@@ -685,7 +689,7 @@ for name in order_r2:
         '99':   np.percentile(sh_mean, 99),
         '99.9': np.percentile(sh_mean, 99.9),
         '99.99':np.percentile(sh_mean, 99.99),
-        'median': np.median(sh_mean)
+        'mean': np.mean(sh_mean)
     }
 
 # assign stars
@@ -715,10 +719,10 @@ ax.barh(order_r2, m_obs, xerr=s_obs,
         color='#bdbdbd', edgecolor='k', capsize=2, height=0.6, label='Observed')
 
 # overlay shuffle
-medians = [null_thr[n]['median'] if n in null_thr else np.nan for n in order_r2]
-ax.barh(order_r2, medians,
+means = [null_thr[n]['mean'] if n in null_thr else np.nan for n in order_r2]
+ax.barh(order_r2, means,
         color='white', edgecolor='k', lw=0.8, height=0.6, alpha=0.5, 
-        label='Shuffle median')
+        label='Shuffle mean')
 
 for i, (mo, so, st) in enumerate(zip(m_obs, s_obs, stars)):
     if st:
@@ -757,7 +761,7 @@ for name in order_aic:
         '99':   np.percentile(sh_mean, 99),
         '99.9': np.percentile(sh_mean, 99.9),
         '99.99':np.percentile(sh_mean, 99.99),
-        'median': np.median(sh_mean)
+        'mean': np.mean(sh_mean)
     }
 
 # assign stars
@@ -785,9 +789,9 @@ ax.axvline(0, color='k', lw=0.75)
 ax.barh(order_aic, m_obs, xerr=s_obs,
         color='#bdbdbd', edgecolor='k', capsize=2, height=0.6, label='Observed')
 
-# overlay shuffle median
-medians = [null_thr[n]['median'] if n in null_thr else np.nan for n in order_aic]
-ax.barh(order_aic, medians,
+# overlay shuffle mean
+means = [null_thr[n]['mean'] if n in null_thr else np.nan for n in order_aic]
+ax.barh(order_aic, means,
         color='white', edgecolor='k', lw=0.8, height=0.6, alpha=0.5, label='Shuffle median')
 
 # annotate
@@ -826,7 +830,7 @@ for name in order_lr:
         '99':   np.percentile(sh_mean, 99),
         '99.9': np.percentile(sh_mean, 99.9),
         '99.99':np.percentile(sh_mean, 99.99),
-        'median': np.median(sh_mean)
+        'mean': np.mean(sh_mean)
     }
 
 # assign stars
@@ -854,9 +858,9 @@ ax.axvline(0, color='k', lw=0.75)
 ax.barh(order_lr, m_obs, xerr=s_obs,
         color='#bdbdbd', edgecolor='k', capsize=2, height=0.6, label='Observed')
 
-# overlay shuffle median
-medians = [null_thr[n]['median'] if n in null_thr else np.nan for n in order_lr]
-ax.barh(order_lr, medians,
+# overlay shuffle mean
+means = [null_thr[n]['mean'] if n in null_thr else np.nan for n in order_lr]
+ax.barh(order_lr, means,
         color='white', edgecolor='k', lw=0.8, height=0.6, alpha=0.5, label='Shuffle median')
 
 # annotate
@@ -916,4 +920,3 @@ plt.tight_layout()
 for ext in ['.pdf', '.png']:
     fig.savefig(GLM_stem / f'coefficients_mean_sem{ext}',
                 dpi=300, bbox_inches='tight')
-plt.close(fig)

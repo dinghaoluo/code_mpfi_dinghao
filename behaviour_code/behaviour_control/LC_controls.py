@@ -668,6 +668,7 @@ pf.plot_violin_with_scatter(all_low_speed_amp, all_high_speed_amp,
                             xticklabels=['Low speed', 'High speed'],
                             ylabel='Firing rate (Hz)',
                             ylim=(0, 10),
+                            print_statistics=True,
                             save=True,
                             savepath=r'Z:\Dinghao\code_dinghao\LC_ephys\speed_controls\speed_35_45_55'
                             )
@@ -700,6 +701,10 @@ median_r = np.median(rvals)
 mean_r   = np.mean(rvals)
 sem_r    = np.std(rvals, ddof=1) / np.sqrt(n_sess)
 
+# IQR
+q25, q75 = np.percentile(rvals, [25, 75])
+iqr_r = q75 - q25
+
 # stats
 w_stat, p_w = wilcoxon(rvals, alternative='two-sided')
 t_stat, p_t = ttest_1samp(rvals, popmean=0)
@@ -707,6 +712,7 @@ t_stat, p_t = ttest_1samp(rvals, popmean=0)
 print(f'N sessions = {n_sess}')
 print(f'Median r = {median_r:.3f}')
 print(f'Mean r ± SEM = {mean_r:.3f} ± {sem_r:.3f}')
+print(f'IQR = [{q25:.3f}, {q75:.3f}] (IQR = {iqr_r:.3f})')
 print(f'Wilcoxon vs 0: W = {w_stat:.3f}, p = {p_w:.3g}')
 print(f'T-test vs 0: T = {t_stat:.3f}, p = {p_t:.3g}')
 
@@ -724,16 +730,15 @@ for pc in parts['bodies']:
 parts['cmedians'].set_color('k')
 parts['cmedians'].set_linewidth(1.2)
 
-# scatter of session r
 ax.scatter(np.ones(n_sess), rvals,
            s=12, color='orange', ec='none', alpha=0.55, zorder=3)
 
-# zero line
 ax.axhline(0, color='gray', lw=1, ls='--')
 
 ax.text(
     1.35, np.max(rvals),
     f'Median = {median_r:.2f}\n'
+    f'IQR = [{q25:.2f}, {q75:.2f}]\n'
     f'{mean_r:.2f} ± {sem_r:.2f}\n'
     f'Wilc {p_w:.2e}\n'
     f'Ttest {p_t:.2e}',
@@ -751,12 +756,6 @@ ax.set(
 
 ax.spines[['top', 'right', 'bottom']].set_visible(False)
 plt.tight_layout()
-
-for ext in ['.pdf', '.png']:
-    fig.savefig(
-        rf'Z:\Dinghao\code_dinghao\LC_ephys\speed_controls\init_speed_FR_corr{ext}',
-        dpi=300, bbox_inches='tight'
-    )
     
 
 #%% corr between init accel and FR
@@ -768,6 +767,10 @@ median_r = np.median(rvals)
 mean_r   = np.mean(rvals)
 sem_r    = np.std(rvals, ddof=1) / np.sqrt(n_sess)
 
+# IQR
+q25, q75 = np.percentile(rvals, [25, 75])
+iqr_r = q75 - q25
+
 # stats
 w_stat, p_w = wilcoxon(rvals, alternative='two-sided')
 t_stat, p_t = ttest_1samp(rvals, popmean=0)
@@ -775,6 +778,7 @@ t_stat, p_t = ttest_1samp(rvals, popmean=0)
 print(f'N sessions = {n_sess}')
 print(f'Median r = {median_r:.3f}')
 print(f'Mean r ± SEM = {mean_r:.3f} ± {sem_r:.3f}')
+print(f'IQR = [{q25:.3f}, {q75:.3f}] (IQR = {iqr_r:.3f})')
 print(f'Wilcoxon vs 0: W = {w_stat:.3f}, p = {p_w:.3g}')
 print(f'T-test vs 0: T = {t_stat:.3f}, p = {p_t:.3g}')
 
@@ -792,16 +796,15 @@ for pc in parts['bodies']:
 parts['cmedians'].set_color('k')
 parts['cmedians'].set_linewidth(1.2)
 
-# scatter of session r
 ax.scatter(np.ones(n_sess), rvals,
            s=12, color='darkred', ec='none', alpha=0.55, zorder=3)
 
-# zero line
 ax.axhline(0, color='gray', lw=1, ls='--')
 
 ax.text(
     1.35, np.max(rvals),
     f'Median = {median_r:.2f}\n'
+    f'IQR = [{q25:.2f}, {q75:.2f}]\n'
     f'{mean_r:.2f} ± {sem_r:.2f}\n'
     f'Wilc {p_w:.2e}\n'
     f'Ttest {p_t:.2e}',
@@ -819,9 +822,3 @@ ax.set(
 
 ax.spines[['top', 'right', 'bottom']].set_visible(False)
 plt.tight_layout()
-
-for ext in ['.pdf', '.png']:
-    fig.savefig(
-        rf'Z:\Dinghao\code_dinghao\LC_ephys\speed_controls\init_accel_FR_corr{ext}',
-        dpi=300, bbox_inches='tight'
-    )

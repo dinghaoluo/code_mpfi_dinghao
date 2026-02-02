@@ -117,7 +117,7 @@ for ext in ['.png', '.pdf']:
 #%% plotting violinplots 
 plot_violin_with_scatter(dFF_baselines, dFF_stims, 
                          'darkgreen', 'royalblue',
-                         ylim=(-0.01, 0.09),
+                         ylim=(-0.01, 0.12),
                          save=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_violin')
 
@@ -125,14 +125,6 @@ plot_violin_with_scatter(dFF2_baselines, dFF2_stims,
                          'darkred', 'royalblue',
                          save=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_violin_ch2')
-
-dFF_baselines_norm = normalise_to_all(dFF_baselines, np.concatenate((dFF_baselines, dFF_stims)))
-dFF_stims_norm     = normalise_to_all(dFF_stims, np.concatenate((dFF_baselines, dFF_stims)))
-
-plot_violin_with_scatter(dFF_baselines_norm, dFF_stims_norm, 
-                         'darkgreen', 'royalblue',
-                         save=True,
-                         savepath=dLight_stim_stem / 'dLight_LC_stim_violin_norm')
 
 diffs = dFF_stims - dFF_baselines 
 
@@ -215,28 +207,14 @@ for ext in ['.png', '.pdf']:
 #%% plotting violinplots 
 plot_violin_with_scatter(dFF_inh_baselines, dFF_inh_stims, 
                          'darkgreen', 'royalblue',
-                         ylim=(-0.01, 0.09),
+                         ylim=(-0.04, 0.075),
                          save=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_Dbh_inh_violin')
 
 plot_violin_with_scatter(dFF2_inh_baselines, dFF2_inh_stims, 
                          'darkred', 'royalblue',
+                         ylim=(-0.04, 0.075),
                          save=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_Dbh_inh_violin_ch2')
 
-dFF_inh_baselines_norm = normalise_to_all(dFF_inh_baselines, np.concatenate((dFF_inh_baselines, dFF_inh_stims)))
-dFF_inh_stims_norm     = normalise_to_all(dFF_inh_stims, np.concatenate((dFF_inh_baselines, dFF_inh_stims)))
-
-plot_violin_with_scatter(dFF_inh_baselines_norm, dFF_inh_stims_norm, 
-                         'darkgreen', 'royalblue',
-                         save=True,
-                         savepath=dLight_stim_stem / 'dLight_LC_stim_violin_norm')
-
 diffs_inh = dFF_inh_stims - dFF_inh_baselines
-
-
-#%% 
-from scipy.stats import ttest_ind
-
-ttest_ind(dFF_baselines, dFF_inh_baselines)
-ttest_ind(dFF_stims, dFF_inh_stims)

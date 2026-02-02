@@ -36,17 +36,37 @@ N_SHUF = 500
 
 #%% define fullpaths to loop over
 paths = [
-    r'Z:\Dinghao\MiceExp\ANMD057\A057-20230510-03',
+    # r'Z:\Dinghao\MiceExp\ANMD057\A057-20230510-03',
     r'Z:\Dinghao\MiceExp\ANMD057\A057-20230511-03',
     r'Z:\Dinghao\MiceExp\ANMD057\A057-20230516-03',
+    r'Z:\Dinghao\MiceExp\ANMD057\A057-20230517-03',
+    r'Z:\Dinghao\MiceExp\ANMD057\A057-20230517-04',
+    # r'Z:\Dinghao\MiceExp\ANMD057\A057-20230518-03',
+    # r'Z:\Dinghao\MiceExp\ANMD057\A057-20230518-04',
     r'Z:\Dinghao\MiceExp\ANMD057\A057-20230519-03',
+    r'Z:\Dinghao\MiceExp\ANMD057\A057-20230522-03',
+    # r'Z:\Dinghao\MiceExp\ANMD057\A057-20230522-04',
     
     r'Z:\Dinghao\MiceExp\ANMD059\A059-20230424-01',
     r'Z:\Dinghao\MiceExp\ANMD059\A059-20230424-02',
     r'Z:\Dinghao\MiceExp\ANMD059\A059-20230425-02',
     r'Z:\Dinghao\MiceExp\ANMD059\A059-20230503-02',
-    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230509-02',
-    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230512-02'
+    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230504-03',
+    # r'Z:\Dinghao\MiceExp\ANMD059\A059-20230505-04',
+    # r'Z:\Dinghao\MiceExp\ANMD059\A059-20230509-02',
+    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230510-03',
+    # r'Z:\Dinghao\MiceExp\ANMD059\A059-20230512-02',
+    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230523-02',
+    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230523-03',
+    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230524-02',
+    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230524-03',
+    r'Z:\Dinghao\MiceExp\ANMD059\A059-20230525-02',
+    
+    # r'Z:\Dinghao\MiceExp\ANMD061\A061-20230620-02',
+    # r'Z:\Dinghao\MiceExp\ANMD061\A061-20230620-03',
+    # r'Z:\Dinghao\MiceExp\ANMD061\A061-20230621-02',
+    # r'Z:\Dinghao\MiceExp\ANMD061\A061-20230621-03',
+    # r'Z:\Dinghao\MiceExp\ANMD061\A061-20230622-02'
 ]
 
 
@@ -63,9 +83,12 @@ for path in paths:
     ctime_path = pupil_stem / animal / day / f'{recname}_tsdict.npy'
     txt_path   = Path(f'{path}T.txt')
 
-    if not face_path.exists() or not ctime_path.exists() or not txt_path.exists():
+    if not face_path.exists() or not ctime_path.exists():
         print('Missing data files; skipped')
         continue
+    if not txt_path.exists():
+        print('Missing txt file; skipped')
+        continue 
 
     face  = np.load(face_path, allow_pickle=True).item()
     ctime = np.load(ctime_path, allow_pickle=True).item()['ctime']
@@ -85,13 +108,12 @@ for path in paths:
     # get stim
     trial_statements = beh['trial_statements']
     opto_cds         = [t[15] for t in trial_statements]
-    try:
-        first_stim = [trial for trial, cond in enumerate(opto_cds) if cond != '0'][0]
-    except IndexError:
-        first_stim = None
+
+    ctrl_idx = np.array([trial for trial, cond in enumerate(opto_cds) 
+                         if cond == '0' and trial > 1 and trial < len(opto_cds)-1])
     
-    t_PE = beh['reward_times']
-    t_ST = beh['run_onsets']
+    t_PE = np.array(beh['reward_times'])
+    t_ST = np.array(beh['run_onsets'])
 
     logfile = open(txt_path, 'r')
     def get_next_line(file):
@@ -113,8 +135,8 @@ for path in paths:
             camsync_trial = []
         line = get_next_line(logfile)
 
-    t_PE = t_PE[5:first_stim] if first_stim is not None else t_PE[5:]
-    t_ST = t_ST[5:first_stim] if first_stim is not None else t_ST[5:]
+    t_PE = t_PE[ctrl_idx] if ctrl_idx.size > 0 else t_PE
+    t_ST = t_ST[ctrl_idx] if ctrl_idx.size > 0 else t_ST
 
     tot_camsync = len(t_camsync)
     for sync in range(1, tot_camsync):
@@ -138,6 +160,14 @@ for path in paths:
     
     frames_by_start, pupil_by_start = [], []
     for start in t_ST:
+        if recname in ['A057-20230519-03',
+                       'A057-20230517-04',
+                       'A059-20230503-02', 
+                       'A059-20230523-03', 
+                       'A059-20230510-03']:
+            start += 800
+        if recname in ['A057-20230510-03']:
+            start += 1000
         window = [start - timebef, start + timeaft]
         frame_curr = [f for f in range(tot_frame) if window[0] < ctime[f] < window[1]]
         if frame_curr:
@@ -150,7 +180,7 @@ for path in paths:
     min_len_start = min(len(p) for p in pupil_by_start)
     
     # organise data 
-    session_traces = [p[:min_len_start] for p in pupil_by_start]
+    session_traces = [normalise(p[:min_len_start]) for p in pupil_by_start]
     
     # plotting
     fig, ax = plt.subplots(figsize=(2.9,2.3))
@@ -179,8 +209,8 @@ for path in paths:
             dpi=500, bbox_inches='tight'
             )
     
-    avg_start_traces.append(normalise(avg_start))
-    
+    avg_start_traces.append(avg_start)
+
     
 #%% quantify per-session pupil modulation
 session_real_deltas = []
@@ -228,16 +258,20 @@ for trace in avg_start_traces:
     
 
 #%% mean 
-minlen_all = min(len(trace) for trace in avg_start_traces)
-trimmed = np.array([
-    (trace[:minlen_all] - np.nanmin(trace[:minlen_all])) /
-    (np.nanmax(trace[:minlen_all]) - np.nanmin(trace[:minlen_all]))
-    for trace in avg_start_traces
-])
+trim_end = int(SAMP_FREQ * 1 + SAMP_FREQ * 4)
+
+trimmed = np.array([t[:trim_end] for t in avg_start_traces if len(t) > 200])
+
+
+# trimmed = np.array([
+#     (trace[:trim_end] - np.nanmin(trace[:trim_end])) /
+#     (np.nanmax(trace[:trim_end]) - np.nanmin(trace[:trim_end]))
+#     for trace in avg_start_traces
+# ])
 
 grand_avg = np.nanmean(trimmed, axis=0)
 grand_sem = np.nanstd(trimmed, axis=0) / np.sqrt(trimmed.shape[0])
-x_axis = np.arange(minlen_all) / 30 - 1000 / 600  # same as before
+x_axis = np.arange(trim_end) / 30 - 1  # same as before
 
 fig, ax = plt.subplots(figsize=(2.8, 2.3))
 ax.plot(x_axis, grand_avg, 'k', lw=2)
@@ -260,6 +294,13 @@ for ext in ['.png', '.pdf']:
     
     
 #%% violin plot for deltas 
+# IQR
+q1 = np.percentile(session_real_deltas, 25)
+q3 = np.percentile(session_real_deltas, 75)
+iqr = q3 - q1
+
+print(f'IQR (25–75%): {iqr:.4f} (Q1={q1:.4f}, Q3={q3:.4f})')
+
 tval, p_t = ttest_1samp(session_real_deltas, 0)
 wstat, p_w = wilcoxon(session_real_deltas)
 
@@ -296,14 +337,26 @@ ax.fill_between(
 
 mean_r, sem_r = np.nanmean(session_real_deltas), sem(session_real_deltas)
 ymax = np.max(session_real_deltas)
-ax.text(1, ymax + 0.05*(ymax - np.min(session_real_deltas)),
+ax.text(
+        1, 
+        ymax + 0.05*(ymax - np.min(session_real_deltas)),
         f'{mean_r:.2f} ± {sem_r:.2f}',
-        ha='center', va='bottom', fontsize=7, color='k')
+        ha='center', va='bottom', fontsize=7, color='k'
+        )
 
-ax.text(1, np.min(session_real_deltas) - 0.10*(ymax - np.min(session_real_deltas)),
+ax.text(
+        1,
+        q1 - 0.20 * (q3 - q1),
+        f'IQR={iqr:.2f}',
+        ha='center', va='top', fontsize=6.5, color='k'
+        )
+
+ax.text(
+        1, np.min(session_real_deltas) - 0.10*(ymax - np.min(session_real_deltas)),
         f't(1-samp)={tval:.2f}, p={p_t:.2e}\n'
         f'Wilcoxon={wstat:.2f}, p={p_w:.2e}',
-        ha='center', va='top', fontsize=6.5, color='k')
+        ha='center', va='top', fontsize=6.5, color='k'
+        )
 
 # formatting
 ax.set(xlim=(0.5, 1.5), xticks=[],
