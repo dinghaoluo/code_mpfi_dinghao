@@ -86,7 +86,6 @@ def main(path):
     
     tot_frames = mov.shape[0]  # once loaded, update tot_frames to be the max frame number, 16 June 2025
     
-    
     ref = ipf.plot_reference(mov, recname=recname, frames=tot_frames, outpath=savepath, channel=1)
     ref2 = ipf.plot_reference(mov2, recname=recname, frames=tot_frames, outpath=savepath, channel=2)
     

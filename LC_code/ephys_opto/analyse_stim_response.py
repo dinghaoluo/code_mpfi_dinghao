@@ -18,7 +18,7 @@ from scipy.signal import fftconvolve
 
 from behaviour_functions import detect_run_onsets_teensy, process_txt
 from plotting_functions import plot_violin_with_scatter
-from common import gaussian_kernel_unity, mpl_formatting
+from common_functions import gaussian_kernel_unity, mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -43,7 +43,7 @@ AMP_WINDOW_HIGH_S = 1
 AMP_WINDOW_LOW    = int((AMP_WINDOW_LOW_S + BEF) * SAMP_FREQ)
 AMP_WINDOW_HIGH   = int((AMP_WINDOW_HIGH_S + BEF) * SAMP_FREQ)
 
-SIGMA_SPIKE = int(SAMP_FREQ * 0.05)  # 50 ms
+SIGMA_SPIKE = int(SAMP_FREQ * 0.10)  # 50 ms
 GAUS_SPIKE = gaussian_kernel_unity(SIGMA_SPIKE, GPU_AVAILABLE=False)
 
 
@@ -238,7 +238,7 @@ for path in paths:
         clu_iter = list(cell_prop.index)
 
     for clu in clu_iter:
-        if (clu not in tagged_keys) and (clu not in putative_keys):
+        if clu not in tagged_keys:
             continue
 
         clu_idx = _get_clu_idx(clu)
@@ -250,11 +250,12 @@ for path in paths:
         cluname = clu
         if cluname not in rasters_run_disk:
             continue
-        run_aligned = rasters_run_disk[cluname]
+        run_aligned = rasters_run_disk[cluname][ctrl_idx]
 
         # load stim-aligned
         spike_map = spike_maps[clu_idx, :]
-        stim_aligned = _align_trials(spike_map, stim_onset_spike, max_time)
+        # stim_aligned = _align_trials(spike_map, stim_onset_spike, max_time)
+        stim_aligned = rasters_run_disk[cluname][stim_idx]
 
         if run_aligned.size == 0 or stim_aligned.size == 0:
             continue
@@ -273,7 +274,7 @@ for path in paths:
         # use stim range for BOTH twin axes
         ymax = max(np.nanmax(stim_prof), np.nanmax(ctrl_prof)) * 1.05
 
-        fig, axs = plt.subplots(2, 1, figsize=(2.6, 3.2), sharex=True)
+        fig, axs = plt.subplots(2, 1, figsize=(1.8, 2.25), sharex=True)
 
         # show single-trial matrices (since we no longer use pre-run-aligned rasters)
         vmin = np.nanmin([run_aligned.min(), stim_aligned.min()])
@@ -284,22 +285,20 @@ for path in paths:
         axs[0].scatter(
             stim_cols / SAMP_FREQ - BEF,
             stim_rows + 1,
-            s=1,
+            s=0.8,
             color='lightsteelblue',
-            ec='none',
-            rasterized=True
-        )
+            ec='none'        
+            )
         
         ctrl_rows, ctrl_cols = np.where(run_aligned > 0)
 
         axs[1].scatter(
             ctrl_cols / SAMP_FREQ - BEF,
             ctrl_rows + 1,
-            s=1,
+            s=0.8,
             color='grey',
-            ec='none',
-            rasterized=True
-        )
+            ec='none'
+            )
 
         axs[0].set(title=f'{clu}\nStim.', ylabel='Trial #')
         axs[1].set(title='Ctrl.', ylabel='Trial #', xlabel='Time from run onset (s)')
@@ -315,7 +314,7 @@ for path in paths:
         axt1.plot(XAXIS, ctrl_prof, color='k', lw=1)
         axt1.set_ylim(0, ymax)
         axt1.set(ylabel='Firing rate (Hz)')
-        axt1.spines['top'].set_visible(False)
+        axt1.spines[['top', 'left', 'bottom', 'right']].set_visible(False)
 
         for ax in axs:
             ax.set(xlim=(-1, 4), xticks=(0, 2, 4))

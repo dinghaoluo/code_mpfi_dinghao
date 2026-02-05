@@ -167,7 +167,7 @@ def plot_peak_v_shuf(cluname,
     import sys 
     import matplotlib.pyplot as plt 
     sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-    from common import mpl_formatting
+    from common_functions import mpl_formatting
     mpl_formatting()
         
     fig, ax = plt.subplots(figsize=(2,1.6))

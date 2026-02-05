@@ -27,7 +27,6 @@ import numpy as np
 import pickle 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-import sys
 import os
 from tqdm import tqdm
 from time import time
@@ -37,11 +36,12 @@ from scipy.stats import sem
 import imaging_pipeline_functions as ipf
 import support_LCHPC_axon as support
 
-from common import normalise, smooth_convolve, mpl_formatting
+from common_functions import normalise, smooth_convolve, mpl_formatting, get_GPU_availability
 mpl_formatting()
 
 import rec_list
 pathHPCLCGCaMP = rec_list.pathLCHPCGCaMP
+pathHPCLCGCaMP = pathHPCLCGCaMP[1:]
 
 
 #%% paths and parameters 
@@ -55,27 +55,13 @@ BEF = 3
 AFT = 7  # in seconds
 XAXIS = np.arange((BEF + AFT) * SAMP_FREQ) / SAMP_FREQ - BEF
 
+# correction coefficient for neuropil subtraction 
+CORR_COEF = 0.7
+
 
 #%% GPU acceleration
-try:
-    import cupy as cp 
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
-    if GPU_AVAILABLE:
-        print(
-            'using GPU-acceleration with '
-            f'{str(cp.cuda.runtime.getDeviceProperties(0)["name"].decode("UTF-8"))} '
-            'and CuPy')
-        cp.cuda.set_allocator(cp.cuda.MemoryPool().malloc)
-        cp.cuda.set_pinned_memory_allocator(cp.cuda.PinnedMemoryPool().malloc)
-    else:
-        print('GPU acceleration unavailable')
-except ModuleNotFoundError:
-    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
-    GPU_AVAILABLE = False
-except Exception as e:
-    # catch any other unexpected errors and print a general message
-    print(f'an error occurred: {e}')
-    GPU_AVAILABLE = False
+cp, GPU_AVAILABLE, device_name = get_GPU_availability()
+print(f'GPU_AVAILABLE={GPU_AVAILABLE}')
 
 
 #%% functions
@@ -89,12 +75,14 @@ def process_all(path):
     recname = Path(path).name
     print(f'\n{recname}')
     
-    ops_path  = Path(path) / 'suite2p/plane0/ops.npy'
-    bin_path  = Path(path) / 'suite2p/plane0/data.bin'
-    bin2_path = Path(path) / 'suite2p/plane0/data_chan2.bin'
-    stat_path = Path(path) / 'suite2p/plane0/stat.npy'
-    F_path    = Path(path) / 'suite2p/plane0/F.npy'
-    F2_path   = Path(path) / 'suite2p/plane0/F_chan2.npy'
+    ops_path   = Path(path) / 'suite2p/plane0/ops.npy'
+    bin_path   = Path(path) / 'suite2p/plane0/data.bin'
+    bin2_path  = Path(path) / 'suite2p/plane0/data_chan2.bin'
+    stat_path  = Path(path) / 'suite2p/plane0/stat.npy'
+    F_path     = Path(path) / 'suite2p/plane0/F.npy'
+    F2_path    = Path(path) / 'suite2p/plane0/F_chan2.npy'
+    Fneu_path  = Path(path) / 'suite2p/plane0/Fneu.npy'
+    F2neu_path = Path(path) / 'suite2p/plane0/Fneu_chan2.npy'
     
     # folder to put processed data and single-session plots 
     proc_path = all_session_stem / recname
@@ -138,7 +126,8 @@ def process_all(path):
         proc_data_path,
         bin_path, bin2_path,
         tot_frames, ops,
-        GPU_AVAILABLE
+        GPU_AVAILABLE,
+        VERBOSE=False
         )
 
     # filter valid ROIs: the end results should only contain end-merge ROIs and 
@@ -167,18 +156,42 @@ def process_all(path):
         ref_im, ref_ch2_im, 
         stat, valid_rois, recname, proc_path
         )
-        
-    # load F trace
-    print('Computing dFF traces for both channels...'); t0 = time()
-    F_dFF = ipf.calculate_dFF(np.load(F_path, allow_pickle=True),
-                              t_axis=1,
-                              GPU_AVAILABLE=GPU_AVAILABLE)
-    F2_dFF = ipf.calculate_dFF(np.load(F2_path, allow_pickle=True),
-                               t_axis=1,
-                               GPU_AVAILABLE=GPU_AVAILABLE)
+    
+    # -----------------
+    # dF/F calculation
+    # -----------------
+    # now we calculate using a rolling percentile, 4 Feb 2026
+    t0 = time()
+    
+    # load traces 
+    F     = np.load(F_path, allow_pickle=True)
+    F2    = np.load(F2_path, allow_pickle=True)
+    Fneu  = np.load(Fneu_path, allow_pickle=True)
+    F2neu = np.load(F2neu_path, allow_pickle=True)
+    
+    # correction using neuropil 
+    F_corr  = F - Fneu * CORR_COEF
+    F2_corr = F2 - F2neu * CORR_COEF
+    
+    # calculate dF/F
+    F_dFF = ipf.calculate_dFF_percentile(F_corr,
+                                         t_axis=1,
+                                         window_size=9000,
+                                         GPU_AVAILABLE=GPU_AVAILABLE,
+                                         device_name=device_name)
+    F2_dFF = ipf.calculate_dFF_percentile(F2_corr,
+                                          window_size=9000,
+                                          t_axis=1,
+                                          GPU_AVAILABLE=GPU_AVAILABLE)
+    
+    # saving to disk 
     np.save(proc_data_path / 'F_dFF.npy', F_dFF)
     np.save(proc_data_path / 'F2_dFF.npy', F2_dFF)
-    print(f'dFF computed and saved ({timedelta(seconds=int(time()-t0))})')
+    
+    print(f'dF/F computed and saved ({timedelta(seconds=int(time()-t0))})')
+    # ----------------------
+    # dF/F calculation ends 
+    # ----------------------
     
     # plotting: RO-aligned 
     run_path = proc_path / 'RO_aligned_single_roi'
@@ -300,7 +313,7 @@ def process_all(path):
             
             ax.legend(fontsize=6, frameon=False)
             
-            ax.set(xlabel='time from run-onset (s)',
+            ax.set(xlabel='Time from run-onset (s)',
                    ylabel='dF/F')           
             
             ax.spines['top'].set_visible(False)

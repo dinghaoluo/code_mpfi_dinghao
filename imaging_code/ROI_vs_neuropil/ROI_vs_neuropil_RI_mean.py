@@ -17,7 +17,7 @@ from scipy.stats import wilcoxon
 from scipy.ndimage import binary_dilation
 
 from plotting_functions import plot_violin_with_scatter
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -113,27 +113,31 @@ for path in paths:
     all_ROI_RIs.append(ROI_RI_med)
     all_neuropil_RIs.append(neuropil_RI_med)
     
-    # sanity check
-    fig, ax = plt.subplots(1, 3, figsize=(15, 5))
-
-    im0 = ax[0].imshow(pixel_RI_stim_med, cmap='viridis')
-    ax[0].set_title(f'{recname}\npixel RI')
-    ax[0].axis('off')
-    plt.colorbar(im0, ax=ax[0], fraction=0.046)
+    # sanity check: flat grey background + neuropil + ROI overlay
+    fig, ax = plt.subplots(figsize=(5, 5))
     
-    ax[1].imshow(ROI_mask, cmap='Reds')
-    ax[1].set_title('ROI mask')
-    ax[1].axis('off')
+    # neuropil overlay (slightly darker grey)
+    neuropil_overlay = np.zeros((*anti_ROI_mask.shape, 4))
+    neuropil_overlay[..., :3] = 0.6
+    neuropil_overlay[..., 3] = anti_ROI_mask.astype(float)
     
-    ax[2].imshow(anti_ROI_mask, cmap='Blues')
-    ax[2].set_title(f'neuropil (>{DISTANCE_FROM_ROI}px from ROI)')
-    ax[2].axis('off')
+    ax.imshow(neuropil_overlay, interpolation='nearest')
     
+    # ROI overlay (dark green)
+    roi_overlay = np.zeros((*releasing_mask.shape, 4))
+    roi_overlay[..., 1] = 0.35
+    roi_overlay[..., 3] = releasing_mask.astype(float)
+    
+    ax.imshow(roi_overlay, interpolation='nearest')
+    
+    ax.axis('off')
+    ax.set_title(f'{recname}\nROI (dark green) on neuropil (grey)')
     plt.tight_layout()
     
-    fig.savefig(save_stem / f'{recname}.png',
-                dpi=300,
-                bbox_inches='tight')
+    for ext in ['.png', '.pdf']:
+        fig.savefig(save_stem / f'{recname}{ext}',
+                    dpi=300,
+                    bbox_inches='tight')
     
     plt.close(fig)
     

@@ -9,20 +9,27 @@ organise properties of individual ROIs into a profile dataframe
 """
 
 #%% imports 
+from pathlib import Path 
+
 import numpy as np 
-import sys 
+import pandas as pd 
 from tqdm import tqdm
-import pandas as pd
 
 import support_LCHPC_axon as support
 
-from common import mpl_formatting, smooth_convolve
 import peak_detection_functions as pdf
+
+from common_functions import mpl_formatting, smooth_convolve, get_GPU_availability
 mpl_formatting()
 
 
+#%% paths and parameters 
+LC_axon_stem  = Path('Z:/Dinghao/code_dinghao/LCHPC_axon_GCaMP')
+all_sess_stem = LC_axon_stem / 'all_sessions'
+
+
 #%% dataframe initialisation/loading
-fname = r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\LCHPC_axon_GCaMP_all_profiles.pkl'
+fname = LC_axon_stem / 'LCHPC_axon_GCaMP_all_profiles.pkl'
 # if os.path.exists(fname):
 if False:
     df = pd.read_pickle(fname)
@@ -66,68 +73,29 @@ MAX_SAMPLES = SAMP_FREQ * MAX_TIME
 
 
 #%% GPU acceleration
-try:
-    import cupy as cp 
-    GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0  # check if an NVIDIA GPU is available
-    if GPU_AVAILABLE:
-        print(
-            'using GPU-acceleration with '
-            f'{str(cp.cuda.runtime.getDeviceProperties(0)["name"].decode("UTF-8"))} '
-            'and CuPy'
-            )
-        cp.cuda.set_allocator(cp.cuda.MemoryPool().malloc)
-        cp.cuda.set_pinned_memory_allocator(cp.cuda.PinnedMemoryPool().malloc)
-    else:
-        print('GPU acceleration unavailable')
-except ModuleNotFoundError:
-    print('CuPy is not installed; see https://docs.cupy.dev/en/stable/install.html for installation instructions')
-    GPU_AVAILABLE = False
-except Exception as e:
-    # catch any other unexpected errors and print a general message
-    print(f'an error occurred: {e}')
-    GPU_AVAILABLE = False
+cp, GPU_AVAILABLE, device_name = get_GPU_availability()
     
     
 #%% main 
 for path in paths:
-    recname = path[-17:]
-    print(f'\nprocessing {recname}...')
+    recname = Path(path).name
+    print(f'\n{recname}')
     
     # load data 
-    F_dFF = np.load(
-        rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-        rf'\{recname}\{recname}_all_run.npy',
-        allow_pickle=True
-        ).item() | np.load(
-            rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-            rf'\{recname}\processed_data\RO_aligned_const_dict.npy',
-            allow_pickle=True
-            ).item()
-    F2_dFF = np.load(
-        rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-        rf'\{recname}\processed_data\RO_aligned_ch2_dict.npy',
-        allow_pickle=True
-        ).item() | np.load(
-            rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-            rf'\{recname}\processed_data\RO_aligned_const_ch2_dict.npy',
-            allow_pickle=True
-            ).item()
+    F_dFF_path        = all_sess_stem / recname / f'{recname}_all_run.npy'
+    F_dFF_const_path  = all_sess_stem / recname / 'processed_data' / 'RO_aligned_const_dict.npy'
+    F2_dFF_path       = all_sess_stem / recname / f'{recname}_all_run_ch2.npy'
+    F2_dFF_const_path = all_sess_stem / recname / 'processed_data' / 'RO_aligned_const_ch2_dict.npy'
+    valid_ROIs_path   = all_sess_stem / recname / 'processed_data' / 'valid_rois_dict.npy'
+    valid_coords_path = all_sess_stem / recname / 'processed_data' / 'valid_rois_coord_dict.npy'
+    const_coords_path = all_sess_stem / recname / 'processed_data' / 'constituent_rois_coord_dict.npy'
     
-    valid_ROIs_dict = np.load(
-        rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-        rf'\{recname}\processed_data\valid_rois_dict.npy',
-        allow_pickle=True
-        ).item()
-    valid_ROIs_coord_dict = np.load(
-        rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-        rf'\{recname}\processed_data\valid_rois_coord_dict.npy',
-        allow_pickle=True
-        ).item()
-    constituent_ROIs_coord_dict = np.load(
-        rf'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\all_sessions'
-        rf'\{recname}\processed_data\constituent_rois_coord_dict.npy',
-        allow_pickle=True
-        ).item()
+    F_dFF = np.load(F_dFF_path, allow_pickle=True).item() | np.load(F_dFF_const_path, allow_pickle=True).item()
+    F2_dFF = np.load(F2_dFF_path, allow_pickle=True).item() | np.load(F2_dFF_const_path, allow_pickle=True).item()
+    
+    valid_ROIs_dict = np.load(valid_ROIs_path, allow_pickle=True).item()
+    valid_ROIs_coord_dict = np.load(valid_coords_path, allow_pickle=True).item()
+    constituent_ROIs_coord_dict = np.load(const_coords_path, allow_pickle=True).item()
     
     # get list of clunames 
     primary_rois = set(
@@ -141,7 +109,7 @@ for path in paths:
     all_rois = primary_rois | constituent_rois
     
     for roi in tqdm(all_rois,
-                    desc='collecting ROI profiles'):
+                    desc='Collecting ROI profiles'):
         roiname = f'ROI {roi}'
         # print(roiname)
         dFF = F_dFF[roiname]
@@ -191,8 +159,7 @@ for path in paths:
             pdf.plot_peak_v_shuf(
                 roiname, mean_prof, shuf_prof, peak,
                 peak_width=2,
-                savepath=r'Z:\Dinghao\code_dinghao\LCHPC_axon_GCaMP\peak_detection'
-                         rf'\{recname} {roiname} {peak}',
+                savepath=LC_axon_stem / 'peak_detection' / f'{recname} {roiname} {peak}',
                 samp_freq=SAMP_FREQ
                 )  # plot the detected peaks and save to ...
         
@@ -234,4 +201,4 @@ for path in paths:
         
 ## save dataframe 
 df.to_pickle(fname)
-print('\ndataframe saved')
+print('\nDataframe saved')

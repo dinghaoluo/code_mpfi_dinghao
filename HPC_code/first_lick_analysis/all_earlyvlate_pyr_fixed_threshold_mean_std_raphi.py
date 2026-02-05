@@ -20,7 +20,7 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 from scipy.stats import sem, ttest_ind, ttest_rel, wilcoxon, ranksums
 
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list

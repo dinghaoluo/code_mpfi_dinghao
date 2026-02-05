@@ -11,11 +11,11 @@ summarise dLight + LC activation data
 from pathlib import Path
 
 import numpy as np 
-from scipy.stats import sem
+from scipy.stats import sem, ttest_1samp, wilcoxon
 import matplotlib.pyplot as plt 
 
 from plotting_functions import plot_violin_with_scatter
-from common import mpl_formatting, normalise_to_all
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -42,6 +42,9 @@ STIM_WIN     = [int(SAMP_FREQ * (2+1.15)), int(SAMP_FREQ * (2+2))]
 all_dFF  = []
 all_dFF2 = []
 
+all_RI   = []
+all_RI2  = []
+
 for path in paths:
     recname = Path(path).name
     
@@ -52,9 +55,13 @@ for path in paths:
     
     dFF_path  = all_sess_stem / recname / 'processed_data' / f'{recname}_wholefield_dFF_stim.npy'
     dFF2_path = all_sess_stem / recname / 'processed_data' / f'{recname}_wholefield_dFF2_stim.npy'
+    RI_path   = all_sess_stem / recname / 'processed_data' / f'{recname}_pixel_RI_stim.npy'
+    RI2_path  = all_sess_stem / recname / 'processed_data' / f'{recname}_pixel_RI_ch2_stim.npy'
     
     dFF  = np.load(dFF_path, allow_pickle=True)
     dFF2 = np.load(dFF2_path, allow_pickle=True)
+    RI   = np.load(RI_path, allow_pickle=True)
+    RI2  = np.load(RI2_path, allow_pickle=True)
     
     # centring and filtering 
     dFF  = dFF  - np.nanmean(dFF[:BEF*SAMP_FREQ])
@@ -65,9 +72,19 @@ for path in paths:
     all_dFF.append(dFF)
     all_dFF2.append(dFF2)
     
+    # RI medians across stims 
+    whole_RI  = np.nanmean(np.nanmedian(RI, axis=2), axis=(0,1))
+    whole_RI2 = np.nanmean(np.nanmedian(RI2, axis=2), axis=(0,1))
+    
+    all_RI.append(whole_RI)
+    all_RI2.append(whole_RI2)
+    
 all_dFF  = np.array(all_dFF)
 all_dFF2 = np.array(all_dFF2)
-    
+
+all_RI   = np.array(all_RI)
+all_RI2  = np.array(all_RI2)
+
     
 #%% data wrangling
 dFF_mean  = np.nanmean(all_dFF, axis=0)
@@ -126,7 +143,12 @@ plot_violin_with_scatter(dFF2_baselines, dFF2_stims,
                          save=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_violin_ch2')
 
-diffs = dFF_stims - dFF_baselines 
+plot_violin_with_scatter(all_RI2, all_RI, 
+                         'darkred', 'darkgreen',
+                         ylim=(-0.1, 0.15),
+                         save=True,
+                         print_statistics=True,
+                         savepath=dLight_stim_stem / 'dLight_LC_stim_all_summary_RI_red_green_ctrl')
 
 
 #%% Dbh inhibitor 
@@ -137,29 +159,46 @@ paths = rec_list.pathdLightLCOptoDbhBlock
 all_dFF_inh  = []
 all_dFF2_inh = []
 
+all_RI_inh   = []
+all_RI2_inh  = []
+
 for path in paths:
     recname = Path(path).name
     print(recname)
     
     dFF_path  = all_sess_stem / recname / 'processed_data' / f'{recname}_wholefield_dFF_stim.npy'
     dFF2_path = all_sess_stem / recname / 'processed_data' / f'{recname}_wholefield_dFF2_stim.npy'
+    RI_path   = all_sess_stem / recname / 'processed_data' / f'{recname}_pixel_RI_stim.npy'
+    RI2_path  = all_sess_stem / recname / 'processed_data' / f'{recname}_pixel_RI_ch2_stim.npy'
     
     dFF  = np.load(dFF_path, allow_pickle=True)
     dFF2 = np.load(dFF2_path, allow_pickle=True)
+    RI   = np.load(RI_path, allow_pickle=True)
+    RI2  = np.load(RI2_path, allow_pickle=True)
     
     # centring and filtering 
     dFF  = dFF  - np.nanmean(dFF[:BEF*SAMP_FREQ])
     dFF2 = dFF2 - np.nanmean(dFF2[:BEF*SAMP_FREQ])
     dFF[BEF*SAMP_FREQ : int((BEF+1.5) * SAMP_FREQ)]  = np.nan
     dFF2[BEF*SAMP_FREQ : int((BEF+1.5) * SAMP_FREQ)] = np.nan
-        
+    
     # append 
     all_dFF_inh.append(dFF)
     all_dFF2_inh.append(dFF2)
     
+    # RI medians across stims 
+    whole_RI_inh  = np.nanmean(np.nanmedian(RI, axis=2), axis=(0,1))
+    whole_RI2_inh = np.nanmean(np.nanmedian(RI2, axis=2), axis=(0,1))
+    
+    all_RI_inh.append(whole_RI_inh)
+    all_RI2_inh.append(whole_RI2_inh)
+    
 all_dFF_inh  = np.array(all_dFF_inh)
 all_dFF2_inh = np.array(all_dFF2_inh)
-    
+
+all_RI_inh   = np.array(all_RI_inh)
+all_RI2_inh  = np.array(all_RI2_inh)
+
     
 #%% data wrangling
 dFF_inh_mean  = np.nanmean(all_dFF_inh, axis=0)
@@ -217,4 +256,21 @@ plot_violin_with_scatter(dFF2_inh_baselines, dFF2_inh_stims,
                          save=True,
                          savepath=dLight_stim_stem / 'dLight_LC_stim_Dbh_inh_violin_ch2')
 
-diffs_inh = dFF_inh_stims - dFF_inh_baselines
+plot_violin_with_scatter(all_RI2_inh, all_RI_inh, 
+                         'darkred', 'darkgreen',
+                         ylim=(-0.1, 0.15),
+                         save=True,
+                         print_statistics=True,
+                         savepath=dLight_stim_stem / 'dLight_LC_stim_all_summary_RI_red_green_nepi')
+
+
+#%% cross 
+plot_violin_with_scatter(all_RI, all_RI_inh, 
+                         'royalblue','royalblue',
+                         paired=False,
+                         print_statistics=True)
+
+plot_violin_with_scatter(all_RI2, all_RI2_inh, 
+                         'royalblue','royalblue',
+                         paired=False,
+                         print_statistics=True)

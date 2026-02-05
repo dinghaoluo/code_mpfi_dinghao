@@ -183,8 +183,8 @@ def rolling_percentile(arr, window, pct, t_axis, GPU_AVAILABLE):
 # --------------------------
 def calculate_dFF(
         F_array,
+        t_axis,
         sigma=300,
-        t_axis=0,
         GPU_AVAILABLE=False,
         CHUNK=False,
         chunk_size=2000
@@ -195,10 +195,10 @@ def calculate_dFF(
     parameters:
     - F_array: np.ndarray
         fluorescence trace array, can be 1D or ND (time must be along t_axis).
+    - t_axis: int
+        axis corresponding to time.
     - sigma: int, default=300
         standard deviation for the gaussian smoothing filter.
-    - t_axis: int, default=0
-        axis corresponding to time.
     - GPU_AVAILABLE: bool, default=False
         whether to use CuPy to accelerate filtering operations.
     - CHUNK: bool, default=False
@@ -289,19 +289,22 @@ def calculate_dFF(
     
 def calculate_dFF_percentile(
         F_array,
-        sigma=300,
-        t_axis=0,
+        t_axis,
+        window_size,
         GPU_AVAILABLE=False,
         CHUNK=False,
         chunk_size=2000,
-        pct=10,
-        return_baseline=False
+        pct=20,
+        return_baseline=False,
+        device_name=''
         ):
     """
     calculate dF/F using rolling-percentile baseline
     """
-    window = sigma * 6
+    # originally used a window_size = 1800 frames; now requires input
     T = F_array.shape[t_axis]
+    
+    print(f'Calculating dF/F using rolling {pct}th-percentile {window_size}-frame baselines')
 
     # ------------------
     # non-chunked
@@ -309,11 +312,12 @@ def calculate_dFF_percentile(
     if not CHUNK:
         if GPU_AVAILABLE:
             import cupy as cp
+            print(f'Device: {device_name}')
             F = cp.asarray(F_array, dtype=cp.float32)
         else:
             F = F_array.astype(np.float32, copy=False)
 
-        baseline = rolling_percentile(F, window, pct, t_axis, GPU_AVAILABLE)
+        baseline = rolling_percentile(F, window_size, pct, t_axis, GPU_AVAILABLE)
         dFF = (F - baseline) / baseline
 
         if GPU_AVAILABLE:
@@ -325,7 +329,7 @@ def calculate_dFF_percentile(
     # ------------------
     # chunked
     # ------------------
-    pad = window // 2
+    pad = window_size // 2
     dff_slices = []
     baseline_slices = [] if return_baseline else None
 
@@ -350,7 +354,7 @@ def calculate_dFF_percentile(
         if GPU_AVAILABLE:
             chunk = xp.asarray(chunk)
 
-        baseline = rolling_percentile(chunk, window, pct, t_axis, GPU_AVAILABLE)
+        baseline = rolling_percentile(chunk, window_size, pct, t_axis, GPU_AVAILABLE)
         dFF_chunk = (chunk - baseline) / baseline
 
         if GPU_AVAILABLE:
@@ -653,7 +657,7 @@ def plot_reference(mov, outpath=r'', recname='',
 def load_or_generate_reference_images(
         proc_path, proc_data_path, 
         bin_path, bin2_path, tot_frames, ops, 
-        GPU_AVAILABLE
+        GPU_AVAILABLE=False, VERBOSE=True
         ):
     """
     load or generate reference images for channels 1 and 2
@@ -687,7 +691,8 @@ def load_or_generate_reference_images(
         os.makedirs(proc_path, exist_ok=True)
         os.makedirs(proc_data_path, exist_ok=True)
         shape = (tot_frames, ops['Ly'], ops['Lx'])
-        print('generating reference images...')
+        if VERBOSE:
+            print('generating reference images...')
         
         recname = proc_path.split('\\')[-1]
         
@@ -709,7 +714,8 @@ def load_or_generate_reference_images(
                 mov._mmap.close()
                 del mov
                 gc.collect()
-        print(f'ref done ({str(timedelta(seconds=int(time() - start)))})')
+        if VERBOSE:
+            print(f'ref done ({str(timedelta(seconds=int(time() - start)))})')
         
         # generate reference image for channel 2
         start = time()
@@ -729,10 +735,12 @@ def load_or_generate_reference_images(
                 mov2._mmap.close()
                 del mov2
                 gc.collect()
-        print(f'ref_ch2 done ({str(timedelta(seconds=int(time() - start)))})')
+        if VERBOSE:
+            print(f'ref_ch2 done ({str(timedelta(seconds=int(time() - start)))})')
         
     else:
-        print(f'ref images already generated\nloading ref_im from {ref_path}...')
+        if VERBOSE:
+            print(f'ref images already generated\nloading ref_im from {ref_path}...')
         try:
             ref_im = np.load(ref_path, allow_pickle=True)
             ref_ch2_im = np.load(ref_ch2_path, allow_pickle=True)

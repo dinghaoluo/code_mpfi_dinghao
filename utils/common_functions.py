@@ -95,11 +95,12 @@ def get_GPU_availability():
             # optional: set memory pools for efficiency
             cp.cuda.set_allocator(cp.cuda.MemoryPool().malloc)
             cp.cuda.set_pinned_memory_allocator(cp.cuda.PinnedMemoryPool().malloc)
-            return cp, True
+            dev_id = cp.cuda.runtime.getDevice()
+            props = cp.cuda.runtime.getDeviceProperties(dev_id)
+            device_name = props['name'].decode()
+            return cp, True, device_name
     except Exception:
-        pass
-
-    return None, False
+        return None, False, None
 
 
 #%% plot formatting

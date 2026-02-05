@@ -127,7 +127,7 @@ for path in paths:
     # now we fit tau 
     first_valid = np.where(np.isfinite(ROI_RI_bins))[0][0]
     
-    t0   = XAXIS[first_valid]      # no need for peak index if unnecessary
+    t0   = XAXIS[first_valid]
     B    = ROI_RI_bins[first_valid:].min()
     Bneu = neuropil_RI_bins[first_valid:].min() 
     

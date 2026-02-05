@@ -13,7 +13,7 @@ plotting functions to save us from the chaos of having to code out the plotting
 #%% imports 
 import numpy as np 
 import matplotlib.pyplot as plt 
-from scipy.stats import wilcoxon, ranksums, ttest_rel, ttest_ind, sem
+from scipy.stats import wilcoxon, ranksums, ttest_rel, ttest_ind, sem, ttest_1samp
 
 
 #%% functions 
@@ -24,11 +24,36 @@ def add_scale_bar(ax, x_start, y_start, x_len, y_len, color='k', lw=2):
     ax.plot([x_start, x_start], [y_start, y_start + y_len], color=color, lw=lw, solid_capstyle='butt')
 
 
+# -------------------------------
+# BAR PLOT WITH SCATTER (PAIRED)
+# -------------------------------
 def plot_bar_with_paired_scatter(
         ax, ctrl_vals, stim_vals, colors=('grey', 'firebrick'),
         title='', ylabel='% cells', xticklabels=('ctrl.', 'stim.'),
         ylim=None
         ):
+    """
+    plot paired bar means with sem, individual paired scatter points,
+    and paired statistical comparisons.
+    
+    parameters:
+    - ax: matplotlib axis
+        axis to draw the plot on
+    - ctrl_vals: array-like
+        control condition values (paired with stim_vals)
+    - stim_vals: array-like
+        stimulation condition values
+    - colors: tuple
+        colours for control and stimulation bars
+    - title: str
+        plot title
+    - ylabel: str
+        y-axis label
+    - xticklabels: tuple
+        x-axis category labels
+    - ylim: tuple or none
+        y-axis limits
+    """
     
     def sigstars(p):
         return 'ns' if p >= 0.05 else ('*' if p < 0.05 and p >= 0.01 else ('**' if p < 0.01 and p >= 0.001 else ('***' if p < 0.001 and p >= 1e-4 else '****')))
@@ -95,14 +120,38 @@ def plot_bar_with_paired_scatter(
     ax.set_ylim(ylims[0], max(ylims[1], y2 + 0.08 * yrange))
 
     print(f'Wilc p = {w_p}\nttest p = {t_p}')
+# ------------------------------------
+# BAR PLOT WITH SCATTER (PAIRED) ENDS
+# ------------------------------------
 
-    return {'wilcoxon': {'stat': w_stat, 'p': w_p, 'n': int(len(ctrl))},
-            'ttest_rel': {'stat': t_stat, 'p': t_p, 'n': int(len(ctrl))}}
 
-
+# -------------------------------
+# BOX PLOT WITH SCATTER (PAIRED)
+# -------------------------------
 def plot_box_with_scatter(ctrl_data, stim_data, xlabel, savepath, 
                           title='', show_scatter=True,
                           ctrl_color='grey', stim_color='royalblue'):
+    """
+    plot horizontal paired boxplots with optional scatter overlay.
+    
+    parameters:
+    - ctrl_data: array-like
+        control condition values
+    - stim_data: array-like
+        stimulation condition values
+    - xlabel: str
+        x-axis label
+    - savepath: str
+        file path (without extension) for saving
+    - title: str
+        plot title
+    - show_scatter: bool
+        whether to overlay individual data points
+    - ctrl_color: str or tuple
+        colour for control box
+    - stim_color: str or tuple
+        colour for stimulation box
+    """
     fig, ax = plt.subplots(figsize=(2.6, 1.4))
 
     boxplots = ax.boxplot(
@@ -142,8 +191,14 @@ def plot_box_with_scatter(ctrl_data, stim_data, xlabel, savepath,
         fig.savefig(f'{savepath}{ext}', dpi=300, bbox_inches='tight')
 
     plt.close(fig)
+# ------------------------------------
+# BOX PLOT WITH SCATTER (PAIRED) ENDS
+# ------------------------------------
 
 
+# ------------------------
+# VIOLINPLOT WITH SCATTER
+# ------------------------
 def plot_violin_with_scatter(data0, data1, colour0, colour1,
                              paired=True, alpha=.25,
                              xlabel=' ', xticks=[1,2], xticklabels=['data0', 'data1'],
@@ -388,8 +443,14 @@ def plot_violin_with_scatter(data0, data1, colour0, colour1,
                 fig.savefig(f'{savepath}{ext}',
                             dpi=dpi,
                             bbox_inches='tight')
-        
-        
+# -----------------------------
+# VIOLINPLOT WITH SCATTER ENDS
+# -----------------------------
+
+
+# ------
+# ECDFs
+# ------
 def plot_ecdfs(data0, data1, 
                title=' ',
                xlabel=' ', ylabel='cumulative probability',
@@ -446,6 +507,162 @@ def plot_ecdfs(data0, data1,
     if save:
         for ext in ['.png', '.pdf']:
             fig.savefig(f'{savepath}{ext}', dpi=dpi, bbox_inches='tight')
+# -----------
+# ECDFs ENDS
+# -----------
+
+
+# ------------------
+# SINGLE VIOLINPLOT
+# ------------------
+def plot_single_violin(data, colour, ref_val=0, 
+                       xpos=1, xticklabels=['stim.'],
+                       ylabel=' ', ylim=None,
+                       title=' ',
+                       showscatter=True,
+                       alpha=0.5,
+                       figsize=(1.7, 2.2),
+                       plot_statistics=True,
+                       print_statistics=False,
+                       save=False, savepath=' ',
+                       dpi=300,
+                       pngonly=False):
+    """
+    plot a single violin with scatter and one-sample statistical tests.
+
+    parameters:
+    - data: array-like
+        values to plot
+    - colour: str or tuple
+        violin and scatter colour
+    - ref_val: float
+        reference value for one-sample tests (default: 0)
+    - xpos: float
+        x position of the violin (default: 1)
+    - xticklabels: list
+        x-axis labels
+    - ylabel: str
+        y-axis label
+    - ylim: tuple or None
+        y-axis limits
+    - title: str
+        plot title
+    - showscatter: bool
+        show individual data points
+    - alpha: float
+        scatter/violin transparency
+    - figsize: tuple
+        figure size
+    - plot_statistics: bool
+        write statistics on the plot
+    - print_statistics: bool
+        print statistics to console
+    - save: bool
+        save figure
+    - savepath: str
+        save path without extension
+    - dpi: int
+        resolution
+    - pngonly: bool
+        save only png if true
+    """
+
+    data = np.asarray(data)
+    data = data[~np.isnan(data)]
+
+    # statistics
+    tval, p_t = ttest_1samp(data, ref_val)
+    wstat, p_w = wilcoxon(data - ref_val)
+
+    mean_v = np.mean(data)
+    sem_v  = sem(data)
+    med_v  = np.median(data)
+    q25, q75 = np.percentile(data, [25, 75])
+
+    ymax, ymin = np.max(data), np.min(data)
+    y_range = ymax - ymin
+
+    if print_statistics:
+        print(f'median = {med_v:.4g}')
+        print(f'IQR = [{q25:.4g}, {q75:.4g}]')
+        print(f'mean ± SEM = {mean_v:.4g} ± {sem_v:.4g}')
+        print(f'ttest: t={tval:.4g}, p={p_t:.2e}')
+        print(f'wilcoxon: W={wstat:.4g}, p={p_w:.2e}')
+
+    # plotting
+    fig, ax = plt.subplots(figsize=figsize)
+
+    parts = ax.violinplot(
+        data, positions=[xpos],
+        showmeans=False, showmedians=True, showextrema=False
+    )
+
+    for pc in parts['bodies']:
+        pc.set_facecolor(colour)
+        pc.set_edgecolor('none')
+        pc.set_alpha(alpha)
+
+    parts['cmedians'].set_color('k')
+    parts['cmedians'].set_linewidth(1.2)
+
+    if showscatter:
+        ax.scatter(
+            np.full(len(data), xpos), data,
+            s=10, c=colour, ec='none',
+            alpha=alpha, zorder=3
+        )
+
+    # summary text (top)
+    ax.text(
+        xpos,
+        ymax + 0.05 * y_range,
+        f'Med = {med_v:.2f}\n'
+        f'IQR = [{q25:.2f}, {q75:.2f}]\n'
+        f'{mean_v:.2f} ± {sem_v:.2f}',
+        ha='center', va='bottom',
+        fontsize=7, color=colour
+    )
+
+    # stats text (bottom)
+    if plot_statistics:
+        ax.text(
+            xpos,
+            ymin - 0.12 * y_range,
+            f't(1-samp)={tval:.2f}, p={p_t:.2e}\n'
+            f'Wilcoxon={wstat:.2f}, p={p_w:.2e}',
+            ha='center', va='top',
+            fontsize=6.5, color='k'
+        )
+
+    ax.set(
+        xlim=(xpos - 0.5, xpos + 0.5),
+        xticks=[xpos],
+        xticklabels=xticklabels,
+        ylabel=ylabel,
+        title=title
+    )
+
+    if ylim is not None:
+        ax.set(ylim=ylim)
+
+    for s in ['top', 'right', 'bottom']:
+        ax.spines[s].set_visible(False)
+
+    fig.tight_layout()
+    plt.grid(False)
+    plt.show()
+
+    if save:
+        if pngonly:
+            fig.savefig(f'{savepath}.png',
+                        dpi=dpi, bbox_inches='tight')
+        else:
+            for ext in ['.png', '.pdf']:
+                fig.savefig(f'{savepath}{ext}',
+                            dpi=dpi, bbox_inches='tight')
+# -----------------------
+# SINGLE VIOLINPLOT ENDS
+# -----------------------
 
         
 #%% profile-plotting functions

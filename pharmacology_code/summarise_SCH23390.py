@@ -215,7 +215,7 @@ ax.text(
     transform=ax.transAxes, va='top', fontsize=7
 )
 
-ax.set(xlim=(30, 219), ylim=(0, 0.28),
+ax.set(xlim=(30, 219), ylim=(0, 0.35),
        xlabel='Distance (cm)', ylabel='Lick density (count/cm)',
        yticks=[0, 0.2])
 for s in ['top', 'right']:
@@ -261,3 +261,54 @@ print(
     f'[{lw_p25_drug:.4g}, {lw_p75_drug:.4g}]'
 )
 print(f'licks 30–100 cm Wilcoxon p = {p_lw:.4g}')
+
+
+#%% LICK PLOT (zoomed-in 30–100 cm)
+fig, ax = plt.subplots(figsize=(1.3, 0.9))
+
+# reuse already computed means / SEMs
+ax.plot(XAXIS, ml_baseline, color='grey')
+ax.fill_between(
+    XAXIS,
+    ml_baseline + sl_baseline,
+    ml_baseline - sl_baseline,
+    color='grey', alpha=.15, edgecolor='none'
+)
+
+ax.plot(XAXIS, ml_drug, color='#004D80')
+ax.fill_between(
+    XAXIS,
+    ml_drug + sl_drug,
+    ml_drug - sl_drug,
+    color='#004D80', alpha=.15, edgecolor='none'
+)
+
+# annotate with the 30–100 cm stats you already computed
+ax.text(
+    0.02, 0.98,
+    f'baseline: {lw_med_baseline:.3f} '
+    f'[{lw_p25_baseline:.3f}, {lw_p75_baseline:.3f}]\n'
+    f'drug: {lw_med_drug:.3f} '
+    f'[{lw_p25_drug:.3f}, {lw_p75_drug:.3f}]\n'
+    f'wilcoxon p={p_lw:.3g}',
+    transform=ax.transAxes,
+    va='top',
+    fontsize=7
+)
+
+ax.set(
+    xlim=(30, 100),
+    ylim=(0, 0.08),
+    xlabel='Distance (cm)',
+    ylabel='Lick density (count/cm)'
+)
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        pharmacology_stem / 'SCH23390' / f'lick_profile_30_100cm{ext}',
+        dpi=300,
+        bbox_inches='tight'
+    )

@@ -17,11 +17,9 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from skimage.measure import find_contours
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\imaging_code\utils')
 import imaging_pipeline_functions as ipf
 
-sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 
