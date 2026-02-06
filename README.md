@@ -2,7 +2,7 @@
 my scripts at MPFI; unless otherwise specified, I am the author of all the scripts in this repo
 
 ## setup
-make sure that `...\code_mpfi_dinghao\utils` is in system paths
+make sure that `...\code_mpfi_dinghao\utils` is in system paths  
 in addition, the recording list (`rec_list`) is stored in the lab network drive (`Z:\Dinghao\code_dinghao`)
 to add both to system paths:
 - Windows: in PowerShell, enter `setx PYTHONPATH "Z:\Dinghao\code_mpfi_dinghao\utils;Z:\Dinghao\code_dinghao"` (repeated `setx`'s overwrite previous paths)
@@ -13,7 +13,9 @@ to add both to system paths:
 ```
 ├── **HPC_code**  
 │   ├── *HPC_all_extract.py*  
+│   ├── *HPC_all_extract_raphi.py*  
 │   ├── *HPC_all_profiles.py*  
+│   ├── *HPC_all_profiles_raphi.py*  
 │   ├── *HPC_all_waveforms.py*  
 │   ├── **bayesian_decoding**  
 │   │   ├── *naive_bayesian_decoding_conf_matrix.py*  
@@ -27,8 +29,6 @@ to add both to system paths:
 │   │   └── *lick_time_comp_HPC_LCterm_stim.py*  
 │   ├── **crossover_point**  
 │   │   └── *crossover_point_analysis.py*  
-│   ├── **decay_time**  
-│   │   └── *decay_time_analysis.py*  
 │   ├── **dimensionality_reduction**  
 │   │   ├── *HPC_UMAP_single_trial_traj_interactive.ipynb*  
 │   │   ├── *HPC_single_sess_PCA_traj.py*  
@@ -41,9 +41,13 @@ to add both to system paths:
 │   │   ├── *plot_all_pyr_info_ctrl_stim.py*  
 │   │   ├── *plot_all_pyr_pre_post_ratio.py*  
 │   │   ├── *plot_all_pyr_pre_post_raw_change.py*  
-│   │   └── *plot_run_onset_ON_OFF_profiles.py*  
-│   ├── **history_dependency**  
-│   │   └── *lick_history_dependency.py*  
+│   │   ├── *plot_run_onset_ON_OFF_profiles.py*  
+│   │   └── *plot_run_onset_ON_OFF_profiles_raphi.py*  
+│   ├── **first_lick_analysis**  
+│   │   ├── *all_earlyvlate_pyr_fixed_threshold_mean_std.py*  
+│   │   ├── *all_earlyvlate_pyr_fixed_threshold_mean_std_raphi.py*  
+│   │   ├── *all_earlyvlate_pyr_fixed_threshold_mean_std_raphi_thres15.py*  
+│   │   └── *all_earlyvlate_speed_fixed_threshold.py*  
 │   ├── **lick_sensitivity**  
 │   │   ├── *HPCLC_raster_first_lick_ranked.py*  
 │   │   ├── *HPC_early_late_first_lick_profiles.py*  
@@ -60,48 +64,32 @@ to add both to system paths:
 │   │   ├── *HPCLCterm_plot_sequence.py*  
 │   │   └── *HPCLCterm_plot_sequence_dist.py*  
 │   ├── **stim_ctrl**  
-│   │   ├── *HPCLC_all_stim_ctrl_population_deviation_poisson.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_PCA.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_heatmap.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_ordered.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_rasters.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_rasters_blowup.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_rasters_signif_only.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_sig_MI.py*  
-│   │   ├── *HPCLC_all_stim_ctrl_pyr_only_spatial_info.py*  
-│   │   ├── *HPCLC_stim_ctrl_all_int_profiles.py*  
-│   │   ├── *HPCLC_stim_ctrl_all_pyr_profiles.py*  
-│   │   ├── *HPCLC_stim_ctrl_all_pyr_profiles_single_sess.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_int_only.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only_heatmap.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only_ordered.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only_rasters.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only_rasters_blowup.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only_rasters_signif_only.py*  
-│   │   ├── *HPCLCterm_all_stim_ctrl_pyr_only_sig_MI.py*  
-│   │   ├── *HPCLCterm_stim_ctrl_all_pyr_profiles_single_sess.py*  
-│   │   ├── *HPC_all_mod_depth_comp.py*  
-│   │   ├── *HPC_all_modulation_statistics.py*  
-│   │   ├── *HPC_all_stim_effects.py*  
-│   │   ├── *HPC_all_stim_effects_CI.py*  
-│   │   ├── *HPC_all_stim_effects_classify.py*  
-│   │   ├── *HPC_all_stim_effects_smoothed.py*  
-│   │   ├── *HPC_all_stim_population.py*  
-│   │   └── *stim_ctrl_all_pyr_decay_time.py*  
-│   ├── **theta_phase**  
-│   │   └── *HPC_all_theta_stim.py*  
-│   └── **utils**  
-│       └── *support_HPC.py*  
+│   │   ├── *all_stim_ctrl_effects.py*  
+│   │   └── *all_stim_ctrl_pyr_ON_OFF.py*  
+│   └── **theta_phase**  
+│       └── *HPC_all_theta_stim.py*  
+├── **IBL_code**  
+│   └── *test.py*  
 ├── **LC_code**  
-│   ├── *LC_all_extract.py*  
+│   ├── **GLM**  
+│   │   ├── *GLM_LC_beh_permutation.py*  
+│   │   ├── *GLM_LC_beh_permutation_full.py*  
+│   │   ├── *amp_autocorrelagram.py*  
+│   │   ├── *amp_baseline_rate.py*  
+│   │   ├── *amp_since_last_reward.py*  
+│   │   ├── *amp_since_last_reward_binned.py*  
+│   │   └── *tonic_fft_LC.py*  
+│   ├── *LC_all_extract_all.py*  
 │   ├── *LC_all_identity_UMAP.py*  
 │   ├── *LC_all_profiles.py*  
 │   ├── *LC_all_spikes_ISIs.py*  
 │   ├── *LC_all_waveforms_acgs.py*  
 │   ├── *LC_run_all.py*  
+│   ├── **alignment_analysis**  
+│   │   └── *analyse_alignment_with_heatmap_run_cue_rew_aligned.py*  
 │   ├── **behaviour**  
 │   │   ├── *1st_lick_profile.py*  
+│   │   ├── *ctrl_stim_lick_properties.py*  
 │   │   ├── *egsess_lick.py*  
 │   │   ├── *egsess_lick_passive_raphi.py*  
 │   │   ├── *egsess_speed.py*  
@@ -111,23 +99,21 @@ to add both to system paths:
 │   │   ├── *lick_dist_comp_HPC_LC_stim.py*  
 │   │   ├── *lick_history_dependency.py*  
 │   │   ├── *lick_history_dependency_comp.py*  
-│   │   ├── *lick_properties.py*  
 │   │   ├── *lick_time_comp_020.py*  
 │   │   ├── *plot_cue_start_difference.py*  
 │   │   ├── *plot_run_bouts.py*  
-│   │   ├── *plot_single_trial_example.py*  
-│   │   └── *summarise_opto.py*  
+│   │   ├── *plot_run_bouts_examples.py*  
+│   │   └── *plot_single_trial_example.py*  
 │   ├── **ephys_opto**  
-│   │   └── *plot_stim_response.py*  
+│   │   └── *analyse_stim_response.py*  
 │   ├── **figure_code**  
 │   │   ├── *plot_ISIs.py*  
-│   │   ├── *plot_LC_population_heatmap_argmax.py*  
 │   │   ├── *plot_acgs_and_heatmap.py*  
 │   │   ├── *plot_comp_tagged_putative.py*  
 │   │   ├── *plot_ctrl_stim_profiles.py*  
 │   │   ├── *plot_neu_activity_ON_OFF_mean_profile.py*  
 │   │   ├── *plot_rasters_1st_lick_ordered_early_late_only.py*  
-│   │   ├── *plot_rasters_runonset_aligned.py*  
+│   │   ├── *plot_rasters_run_cue_rew_aligned.py*  
 │   │   ├── *plot_runonset_burst_and_non_burst_profiles.py*  
 │   │   ├── *plot_single_cell_ACG.py*  
 │   │   ├── *plot_single_cell_waveform.py*  
@@ -135,13 +121,7 @@ to add both to system paths:
 │   │   ├── *plot_tagging_responses.py*  
 │   │   └── *plot_trials_LC.py*  
 │   ├── **first_lick_analysis**  
-│   │   ├── *all_earlyvlate_RO_peak_dynamic_threshold.py*  
 │   │   ├── *all_earlyvlate_RO_peak_fixed_threshold.py*  
-│   │   ├── *all_earlyvlate_RO_peak_population.py*  
-│   │   ├── *all_earlyvlate_RO_peak_population_lick2pump.py*  
-│   │   ├── *all_earlyvlate_RO_peak_population_med3licks.py*  
-│   │   ├── *all_earlyvlate_RO_peak_population_raster.py*  
-│   │   ├── *all_earlyvlate_RO_peak_raster.py*  
 │   │   ├── *all_neu_activity_ON_OFF.py*  
 │   │   └── *all_time_warped.py*  
 │   ├── **good_v_bad_trials**  
@@ -160,10 +140,8 @@ to add both to system paths:
 │   │   └── *early_v_late_burst_probability.py*  
 │   ├── **run_onset_v_run_bout**  
 │   │   └── *all_runonset_runbout_RO_peak.py*  
-│   ├── **tagging_analysis**  
-│   │   └── *tagging_latency.py*  
-│   └── **utils**  
-│       └── *single_unit.py*  
+│   └── **tagging_analysis**  
+│       └── *tagging_latency.py*  
 ├── *README.md*  
 ├── *Thumbs.db*  
 ├── **VTA_code**  
@@ -173,21 +151,30 @@ to add both to system paths:
 │   ├── *tag_waveform_proc.py*  
 │   ├── *tagged_train_alignedRew.py*  
 │   └── *tagged_train_alignedRun.py*  
+├── **_supp_figures_external**  
+│   ├── *FigureSupp1.pdf*  
+│   ├── *FigureSupp2.pdf*  
+│   ├── *FigureSupp3.pdf*  
+│   └── *FigureSupp6.pdf*  
 ├── **behaviour_code**  
+│   ├── *analyse_pupil_size.py*  
+│   ├── *analyse_speed_licks.py*  
 │   ├── **behaviour_control**  
+│   │   ├── *HPC_opto_speed_controls.py*  
 │   │   ├── *LC_controls.py*  
-│   │   └── *LC_opto_controls.py*  
+│   │   └── *LC_opto_speed_controls.py*  
 │   ├── **figure_code**  
-│   │   ├── *plot_behaviour.py*  
+│   │   ├── *plot_example_session.py*  
+│   │   ├── *plot_example_trials.py*  
 │   │   ├── *plot_immobile.py*  
-│   │   ├── *plot_lick_to_pumps.py*  
-│   │   ├── *plot_single_session.py*  
-│   │   └── *plot_speeds.py*  
+│   │   ├── *plot_speeds.py*  
+│   │   └── *plot_trial_by_trial.py*  
+│   ├── *first_lick_since_last_reward.py*  
 │   ├── *off_target_run_bouts.py*  
+│   ├── **optogenetics**  
+│   │   └── *summarise_opto.py*  
 │   ├── *process_behaviour.py*  
-│   ├── *process_behaviour_immobile.py*  
-│   └── **utils**  
-│       └── *behaviour_functions.py*  
+│   └── *process_behaviour_immobile.py*  
 ├── **caiman_code**  
 │   ├── *2nd_channel_registration.py*  
 │   ├── *Untitled.ipynb*  
@@ -196,71 +183,108 @@ to add both to system paths:
 │   ├── *utils.py*  
 │   ├── *utils_mesmerize.py*  
 │   └── *visualize.ipynb*  
+├── **history_dependency_code**  
+│   └── *lick_history_dependency.py*  
 ├── **imaging_code**  
+│   ├── *HPC_GRABNE_LC_opto_extract.py*  
+│   ├── *HPC_GRABNE_tone_extract.py*  
 │   ├── *HPC_dLight_LC_opto_extract.py*  
-│   ├── *HPC_dLight_LC_opto_pixel_wise_map.py*  
 │   ├── *HPC_extract_significant_ROI.py*  
 │   ├── *HPC_run_imaging_pipeline.py*  
 │   ├── *LCHPC_axon_all_extract.py*  
+│   ├── *LCHPC_axon_all_extract_immobile.py*  
 │   ├── *LCHPC_axon_all_profiles.py*  
 │   ├── *LCHPC_single_pixel_extract.py*  
-│   ├── *convert_movie_tif.py*  
-│   ├── **correlational_analysis**  
-│   │   ├── *LCHPC_axon_correlation.py*  
-│   │   └── *colocalisation_analysis.py*  
+│   ├── **ROI_vs_neuropil**  
+│   │   ├── *ROI_vs_neuropil_RI_mean.py*  
+│   │   └── *ROI_vs_neuropil_RI_over_time.py*  
+│   ├── *Suite2p_registration.py*  
+│   ├── **alignment_analysis**  
+│   │   └── *analyse_alignment_with_heatmap_run_cue_rew_aligned.py*  
+│   ├── **controls**  
+│   │   └── *dLight_expression_control.py*  
+│   ├── *convert_movie_tif_GUI.py*  
+│   ├── **dLight_inhibition**  
+│   │   └── *HPC_dLight_LC_inh_stim_ctrl_run.py*  
+│   ├── **dLight_stim_dispersion**  
+│   │   ├── *single_ROI_binned_dilation.py*  
+│   │   ├── *single_ROI_binned_dilation_spatial_tau.py*  
+│   │   ├── *single_ROI_binned_dispersion.py*  
+│   │   └── *whole_field_binned_dispersion.py*  
+│   ├── **fibre_segger_GUI**  
+│   │   ├── *fibre-segmenter.ico*  
+│   │   ├── *fibre_ROI_segmentation.py*  
+│   │   ├── *fibre_ROI_segmentation_GUI_v1.py*  
+│   │   ├── *fibre_ROI_segmentation_GUI_v2.py*  
+│   │   ├── *fibre_ROI_segmentation_GUI_v3.py*  
+│   │   └── *fibre_ROI_segmentation_GUI_v4.py*  
 │   ├── **figure_code**  
-│   │   ├── *plot_example_frames_HPC_dLight_LC_opto.py*  
+│   │   ├── *example_sess_refs_release_tiff.py*  
+│   │   ├── *plot_16_bit_maps.py*  
+│   │   ├── *plot_dLight_LC_opto_single_axon_stim_profiles.py*  
 │   │   ├── *plot_lick_profile.py*  
 │   │   ├── *plot_lick_profile_to_pumps.py*  
 │   │   ├── *plot_pooled_heatmap_axon_GCaMP.py*  
 │   │   ├── *plot_raw traces_axon_GCaMP.py*  
+│   │   ├── *plot_raw traces_axon_GCaMP_example_trials.py*  
 │   │   ├── *plot_sorted_heatmaps_grids.py*  
 │   │   ├── *plot_sorted_heatmaps_rois.py*  
 │   │   ├── *plot_std_heatmap.py*  
-│   │   └── *plot_whole_field.py*  
+│   │   ├── *plot_whole_field.py*  
+│   │   ├── *summarise_dLight_LC_opto_all.py*  
+│   │   └── *summarise_dLight_LC_opto_ctrl_inh.py*  
+│   ├── **first_lick**  
+│   │   └── *LCaxon_earlyvlate_RO_peak_fixed_threshold.py*  
+│   ├── **optogenetics**  
+│   │   ├── *dLight_LC_opto_release_stim_ctrl.py*  
+│   │   └── *summarise_opto_imaging.py*  
+│   ├── **release_probability**  
+│   │   ├── *prop_signif_release_dLight_stim.py*  
+│   │   └── *release_probability_dLight_stim.py*  
 │   ├── **suite2p_code**  
 │   │   ├── *registration_roi_extraction_s2p_wanglab.py*  
 │   │   └── *suite2p-wang-lab_SparseDetect_test_seperate.py*  
 │   ├── **test_whole_field_pipeline**  
 │   │   └── *test_whole_field_pipeline.py*  
-│   ├── **tonic_activity**  
-│   │   ├── *tonic_fft.py*  
-│   │   └── *whole_session_f_dff.py*  
-│   └── **utils**  
-│       ├── *New Text Document.txt*  
-│       ├── *Thumbs.db*  
-│       ├── *fibre-segmenter.ico*  
-│       ├── *fibre_ROI_segmentation.py*  
-│       ├── *fibre_ROI_segmentation_GUI_Jingyu_test.py*  
-│       ├── *fibre_ROI_segmentation_GUI_v1.py*  
-│       ├── *fibre_ROI_segmentation_GUI_v2.py*  
-│       ├── *imaging_pipeline_functions.py*  
-│       ├── *imaging_pipeline_main_functions.py*  
-│       ├── *imaging_utility_functions.py*  
-│       ├── *suite2p_functions.py*  
-│       └── *support_LCHPC_axon.py*  
+│   └── **tonic_activity**  
+│       ├── *tonic_fft.py*  
+│       └── *whole_session_f_dff.py*  
 ├── **matlab_preprocessing**  
 │   ├── *RunSpikePipeline.m*  
 │   ├── *RunSpikePipeline_pix.m*  
 │   └── *RunSpikePipeline_pix_Run0.m*  
+├── **modelling_code**  
+│   └── *general_model.py*  
 ├── **other_code**  
 │   ├── *log_temperature_humidity.py*  
 │   ├── *plot_model_schematic.py*  
 │   └── *plot_temperature_humidity.py*  
 ├── **pharmacology_code**  
 │   ├── *summarise_SCH23390.py*  
-│   └── *summarise_prop.py*  
+│   ├── *summarise_prazosin.py*  
+│   └── *summarise_propranolol.py*  
 └── **utils**  
+    ├── *GLM_functions.py*  
     ├── *alignment_functions.py*  
-    ├── *common.py*  
+    ├── *behaviour_functions.py*  
+    ├── *common_functions.py*  
+    ├── *decay_time_analysis.py*  
     ├── *dsr1_functions.py*  
+    ├── *history_dependency_functions.py*  
+    ├── *imaging_pipeline_functions.py*  
+    ├── *imaging_pipeline_main_functions.py*  
+    ├── *imaging_utility_functions.py*  
     ├── *logger_module.py*  
     ├── *param_to_array.py*  
     ├── *peak_detection_functions.py*  
     ├── *plotting_functions.py*  
     ├── *preprocessing.py*  
-    └── *read_clu.py*  
-```
+    ├── *read_clu.py*  
+    ├── *single_unit.py*  
+    ├── *suite2p_functions.py*  
+    ├── *support_HPC.py*  
+    └── *support_LCHPC_axon.py*  
+``````
 
 ## pre-processing
 

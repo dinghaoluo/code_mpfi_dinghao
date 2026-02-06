@@ -19,7 +19,7 @@ from scipy.stats import wilcoxon, sem
 from scipy.optimize import curve_fit
 from scipy.ndimage import binary_dilation
 
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -55,9 +55,11 @@ XAXIS    = np.arange(N_BINS) / 10
 
 #%% main
 all_ROI_RI_bins      = []
+all_ROI_RI2_bins     = []
 all_neuropil_RI_bins = []
 
 all_ROI_RI_taus      = []
+all_ROI_RI2_taus     = []
 all_neuropil_RI_taus = [] 
 
 
@@ -67,12 +69,16 @@ for path in paths:
     print(f'\n{recname}')
 
     pixel_RI_path      = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_bins.npy'
+    pixel_RI_ch2_path  = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI2_bins.npy'
     pixel_RI_stim_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_stim.npy'
     roi_path           = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
     
     if not pixel_RI_path.exists():
         print('No pixel_RI array; skipped')
         continue 
+    if not pixel_RI_ch2_path.exists():
+        print('No pixel_RI_ch2 array; skipped')
+        continue
     if not pixel_RI_stim_path.exists():
         print('No pixel_RI_stim array; skipped')
         continue 
@@ -80,9 +86,10 @@ for path in paths:
         print('No roi_dict; skipped')
         continue
 
-    pixel_RI_bins = np.load(pixel_RI_path, allow_pickle=True)
-    pixel_RI_stim = np.load(pixel_RI_stim_path, allow_pickle=True)
-    roi_dict      = np.load(roi_path, allow_pickle=True).item()
+    pixel_RI_bins     = np.load(pixel_RI_path, allow_pickle=True)
+    pixel_RI_ch2_bins = np.load(pixel_RI_ch2_path, allow_pickle=True)
+    pixel_RI_stim     = np.load(pixel_RI_stim_path, allow_pickle=True)
+    roi_dict          = np.load(roi_path, allow_pickle=True).item()
 
     H, W, _ = pixel_RI_bins.shape
 
@@ -116,12 +123,14 @@ for path in paths:
     # ------------------
     # ... from ROI_mask 
     ROI_RI_bins      = np.nanmean(pixel_RI_bins[releasing_mask, :], axis=0)
+    ROI_RI2_bins     = np.nanmean(pixel_RI_ch2_bins[releasing_mask, :], axis=0)
     
     # ... and from anti_ROI_mask 
     neuropil_RI_bins = np.nanmean(pixel_RI_bins[anti_ROI_mask, :], axis=0)
     
     # append first 
     all_ROI_RI_bins.append(ROI_RI_bins)
+    all_ROI_RI2_bins.append(ROI_RI2_bins)
     all_neuropil_RI_bins.append(neuropil_RI_bins)
     
     # now we fit tau 
@@ -129,18 +138,21 @@ for path in paths:
     
     t0   = XAXIS[first_valid]
     B    = ROI_RI_bins[first_valid:].min()
+    B2   = ROI_RI2_bins[first_valid:].min()
     Bneu = neuropil_RI_bins[first_valid:].min() 
     
     t_fit    = XAXIS[first_valid:]
     y_fit    = ROI_RI_bins[first_valid:]
+    y2_fit   = ROI_RI2_bins[first_valid:]
     yneu_fit = neuropil_RI_bins[first_valid:]
     
     # nested functions for curve_fit — only A and tau are free
     def _fitfun(t, A, tau):
         return _exp_decay_fixed(t, A, tau, t0, B)
+    def _fitfun2(t, A, tau):
+        return _exp_decay_fixed(t, A, tau, t0, B2)
     def _fitfun_neu(t, A, tau):
         return _exp_decay_fixed(t, A, tau, t0, Bneu)
-    
     
     # fit ROIs first 
     try:
@@ -170,6 +182,33 @@ for path in paths:
     except RuntimeError:
         continue
     
+    # fit ROIs first -- red now  
+    try:
+        popt, _ = curve_fit(
+            _fitfun2,
+            t_fit,
+            y2_fit,
+            p0=[ROI_RI2_bins[first_valid] - B2, 1.0],
+            bounds=([0, 0], [np.inf, np.inf])
+        )
+        A_fit, tau_fit = popt
+        
+        # predict fitted decay
+        y_pred = _fitfun2(t_fit, A_fit, tau_fit)
+        
+        # compute R2
+        ss_res = np.sum((y2_fit - y_pred)**2)
+        ss_tot = np.sum((y2_fit - np.mean(y_fit))**2)
+        R2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0
+        
+        # require R2 > thres
+        if R2 < R2_THRES:
+            continue
+        
+        all_ROI_RI2_taus.append(tau_fit)
+    
+    except RuntimeError:
+        continue
     
     # then do neuropil 
     try:
@@ -205,10 +244,14 @@ for path in paths:
 
 #%% tau plot
 ROI_mat      = np.vstack(all_ROI_RI_bins)      # shape: nROI × nTime
+ROI2_mat     = np.vstack(all_ROI_RI2_bins)
 neuropil_mat = np.vstack(all_neuropil_RI_bins)
 
 ROI_mean = np.nanmean(ROI_mat, axis=0)
 ROI_sem  = sem(ROI_mat, axis=0, nan_policy='omit')
+
+ROI2_mean = np.nanmean(ROI2_mat, axis=0)
+ROI2_sem  = sem(ROI2_mat, axis=0, nan_policy='omit')
 
 neuropil_mean = np.nanmean(neuropil_mat, axis=0)
 neuropil_sem  = sem(neuropil_mat, axis=0, nan_policy='omit')
@@ -223,6 +266,14 @@ ax.fill_between(
     ROI_mean - ROI_sem,
     ROI_mean + ROI_sem,
     color='darkgreen', alpha=.3, linewidth=0, edgecolor='none'
+)
+
+ax.plot(XAXIS, ROI2_mean, color='darkred', label='LC axons (ctrl.)')
+ax.fill_between(
+    XAXIS,
+    ROI2_mean - ROI2_sem,
+    ROI2_mean + ROI2_sem,
+    color='darkred', alpha=.3, linewidth=0, edgecolor='none'
 )
 
 ax.plot(XAXIS, neuropil_mean, color='grey', label='Neuropil')
@@ -256,8 +307,9 @@ for ext in ['.png', '.pdf']:
 #%% tau histogram
 bins = np.linspace(0, 4, 21)
 
-ROI_taus = np.array(all_ROI_RI_taus)
-NEU_taus = np.array(all_neuropil_RI_taus)
+ROI_taus  = np.array(all_ROI_RI_taus)
+ROI2_taus = np.array(all_ROI_RI2_taus)
+NEU_taus  = np.array(all_neuropil_RI_taus)
 
 fig, ax = plt.subplots(figsize=(3, 2.4))
 
@@ -271,6 +323,15 @@ ax.hist(
     )
 
 ax.hist(
+    ROI2_taus,
+    bins=bins,
+    color='darkred',
+    alpha=0.6,
+    edgecolor='none',
+    label='ROI (ctrl.)'
+    )
+
+ax.hist(
     NEU_taus,
     bins=bins,
     color='grey',
@@ -280,26 +341,34 @@ ax.hist(
     )
 
 # medians + IQRs
-if ROI_taus.size > 0:
-    q1_roi, med_roi, q3_roi = np.percentile(ROI_taus, [25, 50, 75])
-    ax.axvline(med_roi, color='darkgreen', linestyle='--', lw=1)
-    ax.text(
-        0.02, 0.95,
-        f'ROI median = {med_roi:.2f}s\nIQR = [{q1_roi:.2f}, {q3_roi:.2f}]',
-        transform=ax.transAxes,
-        va='top', ha='left',
-        fontsize=7, color='darkgreen'
-    )
+q1_roi, med_roi, q3_roi = np.percentile(ROI_taus, [25, 50, 75])
+ax.axvline(med_roi, color='darkgreen', linestyle='--', lw=1)
+ax.text(
+    0.02, 0.95,
+    f'ROI median = {med_roi:.2f}s\nIQR = [{q1_roi:.2f}, {q3_roi:.2f}]',
+    transform=ax.transAxes,
+    va='top', ha='left',
+    fontsize=7, color='darkgreen'
+)
 
-if NEU_taus.size > 0:
-    q1_neu, med_neu, q3_neu = np.percentile(NEU_taus, [25, 50, 75])
-    ax.axvline(med_neu, color='grey', linestyle='--', lw=1)
-    ax.text(
-        0.02, 0.85,
-        f'Neuropil median = {med_neu:.2f}s\nIQR = [{q1_neu:.2f}, {q3_neu:.2f}]',
-        transform=ax.transAxes,
-        va='top', ha='left',
-        fontsize=7, color='grey'
+q1_roi2, med_roi2, q3_roi2 = np.percentile(ROI2_taus, [25, 50, 75])
+ax.axvline(med_roi2, color='darkred', linestyle='--', lw=1)
+ax.text(
+    0.02, 0.95,
+    f'ROI (ctrl.) median = {med_roi2:.2f}s\nIQR = [{q1_roi2:.2f}, {q3_roi2:.2f}]',
+    transform=ax.transAxes,
+    va='top', ha='left',
+    fontsize=7, color='darkred'
+)
+
+q1_neu, med_neu, q3_neu = np.percentile(NEU_taus, [25, 50, 75])
+ax.axvline(med_neu, color='grey', linestyle='--', lw=1)
+ax.text(
+    0.02, 0.85,
+    f'Neuropil median = {med_neu:.2f}s\nIQR = [{q1_neu:.2f}, {q3_neu:.2f}]',
+    transform=ax.transAxes,
+    va='top', ha='left',
+    fontsize=7, color='grey'
     )
 
 ax.set(

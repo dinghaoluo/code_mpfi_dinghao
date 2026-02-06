@@ -21,7 +21,7 @@ from scipy.stats import ttest_1samp, wilcoxon, mannwhitneyu
 from statsmodels.stats.multitest import multipletests
 from scipy.ndimage import binary_dilation
 
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -44,8 +44,8 @@ save_stem     = Path(r'Z:\Dinghao\code_dinghao\HPC_dLight_LC_opto\dispersion_ana
 
 #%% parameters
 STRUCT = np.ones((3, 3), dtype=bool)
-DILATE_STEP = 2
-MAX_DILATE = 10
+DILATE_STEP = 1
+MAX_DILATE = 20
 EDGE = 6
 
 ALPHA  = 0.05
@@ -143,19 +143,36 @@ for path in paths:
                 dilation_results_all[wname][roi_id][dilation] = val_mean 
                 
         # plot ring masks 
-        fig, axes = plt.subplots(1, len(ring_masks), figsize=(12, 2))
-        if len(ring_masks) == 1:
-            axes = [axes]
-        for j, (d, mask) in enumerate(sorted(ring_masks.items())):
-            axes[j].imshow(mask.astype(int), cmap='gray')
-            axes[j].set_title(f'{d}px', fontsize=8)
-            axes[j].axis('off')
+        sorted_items = sorted(ring_masks.items())  # (dilation, mask)
+
+        row1 = sorted_items[:10]   # 0–9 px
+        row2 = sorted_items[10:]   # 10–20 px
+        
+        ncols = max(len(row1), len(row2))  # 11
+        
+        fig, axes = plt.subplots(2, ncols, figsize=(1.2 * ncols, 3))
+        
+        # first row
+        for j, (d, mask) in enumerate(row1):
+            axes[0, j].imshow(mask.astype(int), cmap='gray')
+            axes[0, j].set_title(f'{d}px', fontsize=8)
+            axes[0, j].axis('off')
+        
+        # second row
+        for j, (d, mask) in enumerate(row2):
+            axes[1, j].imshow(mask.astype(int), cmap='gray')
+            axes[1, j].set_title(f'{d}px', fontsize=8)
+            axes[1, j].axis('off')
+        
+        # hide unused axes (row 1 col 10)
+        for j in range(len(row1), ncols):
+            axes[0, j].axis('off')
         fig.suptitle(f'{recname} – ROI {roi_id}', fontsize=10)
         plt.tight_layout()
 
         savepath = save_stem / 'all_ring_masks' / f'{recname}_ROI{roi_id}_rings'
         for ext in ['.png', '.pdf']:
-            fig.savefig(f'{savepath}{ext}', dpi=200)
+            fig.savefig(f'{savepath}{ext}', dpi=550)
         plt.close(fig)
 
 

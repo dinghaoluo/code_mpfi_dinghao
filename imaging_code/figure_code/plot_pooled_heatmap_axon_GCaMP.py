@@ -17,7 +17,7 @@ from scipy.stats import sem
 import matplotlib.pyplot as plt
 import pandas as pd 
 
-from common import mpl_formatting, smooth_convolve, normalise
+from common_functions import mpl_formatting, smooth_convolve, normalise
 mpl_formatting()
 
 import rec_list
@@ -130,6 +130,16 @@ for path in paths[1:]:
         all_RO_peak     = np.vstack((all_RO_peak, temp_RO_peak))
         all_RO_peak_ch2 = np.vstack((all_RO_peak_ch2, temp_RO_peak_ch2))
     
+
+#%% artefact processing 
+row_std     = np.std(all_RO_peak, axis=1)
+row_std_ch2 = np.std(all_RO_peak_ch2, axis=1)
+
+good_mask = (row_std <= 1) & (row_std_ch2 <= 1)
+
+all_RO_peak     = all_RO_peak[good_mask, :]
+all_RO_peak_ch2 = all_RO_peak_ch2[good_mask, :]
+
     
 #%% noramlisation 
 tot_rois = pooled_ROIs.shape[0]
@@ -144,7 +154,7 @@ fig, ax = plt.subplots(figsize=(2.6,2.1))
 ax.set(xlabel='Time from run onset (s)',
        ylabel='ROI #')
 ax.set_aspect('equal')
-fig.suptitle('LC-CA1 GCaMP')
+fig.suptitle('LC–CA1 GCaMP')
 
 im_ordered = ax.imshow(im_matrix, 
                        cmap='viridis', aspect='auto', extent=(-1, 4, 0, tot_rois))
@@ -158,18 +168,11 @@ for ext in ['.png', '.pdf']:
         )
     
 
-#%% run onset peaks?
-run_onset_peaks = df['run_onset_peak']
-
-print(f'Percentage of run-onset-peaking axon ROIs: {sum(run_onset_peaks) / len(run_onset_peaks) * 100}%')
-
-
 #%% mean trace of run-onset-peaking ROIs
-mean_RO_peak     = np.mean(all_RO_peak, axis=0)
+mean_RO_peak     = np.nanmean(all_RO_peak, axis=0)
 sem_RO_peak      = sem(all_RO_peak, axis=0)
-mean_RO_peak_ch2 = np.mean(all_RO_peak_ch2, axis=0)
+mean_RO_peak_ch2 = np.nanmean(all_RO_peak_ch2, axis=0)
 sem_RO_peak_ch2  = sem(all_RO_peak_ch2, axis=0)
-
 
 # plotting 
 fig, ax = plt.subplots(figsize=(2.4, 1.8))
@@ -200,3 +203,79 @@ for ext in ['.png', '.pdf']:
         dpi=300,
         bbox_inches='tight'
     )
+    
+
+#%% peak time 
+peak_idx    = np.argmax(pooled_ROIs, axis=1)
+peak_idx_RO = np.argmax(all_RO_peak, axis=0)
+
+# convert to time 
+peak_time    = XAXIS[peak_idx]
+RO_peak      = peak_time[peak_time<0.5 and peak_time>-0.5]
+
+peak_time_RO = XAXIS[peak_idx_RO]
+
+# summary
+mean_peak_time = np.mean(peak_time_RO)
+sem_peak_time  = sem(peak_time_RO)
+
+print(f'peak time = {mean_peak_time:.3f} ± {sem_peak_time:.3f} s')
+print(f'run-onset peak: n={len(RO_peak)}/{len(peak_time)}; perc={len(RO_peak)/len(peak_time)}')
+
+
+#%% histogram of run-onset peak time
+hist_stem = axon_GCaMP_stem / 'peak_time_histograms'
+hist_stem.mkdir(parents=True, exist_ok=True)
+
+TIME_MIN  = -1
+TIME_MAX  = 4
+BIN_WIDTH = 0.1
+bins = np.arange(TIME_MIN, TIME_MAX + BIN_WIDTH, BIN_WIDTH)
+
+vals = peak_time[np.isfinite(peak_time)]
+
+if len(vals) == 0:
+    print('no valid peak times, skipped')
+else:
+    fig, ax = plt.subplots(figsize=(2.4, 2.1))
+
+    ax.hist(
+        vals,
+        bins=bins,
+        color='lightgreen',
+        edgecolor='none',
+        linewidth=0.4
+    )
+
+    # median + IQR
+    q25, med, q75 = np.percentile(vals, [25, 50, 75])
+
+    ax.axvline(med, color='darkgreen', linestyle='--', lw=1)
+
+    ax.text(
+        0.9, 0.98,
+        f'Median = {med:.2f} s\nIQR = [{q25:.2f}, {q75:.2f}]',
+        transform=ax.transAxes,
+        ha='right',
+        va='top',
+        fontsize=7,
+        color='darkgreen'
+    )
+
+    # run onset
+    ax.axvline(0, color='red', linestyle=':', lw=1)
+
+    ax.spines[['top', 'right']].set_visible(False)
+    ax.set(
+        xlabel='Peak time from run onset (s)',
+        ylabel='ROI count',
+        xlim=(TIME_MIN, TIME_MAX),
+        title='Run-onset peak timing'
+    )
+
+    for ext in ['.pdf', '.png']:
+        fig.savefig(
+            hist_stem / f'peak_time_hist{ext}',
+            dpi=300,
+            bbox_inches='tight'
+        )

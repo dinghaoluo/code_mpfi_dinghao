@@ -312,7 +312,8 @@ def calculate_dFF_percentile(
     if not CHUNK:
         if GPU_AVAILABLE:
             import cupy as cp
-            print(f'Device: {device_name}')
+            if device_name != '':
+                print(f'Device: {device_name}')
             F = cp.asarray(F_array, dtype=cp.float32)
         else:
             F = F_array.astype(np.float32, copy=False)
@@ -1103,10 +1104,11 @@ def detect_step_pairs(trace, zthr=100, min_interval_frames=30):
     mad = np.nanmedian(np.abs(d - m)) + 1e-12
     z = (d - m) / mad
 
-    fig, ax = plt.subplots(figsize=(3,3))
-    ax.plot(z)
-    ax.set(ylim=(-100,100))
-    plt.show()
+    # debugging 
+    # fig, ax = plt.subplots(figsize=(3,3))
+    # ax.plot(z)
+    # ax.set(ylim=(-100,100))
+    # plt.show()
 
     # detect all large steps (ignore sign)
     cand = np.where(np.abs(z) > zthr)[0] + 1

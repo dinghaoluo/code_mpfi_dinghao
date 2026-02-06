@@ -26,7 +26,7 @@ import tifffile
 
 import imaging_pipeline_functions as ipf
 from plotting_functions import plot_violin_with_scatter, add_scale_bar
-from common import mpl_formatting, get_GPU_availability
+from common_functions import mpl_formatting, get_GPU_availability
 mpl_formatting()
 
 import rec_list
@@ -36,7 +36,7 @@ paths = rec_list.pathdLightLCOpto + \
         rec_list.pathdLightLCOptoDbhBlock
         
 # GPU acceleration
-cp, GPU_AVAILABLE = get_GPU_availability()
+cp, GPU_AVAILABLE, device_name = get_GPU_availability()
 
 
 #%% parameters 
@@ -95,15 +95,18 @@ def main(path):
     raw_trace = np.sum(mov, axis=(1,2))
     raw_trace2 = np.sum(mov2, axis=(1,2))
     
-    # dFF traces are ONLY used for▲ plotting figure 1 now
-    print('computing dFF traces...')
-    trace_dFF = ipf.calculate_dFF_percentile(raw_trace, sigma=300, t_axis=0,
-                                             GPU_AVAILABLE=GPU_AVAILABLE)
-    trace2_dFF = ipf.calculate_dFF_percentile(raw_trace2, sigma=300, t_axis=0,
+    # dFF traces are ONLY used for plotting figure 1 now
+    print('Computing dFF traces...')
+    trace_dFF  = ipf.calculate_dFF_percentile(raw_trace, 
+                                              t_axis=0,
+                                              window_size=9000, 
+                                              pct=15,  # changed from default (10), 5 Feb 2026
                                               GPU_AVAILABLE=GPU_AVAILABLE)
-    
-    plt.plot(trace2_dFF)
-    
+    trace2_dFF = ipf.calculate_dFF_percentile(raw_trace2, 
+                                              t_axis=0,
+                                              window_size=9000,
+                                              pct=15,  # changed from default (10), 5 Feb 2026
+                                              GPU_AVAILABLE=GPU_AVAILABLE)    
     
     # ---------------------------
     # determine stim. timestamps
@@ -114,7 +117,7 @@ def main(path):
     
     # we first read the .txt file to figure out how long the pulse trains are 
     #   in this recording and to plot the example pulse trace 
-    print('retrieving stim. parameters...')
+    print('Retrieving stim. parameters...')
     txt = ipf.process_txt_nobeh(txtpath)
     
     # load frame times and check $FM against tot_frame
@@ -199,12 +202,12 @@ def main(path):
             max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
     elif 0 < len(detected_onsets):
         max_stim_duration_s = max(detected_stim_durations) / SAMP_FREQ
-        detection_printout = (f'''detected based on channel 2:
+        detection_printout = (f'''Detected based on channel 2:
             {len(detected_onsets)} candidate stim. onset-offset pairs
             max stim. duration: {max(detected_stim_durations)} frames ({max_stim_duration_s} s)''')
         print(detection_printout)
     else:
-        print('no detected onset-offset pairs; falling back to .txt pulse_times')
+        print('No detected onset-offset pairs; falling back to .txt pulse_times')
         pulse_frames = [
             [ipf.find_nearest(p, frame_times) for p in train]
             for train in pulse_trains
@@ -234,7 +237,7 @@ def main(path):
         if on - BEF*SAMP_FREQ >= 0 and off + AFT*SAMP_FREQ <= tot_frames
     ]
     tot_valid_pulses = len(valid_pulse_start_frames)
-    print(f'valid stim. events for alignment: {tot_valid_pulses}')
+    print(f'Valid stim. events for alignment: {tot_valid_pulses}')
     
     # post-stim dispersion calculation, 10 Sept 2025
     BIN_START = max_stim_duration_s
@@ -247,7 +250,7 @@ def main(path):
     
     
     # pulse processing 
-    print('extracting data...')
+    print('Extracting data...')
     
     # filter for opto artefact periods 
     pulse_period_frames = np.concatenate([
@@ -287,7 +290,7 @@ def main(path):
     
     # block out the stim period
     blocked_on  = BEF * SAMP_FREQ - 1  # -1 frame as a buffer 
-    blocked_off = BEF * SAMP_FREQ + max_stim_duration
+    blocked_off = BEF * SAMP_FREQ + int(max_stim_duration_s * SAMP_FREQ)
     trace_dFF_aligned_mean[blocked_on : blocked_off]  = np.nan
     trace2_dFF_aligned_mean[blocked_on : blocked_off] = np.nan
     

@@ -98,8 +98,13 @@ def get_GPU_availability():
             dev_id = cp.cuda.runtime.getDevice()
             props = cp.cuda.runtime.getDeviceProperties(dev_id)
             device_name = props['name'].decode()
+            
+            print(f'GPU status: AVAILABLE ({device_name})')
             return cp, True, device_name
+        else:
+            print('GPU status: NOT AVAILABLE')
     except Exception:
+        print('GPU status: NOT AVAILABLE')
         return None, False, None
 
 
