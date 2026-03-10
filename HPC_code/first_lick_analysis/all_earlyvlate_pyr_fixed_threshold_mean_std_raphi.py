@@ -255,6 +255,10 @@ profiles = {}
 sess_early_speed_means = []
 sess_late_speed_means = []
 
+# run-onset acceleration (post speed-matching)
+sess_early_accel_means = []
+sess_late_accel_means  = []
+
 # speed BEFORE matching 
 sess_early_speed_means_raw = []
 sess_late_speed_means_raw = []
@@ -449,6 +453,33 @@ for cluname in all_valid_clunames:
                 skip_flag = True
                 continue
             
+            # accel
+            ACC_N = int(1 * SAMP_FREQ)
+
+            early_acc_trials = []
+            late_acc_trials  = []
+            
+            for t in matched_early:
+                sp = [pt[1] for pt in speed_times[t]]
+                if len(sp) >= ACC_N + 1:
+                    s = np.asarray(sp[:ACC_N + 1], dtype=float)
+                    a = np.diff(s) * SAMP_FREQ
+                    early_acc_trials.append(np.nanmean(a))
+            
+            for t in matched_late:
+                sp = [pt[1] for pt in speed_times[t]]
+                if len(sp) >= ACC_N + 1:
+                    s = np.asarray(sp[:ACC_N + 1], dtype=float)
+                    a = np.diff(s) * SAMP_FREQ
+                    late_acc_trials.append(np.nanmean(a))
+            
+            early_acc_trials = np.asarray(early_acc_trials)
+            late_acc_trials  = np.asarray(late_acc_trials)
+            
+            if early_acc_trials.size and late_acc_trials.size:
+                sess_early_accel_means.append(np.nanmean(early_acc_trials))
+                sess_late_accel_means.append(np.nanmean(late_acc_trials))
+            
             # collect session means for later plotting 
             e_mean_sp = _session_mean_speed(matched_early, speed_times, n=4000)
             l_mean_sp = _session_mean_speed(matched_late, speed_times, n=4000)
@@ -457,58 +488,58 @@ for cluname in all_valid_clunames:
                 sess_early_speed_means.append(e_mean_sp)
                 sess_late_speed_means.append(l_mean_sp)
             
-            # plot trace examples + per-bin independent t-tests (500 ms, 7 bins)
-            fig, ax = plt.subplots(figsize=(2.8, 1.6))
+            # # plot trace examples + per-bin independent t-tests (500 ms, 7 bins)
+            # fig, ax = plt.subplots(figsize=(2.8, 1.6))
             
-            time_sec = np.arange(3500) / 1000.0
-            for i in range(min(10, len(matched_early))):
-                sp = [pt[1] for pt in speed_times[matched_early[i]]]
-                ax.plot(time_sec, sp[:3500], color='grey', alpha=0.5)
-            for i in range(min(10, len(matched_late))):
-                sp = [pt[1] for pt in speed_times[matched_late[i]]]
-                ax.plot(time_sec, sp[:3500], color=(0.2, 0.35, 0.65), alpha=0.5)
+            # time_sec = np.arange(3500) / 1000.0
+            # for i in range(min(10, len(matched_early))):
+            #     sp = [pt[1] for pt in speed_times[matched_early[i]]]
+            #     ax.plot(time_sec, sp[:3500], color='grey', alpha=0.5)
+            # for i in range(min(10, len(matched_late))):
+            #     sp = [pt[1] for pt in speed_times[matched_late[i]]]
+            #     ax.plot(time_sec, sp[:3500], color=(0.2, 0.35, 0.65), alpha=0.5)
             
-            E_b = _trial_bin_means(matched_early)  # shape: nE x 7
-            L_b = _trial_bin_means(matched_late)   # shape: nL x 7
+            # E_b = _trial_bin_means(matched_early)  # shape: nE x 7
+            # L_b = _trial_bin_means(matched_late)   # shape: nL x 7
             
-            # per-bin t test for sanity check 
-            n_bins = 7
-            bin_size = 500
-            pvals = np.ones(n_bins)
-            for i in range(n_bins):
-                e = E_b[:, i] if E_b.size else np.array([])
-                l = L_b[:, i] if L_b.size else np.array([])
-                if e.size >= 2 and l.size >= 2:
-                    t, p = ttest_ind(e, l, equal_var=False)
-                    pvals[i] = p
+            # # per-bin t test for sanity check 
+            # n_bins = 7
+            # bin_size = 500
+            # pvals = np.ones(n_bins)
+            # for i in range(n_bins):
+            #     e = E_b[:, i] if E_b.size else np.array([])
+            #     l = L_b[:, i] if L_b.size else np.array([])
+            #     if e.size >= 2 and l.size >= 2:
+            #         t, p = ttest_ind(e, l, equal_var=False)
+            #         pvals[i] = p
             
-            # skip session if any bin differs
-            # if np.any(pvals < 0.05):
-            #     print('Session rejected for unequal speeds (binwise t-test)')
-            #     continue
+            # # skip session if any bin differs
+            # # if np.any(pvals < 0.05):
+            # #     print('Session rejected for unequal speeds (binwise t-test)')
+            # #     continue
             
-            # annotate bars + p-values above each 500 ms bin
-            ymin, ymax = ax.get_ylim()
-            yr = ymax - ymin if ymax > ymin else 1.0
-            bar_y  = ymax + 0.06 * yr
-            text_y = ymax + 0.11 * yr
+            # # annotate bars + p-values above each 500 ms bin
+            # ymin, ymax = ax.get_ylim()
+            # yr = ymax - ymin if ymax > ymin else 1.0
+            # bar_y  = ymax + 0.06 * yr
+            # text_y = ymax + 0.11 * yr
             
-            for i in range(n_bins):
-                x_left  = i * bin_size / 1000 + .1
-                x_right = (i + 1) * bin_size / 1000 - .1
-                ax.hlines(bar_y, x_left, x_right, color='k', lw=1)
-                ax.text((x_left + x_right) / 2.0, text_y, f'p={pvals[i]:.3f}',
-                        ha='center', va='bottom', fontsize=5)
+            # for i in range(n_bins):
+            #     x_left  = i * bin_size / 1000 + .1
+            #     x_right = (i + 1) * bin_size / 1000 - .1
+            #     ax.hlines(bar_y, x_left, x_right, color='k', lw=1)
+            #     ax.text((x_left + x_right) / 2.0, text_y, f'p={pvals[i]:.3f}',
+            #             ha='center', va='bottom', fontsize=5)
             
-            ax.set(xlabel='Time (s)', ylabel='Speed (cm/s)', title=f'{recname} bin-filtered')
-            for s in ['top', 'right']:
-                ax.spines[s].set_visible(False)
-            fig.tight_layout()
+            # ax.set(xlabel='Time (s)', ylabel='Speed (cm/s)', title=f'{recname} bin-filtered')
+            # for s in ['top', 'right']:
+            #     ax.spines[s].set_visible(False)
+            # fig.tight_layout()
             
-            vis_path = first_lick_stem / 'single_session_speed_matching' / f'{recname}_bin_filtered_speed_traces'
-            for ext in ['.pdf', '.png']:
-                fig.savefig(f'{vis_path}{ext}', dpi=200)
-            plt.close(fig)
+            # vis_path = first_lick_stem / 'single_session_speed_matching' / f'{recname}_bin_filtered_speed_traces'
+            # for ext in ['.pdf', '.png']:
+            #     fig.savefig(f'{vis_path}{ext}', dpi=200)
+            # plt.close(fig)
 
 
     ## ---- accumulate data
@@ -661,6 +692,22 @@ plot_violin_with_scatter(mean_E, mean_L,
                          print_statistics=True,
                          save=True,
                          savepath=first_lick_stem / 'speed_post_matched_violin')
+
+# do acceleration as well 
+ea = np.asarray(sess_early_accel_means, dtype=float)
+la = np.asarray(sess_late_accel_means, dtype=float)
+
+mask = np.isfinite(ea) & np.isfinite(la)
+ea = ea[mask]
+la = la[mask]
+
+plot_violin_with_scatter(ea, la, 
+                         early_c, late_c,
+                         ylabel='Acceleration (cm/s^2)',
+                         xticklabels=['Early', 'Late'],
+                         print_statistics=True,
+                         save=True,
+                         savepath=first_lick_stem / 'accel_post_matched_violin')
 
 
 #%% mean spiking curves (ON) for early v late 

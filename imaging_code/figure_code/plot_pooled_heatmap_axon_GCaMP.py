@@ -206,21 +206,14 @@ for ext in ['.png', '.pdf']:
     
 
 #%% peak time 
-peak_idx    = np.argmax(pooled_ROIs, axis=1)
-peak_idx_RO = np.argmax(all_RO_peak, axis=0)
-
-# convert to time 
-peak_time    = XAXIS[peak_idx]
-RO_peak      = peak_time[peak_time<0.5 and peak_time>-0.5]
-
-peak_time_RO = XAXIS[peak_idx_RO]
+peak_idx  = np.argmax(all_RO_peak, axis=1)
+peak_time = XAXIS[peak_idx]
 
 # summary
-mean_peak_time = np.mean(peak_time_RO)
-sem_peak_time  = sem(peak_time_RO)
+med_peak_time = np.median(peak_time)
+q25, q75      = np.percentile(peak_time, [25, 75])
 
-print(f'peak time = {mean_peak_time:.3f} ± {sem_peak_time:.3f} s')
-print(f'run-onset peak: n={len(RO_peak)}/{len(peak_time)}; perc={len(RO_peak)/len(peak_time)}')
+print(f'peak time: median = {med_peak_time:.3f} s, [{q25:.3f}, {q75:.3f}] s')
 
 
 #%% histogram of run-onset peak time

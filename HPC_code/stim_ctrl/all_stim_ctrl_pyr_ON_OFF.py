@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import sem, linregress, ranksums, ttest_ind, wilcoxon, ttest_rel
 import pandas as pd
 
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -142,7 +142,7 @@ df_pyr = cell_profiles[cell_profiles['cell_identity'] == 'pyr']
 
 
 #%% HPCLC
-exp   = 'HPCLC'
+exp   = 'HPCLCterm'
 paths = pathHPCLCopt
 
 mean_prof_ctrl_all_ON, mean_prof_stim_all_ON   = [], []

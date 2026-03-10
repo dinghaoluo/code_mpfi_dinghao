@@ -20,7 +20,7 @@ import scipy.io as sio
 from scipy.stats import sem, wilcoxon
 
 import plotting_functions as pf
-from common import mpl_formatting, smooth_convolve
+from common_functions import mpl_formatting, smooth_convolve
 mpl_formatting()
 
 import rec_list

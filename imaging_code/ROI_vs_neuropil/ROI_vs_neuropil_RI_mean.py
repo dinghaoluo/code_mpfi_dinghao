@@ -49,23 +49,23 @@ MIN_RI = 0.1
 #%% main
 # initialise containers
 all_ROI_RIs      = []
+all_ROI_RI2s     = []
 all_neuropil_RIs = []
-
 
 # loop
 for path in paths:
     recname = Path(path).name
     print(f'\n{recname}')
 
-    pixel_RI_bin_path  = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_bins.npy'
-    pixel_RI_stim_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_stim.npy'
-    roi_dict_path      = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
+    pixel_RI_stim_path  = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_stim.npy'
+    pixel_RI2_stim_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_ch2_stim.npy'
+    roi_dict_path       = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
 
-    if not pixel_RI_bin_path.exists():
-        print('No pixel_RI_bin; skipped')
-        continue
     if not pixel_RI_stim_path.exists():
         print('No pixel_RI_stim; skipped')
+        continue
+    if not pixel_RI2_stim_path.exists():
+        print('No pixel_RI2_stim; skipped')
         continue
     if not roi_dict_path.exists():
         print('No roi_dict; skipped')
@@ -73,9 +73,9 @@ for path in paths:
 
     # load data
     print('Loading data...')
-    pixel_RI_bin  = np.load(pixel_RI_bin_path, allow_pickle=True)
-    pixel_RI_stim = np.load(pixel_RI_stim_path, allow_pickle=True)
-    roi_dict      = np.load(roi_dict_path, allow_pickle=True).item()
+    pixel_RI_stim  = np.load(pixel_RI_stim_path, allow_pickle=True)
+    pixel_RI2_stim = np.load(pixel_RI2_stim_path, allow_pickle=True)
+    roi_dict       = np.load(roi_dict_path, allow_pickle=True).item()
 
     # ---- identify releasing ROIs ----
     releasing = {}
@@ -103,14 +103,17 @@ for path in paths:
     anti_ROI_mask = ~ROI_dilated 
     
     # get med of pixel_RI_stim 
-    pixel_RI_stim_med = np.nanmedian(pixel_RI_stim, axis=2)
+    pixel_RI_stim_med  = np.nanmedian(pixel_RI_stim, axis=2)
+    pixel_RI2_stim_med = np.nanmedian(pixel_RI2_stim, axis=2)
     
     # get ROI and neuropil RI medians
     ROI_RI_med      = np.nanmedian(pixel_RI_stim_med[releasing_mask])
+    ROI_RI2_med     = np.nanmedian(pixel_RI2_stim_med[releasing_mask])
     neuropil_RI_med = np.nanmedian(pixel_RI_stim_med[anti_ROI_mask])
     
     # append 
     all_ROI_RIs.append(ROI_RI_med)
+    all_ROI_RI2s.append(ROI_RI2_med)
     all_neuropil_RIs.append(neuropil_RI_med)
     
     # sanity check: flat grey background + neuropil + ROI overlay
@@ -146,7 +149,15 @@ for path in paths:
 plot_violin_with_scatter(all_neuropil_RIs, all_ROI_RIs, 
                          'grey', 'darkgreen',
                          xticklabels=['Neuropil', 'ROI'],
-                         ylabel='RI',
+                         ylabel='dLight RI',
                          save=True,
                          print_statistics=True,
                          savepath=save_stem / 'neuropil_vs_ROI_violin')
+
+plot_violin_with_scatter(all_ROI_RI2s, all_ROI_RIs, 
+                         'darkred', 'darkgreen',
+                         xticklabels=['ROI (ctrl.)', 'ROI'],
+                         ylabel='RI',
+                         save=True,
+                         print_statistics=True,
+                         savepath=save_stem / 'ROIctrl_vs_ROI_violin')

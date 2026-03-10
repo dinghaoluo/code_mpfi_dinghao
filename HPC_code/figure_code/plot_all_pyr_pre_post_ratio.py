@@ -27,7 +27,7 @@ df_pyr = df[df['cell_identity']=='pyr']
 #%% functions
 sys.path.append(r'Z:\Dinghao\code_mpfi_dinghao\utils')
 from plotting_functions import plot_violin_with_scatter, plot_bar_with_paired_scatter
-from common import normalise, normalise_to_all, mpl_formatting
+from common_functions import normalise, normalise_to_all, mpl_formatting
 mpl_formatting()
 
 def compute_mean_and_sem(arr):

@@ -18,7 +18,7 @@ from scipy.interpolate import interp1d
 import pandas as pd
 from scipy.stats import mannwhitneyu
 
-from common import mpl_formatting, colour_putative, colour_tagged, colour_other
+from common_functions import mpl_formatting, colour_putative, colour_tagged, colour_other
 mpl_formatting()
 
 
@@ -120,6 +120,45 @@ def _accumulate_info(df: pd.DataFrame,
         asymmetry_dict[f'{identity}'].append(asymmetry)
         spike_width_dict[f'{identity}'].append(spike_width)
         spike_rate_dict[f'{identity}'].append(spike_rate)
+        
+def _print_boxplot_stats(data_dict, label, log_transformed=False):
+    """
+    print median, IQR, n, and pairwise MWU statistics for boxplot groups.
+    """
+    print(f'\n--- {label} ---')
+
+    groups = ['tagged', 'putative', 'other']
+    names  = {
+        'tagged': 'tagged',
+        'putative': 'putative Dbh+',
+        'other': 'putative Dbh-'
+    }
+
+    # summary stats
+    for g in groups:
+        vals = np.asarray(data_dict[g])
+        vals = vals[np.isfinite(vals)]
+        med = np.median(vals)
+        q1, q3 = np.percentile(vals, [25, 75])
+        print(f'{names[g]:>14s}: n={len(vals):3d}, '
+              f'{med:.3f} [{q1:.3f}, {q3:.3f}]')
+
+    # pairwise MWU
+    pairs = [
+        ('tagged', 'putative'),
+        ('tagged', 'other'),
+        ('putative', 'other')
+    ]
+
+    print('MWU tests:')
+    for g1, g2 in pairs:
+        u, p = mannwhitneyu(
+            data_dict[g1],
+            data_dict[g2],
+            alternative='two-sided'
+        )
+        print(f'  {names[g1]} vs {names[g2]}: '
+              f'U={u:.1f}, p={p:.3g}')
 
 
 #%% load data 
@@ -192,20 +231,14 @@ spike_width_tagged   = [sw for sw in spike_width_dict['tagged'] if not np.isnan(
 spike_width_putative = [sw for sw in spike_width_dict['putative'] if not np.isnan(sw)]
 spike_width_other    = [sw for sw in spike_width_dict['other'] if not np.isnan(sw)]
 
-
-print('\n--- Spike width (ms): median [Q1, Q3] ---')
-
-med = np.median(spike_width_tagged)
-q1, q3 = np.percentile(spike_width_tagged, [25, 75])
-print(f'tagged:   {med:.3f} [{q1:.3f}, {q3:.3f}]')
-
-med = np.median(spike_width_putative)
-q1, q3 = np.percentile(spike_width_putative, [25, 75])
-print(f'putative: {med:.3f} [{q1:.3f}, {q3:.3f}]')
-
-med = np.median(spike_width_other)
-q1, q3 = np.percentile(spike_width_other, [25, 75])
-print(f'other:    {med:.3f} [{q1:.3f}, {q3:.3f}]')
+_print_boxplot_stats(
+    {
+        'tagged': spike_width_tagged,
+        'putative': spike_width_putative,
+        'other': spike_width_other
+    },
+    label='Spike width (ms)'
+)
 
 
 #%% plotting (spike width)
@@ -312,20 +345,14 @@ spike_rate_tagged_logged = [np.log(t) for t in spike_rate_dict['tagged']]
 spike_rate_putative_logged = [np.log(t) for t in spike_rate_dict['putative']]
 spike_rate_other_logged = [np.log(t) for t in spike_rate_dict['other']]
 
-
-print('\n--- log spike rate (Hz): median [Q1, Q3] ---')
-
-med = np.median(spike_rate_tagged_logged)
-q1, q3 = np.percentile(spike_rate_tagged_logged, [25, 75])
-print(f'tagged:   {med:.3f} [{q1:.3f}, {q3:.3f}]')
-
-med = np.median(spike_rate_putative_logged)
-q1, q3 = np.percentile(spike_rate_putative_logged, [25, 75])
-print(f'putative: {med:.3f} [{q1:.3f}, {q3:.3f}]')
-
-med = np.median(spike_rate_other_logged)
-q1, q3 = np.percentile(spike_rate_other_logged, [25, 75])
-print(f'other:    {med:.3f} [{q1:.3f}, {q3:.3f}]')
+_print_boxplot_stats(
+    {
+        'tagged': spike_rate_tagged_logged,
+        'putative': spike_rate_putative_logged,
+        'other': spike_rate_other_logged
+    },
+    label='log firing rate (Hz)'
+)
 
 
 #%% plotting (firing rate)

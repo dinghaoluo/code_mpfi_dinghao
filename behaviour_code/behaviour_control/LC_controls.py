@@ -23,7 +23,7 @@ import rec_list
 paths = rec_list.pathLC
 
 import plotting_functions as pf
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 
@@ -100,6 +100,10 @@ all_init_speeds = []
 all_init_accel  = []
 all_init_FR     = []
 
+# counters 
+animals = set()
+n_sess  = 0
+
 for path in paths:
     recname = Path(path).name
     print(f'\n{recname}')
@@ -111,6 +115,11 @@ for path in paths:
     if not [clu for clu in trains.keys() if clu in RO_keys]:
         print('Session has no RunOn cell; skipped')
         continue
+    
+    # counting 
+    anmname = recname.split('-')[0]
+    animals.add(anmname)
+    n_sess -= 1
     
     with open(LC_beh_stem / f'{recname}.pkl', 'rb') as f:
         beh = pickle.load(f)

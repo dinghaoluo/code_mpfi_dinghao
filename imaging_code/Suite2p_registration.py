@@ -31,7 +31,8 @@ paths = (
     rec_list.pathdLightLCOpto +
     rec_list.pathdLightLCOptoDbhBlock + 
     rec_list.pathdLightLCOptoCtrl + 
-    rec_list.pathdLightLCOptoInh
+    rec_list.pathdLightLCOptoInh +
+    rec_list.pathnLightLCOpto
     )
     
 

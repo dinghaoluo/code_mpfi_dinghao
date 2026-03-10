@@ -24,10 +24,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
 import scipy.io as sio
-from scipy.stats import sem, ranksums, ttest_ind
+from scipy.stats import sem, wilcoxon, ttest_rel
 
 from plotting_functions import plot_violin_with_scatter
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list
@@ -53,7 +53,7 @@ RO_WINDOW = [
 BIN_SIZE_MS = 500
 TOTAL_LEN_MS = 3500
 N_BINS = TOTAL_LEN_MS // BIN_SIZE_MS  # 7
-MATCH_K = 1.5
+MATCH_K = 1
 MIN_MATCHED = 5
 
 # acceleration params
@@ -341,14 +341,14 @@ for cluname in RO_keys:
     # per-cluster work (spikes)
     trains = all_trains[cluname]
     if len(current_matched_early) >= MIN_MATCHED and len(current_matched_late) >= MIN_MATCHED:
-        tmp_prof, tmp_rate = _get_profiles_and_spike_rates(trains, current_matched_early, RO_WINDOW)
+        tmp_prof, tmp_rate = _get_profiles_and_spike_rates(trains, early_trials, RO_WINDOW)
         early_profiles.append(np.mean(tmp_prof, axis=0))
-        early_spike_rates.extend(tmp_rate)
+        early_spike_rates.append(np.nanmean(tmp_rate))
         curr_early_sess.append(early_profiles[-1])
 
-        tmp_prof, tmp_rate = _get_profiles_and_spike_rates(trains, current_matched_late, RO_WINDOW)
+        tmp_prof, tmp_rate = _get_profiles_and_spike_rates(trains, late_trials, RO_WINDOW)
         late_profiles.append(np.mean(tmp_prof, axis=0))
-        late_spike_rates.extend(tmp_rate)
+        late_spike_rates.append(np.nanmean(tmp_rate))
         curr_late_sess.append(late_profiles[-1])
 
         fig, ax = plt.subplots(figsize=(3.5, 2))
@@ -440,19 +440,9 @@ ax.fill_between(
 n_bins = 7
 bin_size = 500  # ms
 
-E_bins = np.vstack([
-    E[:, i*bin_size:(i+1)*bin_size].mean(axis=1)
-    for i in range(n_bins)
-]).T
-
-L_bins = np.vstack([
-    L[:, i*bin_size:(i+1)*bin_size].mean(axis=1)
-    for i in range(n_bins)
-]).T
-
 # per-session scalar (mean over bins)
-E_binmean = np.nanmean(E_bins, axis=1)
-L_binmean = np.nanmean(L_bins, axis=1)
+E_binmean = np.nanmean(E, axis=1)
+L_binmean = np.nanmean(L, axis=1)
 
 # scalar stats
 E_mean_s = np.mean(E_binmean)
@@ -466,8 +456,8 @@ L_med    = np.median(L_binmean)
 L_q25, L_q75 = np.percentile(L_binmean, [25, 75])
 
 # tests
-t_stat, p_t = ttest_ind(E_binmean, L_binmean, equal_var=False, nan_policy='omit')
-z_stat, p_r = ranksums(E_binmean, L_binmean)
+t_stat, p_t = ttest_rel(E_binmean, L_binmean)
+z_stat, p_r = wilcoxon(E_binmean, L_binmean)
 
 p_t_str = f'{p_t:.2g}' if p_t < 0.01 else f'{p_t:.3f}'
 p_r_str = f'{p_r:.2g}' if p_r < 0.01 else f'{p_r:.3f}'
@@ -478,8 +468,8 @@ stats_txt = (
     f'       med  {E_med:.2f} [{E_q25:.2f}, {E_q75:.2f}]\n'
     f'late:  mean {L_mean_s:.2f} ± {L_sem_s:.2f}\n'
     f'       med  {L_med:.2f} [{L_q25:.2f}, {L_q75:.2f}]\n'
-    f't-test p = {p_t_str}\n'
-    f'ranksums p = {p_r_str}'
+    f'ttest p = {p_t_str}\n'
+    f'wilc  p = {p_r_str}'
 )
 
 ax.text(
@@ -554,19 +544,19 @@ b_med = np.median(b)
 b_q25, b_q75 = np.percentile(b, [25, 75])
 
 # stats tests
-z_rs, p_rs = ranksums(a, b)
-t_tt, p_tt = ttest_ind(a, b, equal_var=False)
+z_rs, p_rs = wilcoxon(a, b)
+t_tt, p_tt = ttest_rel(a, b)
 
-p_rs_str = f'{p_rs:.2g}' if p_rs < 0.01 else f'{p_rs:.3f}'
-p_tt_str = f'{p_tt:.2g}' if p_tt < 0.01 else f'{p_tt:.3f}'
+p_rs_str = f'{p_rs:.3g}' if p_rs < 0.01 else f'{p_rs:.3f}'
+p_tt_str = f'{p_tt:.3g}' if p_tt < 0.01 else f'{p_tt:.3f}'
 
 stats_txt = (
     f'early: mean {a_mean:.2f} ± {a_sem:.2f}\n'
     f'       med  {a_med:.2f} [{a_q25:.2f}, {a_q75:.2f}]\n'
     f'late:  mean {b_mean:.2f} ± {b_sem:.2f}\n'
     f'       med  {b_med:.2f} [{b_q25:.2f}, {b_q75:.2f}]\n'
-    f'ranksums p = {p_rs_str}\n'
-    f't-test   p = {p_tt_str}'
+    f'wilc  p = {p_rs_str}\n'
+    f'ttest p = {p_tt_str}'
 )
 
 ax.text(

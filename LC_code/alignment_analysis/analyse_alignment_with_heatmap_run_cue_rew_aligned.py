@@ -17,13 +17,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pickle 
 from tqdm import tqdm
-from scipy.stats import sem, wilcoxon
+from scipy.stats import wilcoxon, ttest_rel, sem
 
 import rec_list
 paths = rec_list.pathLC
 
-from common import normalise, mpl_formatting
-from common import colour_putative, colour_tagged
+from common_functions import normalise, mpl_formatting, colour_putative, colour_tagged
 mpl_formatting()
 
 
@@ -32,6 +31,40 @@ LC_stem       = Path('Z:/Dinghao/code_dinghao/LC_ephys')
 all_sess_stem = LC_stem / 'all_sessions'
 
 beh_stem      = Path('Z:/Dinghao/code_dinghao/behaviour/all_experiments/LC')
+
+
+#%% helper
+def _print_paired_stats(x, y, label_x, label_y):
+    """
+    print mean ± sem, median [IQR], wilcoxon and paired t-test.
+    """
+    x = np.asarray(x, float)
+    y = np.asarray(y, float)
+
+    # keep only paired entries
+    mask = np.isfinite(x) & np.isfinite(y)
+    x = x[mask]
+    y = y[mask]
+
+    print(f'\n{label_x} vs {label_y}')
+    print(f'n = {len(x)}')
+
+    # mean ± sem
+    print(f'{label_x}: mean ± sem = {np.mean(x):.3f} ± {sem(x):.3f}')
+    print(f'{label_y}: mean ± sem = {np.mean(y):.3f} ± {sem(y):.3f}')
+
+    # median [IQR]
+    mx, q1x, q3x = np.median(x), *np.percentile(x, [25, 75])
+    my, q1y, q3y = np.median(y), *np.percentile(y, [25, 75])
+    print(f'{label_x}: median [IQR] = {mx:.3f} [{q1x:.3f}, {q3x:.3f}]')
+    print(f'{label_y}: median [IQR] = {my:.3f} [{q1y:.3f}, {q3y:.3f}]')
+
+    # tests
+    wstat, wp = wilcoxon(x, y)
+    tstat, tp = ttest_rel(x, y)
+
+    print(f'wilcoxon: W = {wstat:.3f}, p = {wp:.3e}')
+    print(f'paired t: t = {tstat:.3f}, p = {tp:.3e}')
 
 
 #%% load data 
@@ -610,57 +643,36 @@ for ext in ['.png', '.pdf']:
 # TAGGED Dbh+ cells (session-level)
 print('\n--- TAGGED LC (session-level) ---')
 
-med_run = np.median(sess_p_tagged_run)
-q1_run, q3_run = np.percentile(sess_p_tagged_run, [25, 75])
+_print_paired_stats(
+    sess_p_tagged_run, sess_p_tagged_cue,
+    'run', 'cue'
+)
 
-med_cue = np.median(sess_p_tagged_cue)
-q1_cue, q3_cue = np.percentile(sess_p_tagged_cue, [25, 75])
+_print_paired_stats(
+    sess_p_tagged_run, sess_p_tagged_rew,
+    'run', 'reward'
+)
 
-med_rew = np.median(sess_p_tagged_rew)
-q1_rew, q3_rew = np.percentile(sess_p_tagged_rew, [25, 75])
-
-print(f'run:    median = {med_run:.3f}, IQR = [{q1_run:.3f}, {q3_run:.3f}]')
-print(f'cue:    median = {med_cue:.3f}, IQR = [{q1_cue:.3f}, {q3_cue:.3f}]')
-print(f'reward: median = {med_rew:.3f}, IQR = [{q1_rew:.3f}, {q3_rew:.3f}]')
-
-stat, p = wilcoxon(sess_p_tagged_run, sess_p_tagged_cue)
-print(f'run vs cue:    W = {stat:.3f}, p = {p:.3e}')
-
-stat, p = wilcoxon(sess_p_tagged_run, sess_p_tagged_rew)
-print(f'run vs reward: W = {stat:.3f}, p = {p:.3e}')
-
-stat, p = wilcoxon(sess_p_tagged_cue, sess_p_tagged_rew)
-print(f'cue vs reward: W = {stat:.3f}, p = {p:.3e}')
+_print_paired_stats(
+    sess_p_tagged_cue, sess_p_tagged_rew,
+    'cue', 'reward'
+)
 
 
 # PUTATIVE Dbh+ cells (session-level)
 print('\n--- PUTATIVE LC (session-level) ---')
 
-med_run = np.median(sess_p_put_run)
-q1_run, q3_run = np.percentile(sess_p_put_run, [25, 75])
+_print_paired_stats(
+    sess_p_put_run, sess_p_put_cue,
+    'run', 'cue'
+)
 
-med_cue = np.median(sess_p_put_cue)
-q1_cue, q3_cue = np.percentile(sess_p_put_cue, [25, 75])
+_print_paired_stats(
+    sess_p_put_run, sess_p_put_rew,
+    'run', 'reward'
+)
 
-med_rew = np.median(sess_p_put_rew)
-q1_rew, q3_rew = np.percentile(sess_p_put_rew, [25, 75])
-
-print(f'run:    median = {med_run:.3f}, IQR = [{q1_run:.3f}, {q3_run:.3f}]')
-print(f'cue:    median = {med_cue:.3f}, IQR = [{q1_cue:.3f}, {q3_cue:.3f}]')
-print(f'reward: median = {med_rew:.3f}, IQR = [{q1_rew:.3f}, {q3_rew:.3f}]')
-
-stat, p = wilcoxon(sess_p_put_run, sess_p_put_cue)
-print(f'run vs cue:    W = {stat:.3f}, p = {p:.3e}')
-
-stat, p = wilcoxon(sess_p_put_run, sess_p_put_rew)
-print(f'run vs reward: W = {stat:.3f}, p = {p:.3e}')
-
-stat, p = wilcoxon(sess_p_put_cue, sess_p_put_rew)
-print(f'cue vs reward: W = {stat:.3f}, p = {p:.3e}')
-
-
-#%% peak time 
-mean_peak_run_peak_time = np.mean(peak_run_peak_time) / 1250 - 1  # -1 because aligned to run with a pre of 1 s
-sem_peak_run_peak_time  = sem(peak_run_peak_time) / 1250
-
-print(f'Peak time: {mean_peak_run_peak_time} ± {sem_peak_run_peak_time} s')
+_print_paired_stats(
+    sess_p_put_cue, sess_p_put_rew,
+    'cue', 'reward'
+)

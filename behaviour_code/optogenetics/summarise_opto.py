@@ -12,7 +12,7 @@ summarise optogenetic experiments
 #%% imports 
 import numpy as np
 
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 from behaviour_functions import process_behavioural_data

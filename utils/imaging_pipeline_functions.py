@@ -252,12 +252,21 @@ def calculate_dFF(
             dFF_chunk = (chunk_gpu - baseline) / baseline
             dFF_chunk = dFF_chunk.get()
 
-            # trim overlap/padding
+            # trim padding
+            # first calculate how much padding was actually added
+            left_trim  = start - chunk_start
+            right_trim = chunk_end - (start + chunk_size)
+            
+            # define output slice
             slicer_out = [slice(None)] * dFF_chunk.ndim
-            slicer_out[t_axis] = slice(pad, -pad) if (start > 0 and chunk_end < T) else \
-                                 slice(pad, None) if start > 0 else \
-                                 slice(None, -pad) if chunk_end < T else \
-                                 slice(None)
+            time_len = dFF_chunk.shape[t_axis]
+            
+            start_idx = left_trim
+            end_idx = time_len - right_trim if right_trim > 0 else time_len
+            
+            # actual output slice
+            slicer_out[t_axis] = slice(start_idx, end_idx)
+            
             slices.append(dFF_chunk[tuple(slicer_out)])
 
         return np.concatenate(slices, axis=t_axis)
@@ -278,11 +287,21 @@ def calculate_dFF(
 
             dFF_chunk = (chunk - baseline) / baseline
 
+            # trim padding
+            # first calculate how much padding was actually added
+            left_trim  = start - chunk_start
+            right_trim = chunk_end - (start + chunk_size)
+            
+            # define output slice
             slicer_out = [slice(None)] * dFF_chunk.ndim
-            slicer_out[t_axis] = slice(pad, -pad) if (start > 0 and chunk_end < T) else \
-                                 slice(pad, None) if start > 0 else \
-                                 slice(None, -pad) if chunk_end < T else \
-                                 slice(None)
+            time_len = dFF_chunk.shape[t_axis]
+            
+            start_idx = left_trim
+            end_idx = time_len - right_trim if right_trim > 0 else time_len
+            
+            # actual output slice
+            slicer_out[t_axis] = slice(start_idx, end_idx)
+            
             slices.append(dFF_chunk[tuple(slicer_out)])
 
         return np.concatenate(slices, axis=t_axis)
@@ -363,13 +382,19 @@ def calculate_dFF_percentile(
             baseline = baseline.get()
 
         # trim padding
+        # first calculate how much padding was actually added
+        left_trim  = start - chunk_start
+        right_trim = chunk_end - (start + chunk_size)
+        
+        # define output slice
         slicer_out = [slice(None)] * dFF_chunk.ndim
-        slicer_out[t_axis] = (
-            slice(pad, -pad) if (start > 0 and chunk_end < T) else
-            slice(pad, None) if start > 0 else
-            slice(None, -pad) if chunk_end < T else
-            slice(None)
-        )
+        time_len = dFF_chunk.shape[t_axis]
+        
+        start_idx = left_trim
+        end_idx = time_len - right_trim if right_trim > 0 else time_len
+        
+        # actual output slice
+        slicer_out[t_axis] = slice(start_idx, end_idx)
 
         dff_slices.append(dFF_chunk[tuple(slicer_out)])
 
@@ -1105,10 +1130,10 @@ def detect_step_pairs(trace, zthr=100, min_interval_frames=30):
     z = (d - m) / mad
 
     # debugging 
-    # fig, ax = plt.subplots(figsize=(3,3))
-    # ax.plot(z)
-    # ax.set(ylim=(-100,100))
-    # plt.show()
+    fig, ax = plt.subplots(figsize=(3,3))
+    ax.plot(z)
+    ax.set(ylim=(-100,100))
+    plt.show()
 
     # detect all large steps (ignore sign)
     cand = np.where(np.abs(z) > zthr)[0] + 1

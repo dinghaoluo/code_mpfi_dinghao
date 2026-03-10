@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd  
 
-from common import mpl_formatting, normalise, gaussian_kernel_unity
+from common_functions import mpl_formatting, normalise, gaussian_kernel_unity
 mpl_formatting()
 
 
