@@ -10,8 +10,11 @@ utility functions for statistical analyses (imaging data)
 
 #%% imports 
 import numpy as np 
-from skimage.morphology import medial_axis, remove_small_objects
 import matplotlib.pyplot as plt
+
+from scipy.ndimage import gaussian_filter, uniform_filter, minimum_filter
+from skimage.morphology import medial_axis, remove_small_objects, remove_small_holes
+from skimage.filters import threshold_local
 
 
 #%% axon extraction 
@@ -71,6 +74,99 @@ def extract_fibre_centrelines(
 
     return medial_skeleton
 
+
+#%% filter pixels for dLight expression level 
+def generate_adaptive_membrane_mask(
+    mean_img,
+    # --- preproc ---
+    gaussian_sigma=1.5,
+    # --- watershed (cells) – defaults ---
+    peak_min_distance=5,
+    adaptive_block_size=21, # larger & odd works better for uneven fields
+    # --- region classification (cell vs neuropil) ---
+    valley_radius=10,              # ~2–4 µm; controls local min/valley scale
+    uniformity_thresh=3.5,            # higher -> stricter "cell-like"
+    # --- neuropil local thresholding ---
+    z_tau=3.8,                    # local z-score cut for neuropil
+    min_region_size=150,
+    hole_size_threshold=150,
+    # plot process
+    visualize = 1
+):
+    """
+    Improved neuropil handling:
+      - Classify pixel neighborhoods as 'cell-like' (dark somas) vs 'neuropil-like' (uniform)
+        using a valley-contrast score.
+      - In neuropil-like areas, keep pixels above local mean by z_tau * local std.
+      - Keep your watershed membrane path for cell-like areas.
+
+    Returns
+    -------
+    base_mask, final_mask, debug (dict of intermediate arrays)
+    """
+    img = mean_img.astype(np.float32)
+    img = (img - np.percentile(img, 2)) / (np.percentile(img, 98) - np.percentile(img, 2) + 1e-6)
+    img = np.clip(img, 0, 1)
+
+    # --- base local bright mask (broad containment) ---
+    img_s = gaussian_filter(img, sigma=gaussian_sigma)
+    base_mask = img_s > threshold_local(img_s, block_size=adaptive_block_size, method='gaussian')
+
+    # ========== region classification: cell-like vs neuropil-like ==========
+    # fast local stats
+    r = valley_radius
+    # local mean / mean of squares for std
+    mu = uniform_filter(img_s, size=2*r+1, mode='reflect')
+    mu2 = uniform_filter(img_s**2, size=2*r+1, mode='reflect')
+    sigma = np.sqrt(np.maximum(mu2 - mu**2, 0.0))
+
+    # local minimum to capture dark somas ("valleys")
+    loc_min = minimum_filter(img_s, size=2*r+1, mode="reflect")
+    # valley-contrast score: big when bright rims surround a dark soma
+    uniformity = mu / (sigma + 1e-6)
+    neuropil_like = (uniformity > uniformity_thresh)
+    cell_like = ~neuropil_like
+
+    # ========== membranes via watershed in cell-like zones ==========
+    cell_regions_mask = base_mask & cell_like
+    cell_membrane_mask = cell_regions_mask
+    
+    # ========== neuropil via local z-threshold in neuropil-like zones ==========
+    z = img_s / (sigma + 1e-6)
+    # neuropil_mask = (z > z_tau) & base_mask & neuropil_like
+    neuropil_mask = (z > z_tau) & neuropil_like
+    
+    # clean gently (no aggressive closing)
+    neuropil_mask = remove_small_holes(neuropil_mask, area_threshold=hole_size_threshold)
+    neuropil_mask = remove_small_objects(neuropil_mask, min_size=min_region_size)
+
+    # ========== combine ==========
+    final_mask = (cell_membrane_mask | neuropil_mask)
+    final_mask = remove_small_objects(final_mask, min_size=min_region_size)
+
+    debug = dict(img_s=img_s, mu=mu, sigma=sigma, loc_min=loc_min,
+                 uniformity=uniformity, neuropil_like=neuropil_like,
+                 cell_like=cell_like, z=z,
+                 cell_membrane_mask=cell_membrane_mask, neuropil_mask=neuropil_mask)
+    
+    if visualize:
+        neuropil_mask = neuropil_like.astype(bool)
+        neuropil_zmap = debug['z']
+        neuropil_zmap[~neuropil_mask] = np.nan
+        fig, ax = plt.subplots(2, 3, figsize=(12, 8))
+        ax[0,0].imshow(img, cmap='gray'); ax[0,0].set_title('Original'); ax[0,0].axis('off')
+        ax[0,1].imshow(uniformity, cmap='magma'); ax[0,1].set_title('uniformity'); ax[0,1].axis('off')
+        ax[0,2].imshow(neuropil_like, cmap='coolwarm'); ax[0,2].set_title('Neuropil-like'); ax[0,2].axis('off')
+        ax[1,0].imshow(cell_membrane_mask, cmap='gray'); ax[1,0].set_title('Cell membranes'); ax[1,0].axis('off')
+        ax[1,1].imshow(neuropil_zmap, cmap='viridis', vmax=np.nanpercentile(neuropil_zmap, 99));ax[1,1].set_title('Neuropil_Z_map'); ax[1,1].axis('off')
+        ax[1,2].imshow(img, cmap='gray'); ax[1,2].imshow(final_mask, alpha=0.35, cmap='Reds')
+        ax[1,2].set_title('Final'); ax[1,2].axis('off')
+        plt.tight_layout()
+        # plt.show()
+        return base_mask, final_mask, fig
+    
+    else:
+        return final_mask
 
 
 #%% colocalisation analysis functions

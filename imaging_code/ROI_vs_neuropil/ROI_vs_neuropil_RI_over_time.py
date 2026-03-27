@@ -2,10 +2,13 @@
 """
 Created on Fri Sep 12 18:07:16 2025
 Modified on 22 Jan 2026
+Modified on 23 Mar 2026
 
 analyse the dispersion of dLight signal after stim.
     dependent on extraction with HPC_dLight_LC_opto_extract.py
 Modified to work on ROI vs neuropil over bins 
+Modified to use union of masks with dLight-expression-thresholded mask to 
+    extract traces 
 
 @author: Dinghao Luo
 """
@@ -21,6 +24,9 @@ from scipy.ndimage import binary_dilation
 
 from common_functions import mpl_formatting
 mpl_formatting()
+
+# Jingyu's utils for generating dLight-expression-thresholded mask, 23 Mar 2026
+from common.mask.utils_mask import generate_adaptive_membrane_mask
 
 import rec_list
 paths = rec_list.pathdLightLCOpto
@@ -52,6 +58,10 @@ R2_THRES = 0.7
 N_BINS   = 40
 XAXIS    = np.arange(N_BINS) / 10
 
+# new, thresholding needs to be capped, 24 March 2026
+PIXEL_REDUCTION_THRESH = 0.5   # remove sessions with >50% pixels removed
+skipped_sessions = []
+
 
 #%% main
 all_ROI_RI_bins      = []
@@ -68,11 +78,15 @@ for path in paths:
     recname = Path(path).name
     print(f'\n{recname}')
 
+    ref_ch1_path       = all_sess_stem / recname / f'processed_data/{recname}_ref_mat_ch1.npy'
     pixel_RI_path      = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_bins.npy'
     pixel_RI_ch2_path  = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI2_bins.npy'
     pixel_RI_stim_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_stim.npy'
     roi_path           = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
     
+    if not ref_ch1_path.exists():
+        print('No mean image for ch1; skipped')
+        continue
     if not pixel_RI_path.exists():
         print('No pixel_RI array; skipped')
         continue 
@@ -86,6 +100,7 @@ for path in paths:
         print('No roi_dict; skipped')
         continue
 
+    ref_ch1           = np.load(ref_ch1_path, allow_pickle=True)
     pixel_RI_bins     = np.load(pixel_RI_path, allow_pickle=True)
     pixel_RI_ch2_bins = np.load(pixel_RI_ch2_path, allow_pickle=True)
     pixel_RI_stim     = np.load(pixel_RI_stim_path, allow_pickle=True)
@@ -110,20 +125,43 @@ for path in paths:
         continue 
     # ---- identification ends ----
     
+    # new, dLight-expression-thresholded masks first, 23 March 2026
+    thres_mask = generate_adaptive_membrane_mask(ref_ch1, visualize=0)
+    
     # build mask of releasing ROIs
-    releasing_mask = _build_roi_mask(releasing)
+    releasing_mask_raw = _build_roi_mask(releasing)
+    releasing_mask = releasing_mask_raw & thres_mask  # new, intersection of releasing_mask and thresholded dLight, 23 Mar 2026 
     
     # build dilated mask and then the anti-mask 
     ROI_mask      = _build_roi_mask(roi_dict)
     ROI_dilated   = binary_dilation(ROI_mask, iterations=DISTANCE_FROM_ROI)
     anti_ROI_mask = ~ROI_dilated 
+    anti_ROI_mask = anti_ROI_mask & thres_mask  # new, intersection of anti_ROI_mask and thresholded, 23 Mar 2026
+    
+    # ------------------
+    # filter sessions based on pixel reduction
+    # ------------------
+    n_raw = np.sum(releasing_mask_raw)
+    n_thres = np.sum(releasing_mask)
+    
+    if n_raw == 0:
+        print(f'{recname} skipped: no ROI pixels')
+        skipped_sessions.append(recname)
+        continue
+    
+    pixel_reduction = 1 - (n_thres / n_raw)
+    
+    if pixel_reduction > PIXEL_REDUCTION_THRESH:
+        print(f'{recname} skipped: pixel_reduction={pixel_reduction:.3f}')
+        skipped_sessions.append(recname)
+        continue
     
     # ------------------
     # EXTRACT RI TRACES
     # ------------------
     # ... from ROI_mask 
-    ROI_RI_bins      = np.nanmean(pixel_RI_bins[releasing_mask, :], axis=0)
-    ROI_RI2_bins     = np.nanmean(pixel_RI_ch2_bins[releasing_mask, :], axis=0)
+    ROI_RI_bins  = np.nanmean(pixel_RI_bins[releasing_mask, :], axis=0)
+    ROI_RI2_bins = np.nanmean(pixel_RI_ch2_bins[releasing_mask, :], axis=0)
     
     # ... and from anti_ROI_mask 
     neuropil_RI_bins = np.nanmean(pixel_RI_bins[anti_ROI_mask, :], axis=0)
@@ -198,7 +236,7 @@ for path in paths:
         
         # compute R2
         ss_res = np.sum((y2_fit - y_pred)**2)
-        ss_tot = np.sum((y2_fit - np.mean(y_fit))**2)
+        ss_tot = np.sum((y2_fit - np.mean(y2_fit))**2)
         R2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0
         
         # require R2 > thres
@@ -387,6 +425,52 @@ fig.tight_layout()
 for ext in ['.png', '.pdf']:
     fig.savefig(
         save_stem / f'ROI_vs_neuropil_decay_tau_hist{ext}',
+        dpi=300,
+        bbox_inches='tight'
+    )
+
+
+#%% tau histogram (only ROI)
+bins = np.linspace(0, 4, 21)
+
+fig, ax = plt.subplots(figsize=(3, 2.4))
+
+ax.hist(
+    ROI_taus,
+    bins=bins,
+    color='darkgreen',
+    alpha=0.6,
+    edgecolor='none',
+    label='ROI'
+    )
+
+# medians + IQRs
+q1_roi, med_roi, q3_roi = np.percentile(ROI_taus, [25, 50, 75])
+ax.axvline(med_roi, color='darkgreen', linestyle='--', lw=1)
+ax.text(
+    0.02, 0.95,
+    f'ROI median = {med_roi:.2f}s\nIQR = [{q1_roi:.2f}, {q3_roi:.2f}]',
+    transform=ax.transAxes,
+    va='top', ha='left',
+    fontsize=7, color='darkgreen'
+)
+
+ax.set(
+    xlabel='Tau (s)',
+    ylabel='ROI count',
+    title='Decay constant distribution'
+    )
+
+ax.legend(frameon=False, fontsize=7)
+
+for s in ['top', 'right']:
+    ax.spines[s].set_visible(False)
+
+fig.tight_layout()
+
+for ext in ['.png', '.pdf']:
+    fig.savefig(
+        save_stem / f'ROI_vs_neuropil_decay_tau_hist_ROI_only{ext}',
         dpi=300,
         bbox_inches='tight'
     )

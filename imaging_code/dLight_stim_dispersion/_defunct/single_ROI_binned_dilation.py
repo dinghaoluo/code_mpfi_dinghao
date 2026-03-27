@@ -24,6 +24,8 @@ from scipy.ndimage import binary_dilation
 from common_functions import mpl_formatting
 mpl_formatting()
 
+from common.mask.utils_mask import generate_adaptive_membrane_mask
+
 import rec_list
 paths = rec_list.pathdLightLCOpto
 
@@ -58,6 +60,9 @@ WINDOW_BINS = {
     '3-4 s':   range(30, 40),
 }
 
+# for visualisation 
+CROP_PAD = MAX_DILATE + 2
+
 
 #%% main
 # initialise containers
@@ -65,12 +70,24 @@ dilation_results_all = {w: {} for w in WINDOW_BINS.keys()}
 
 for path in paths:
     recname = Path(path).name
+    
+    if 'A114' in recname or 'A116' in recname:
+        continue 
+    
     print(f'\n{recname}')
 
+    ref_ch1_path       = all_sess_stem / recname / f'processed_data/{recname}_ref_mat_ch1.npy'
+    ref_ch2_path       = all_sess_stem / recname / f'processed_data/{recname}_ref_mat_ch2.npy'
     pixel_RI_path      = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_bins.npy'
     pixel_RI_stim_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_stim.npy'
     roi_dict_path      = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
 
+    if not ref_ch1_path.exists():
+        print('No mean image for ch1; skipped')
+        continue
+    if not ref_ch2_path.exists():
+        print('No mean image for ch2; skipped')
+        continue
     if not pixel_RI_path.exists():
         print('No pixel_RI_bins; skipped')
         continue
@@ -83,6 +100,8 @@ for path in paths:
 
     # load data
     print('Loading data...')
+    ref_ch1       = np.load(ref_ch1_path, allow_pickle=True)
+    ref_ch2       = np.load(ref_ch2_path, allow_pickle=True)
     pixel_RI_bins = np.load(pixel_RI_path, allow_pickle=True)  # (512,512,40)
     pixel_RI_stim = np.load(pixel_RI_stim_path, allow_pickle=True)
     roi_dict      = np.load(roi_dict_path, allow_pickle=True).item()
@@ -103,15 +122,20 @@ for path in paths:
         print('No releasing ROI; skipped')
         continue 
     # ---- identification ends ----
+    
+    # threshold based on dLight expression, 26 Mar 2026
+    thres_mask = generate_adaptive_membrane_mask(ref_ch1, visualize=0)
 
     # per ROI, per window
-    # first we collect all pixel idx of all ROIs (for collision exclusion)
+    # first collect all pixel idx of all releasing ROIs (for collision exclusion)
     all_roi_y = [y for roi in releasing_rois.values() for y in roi['ypix']]
     all_roi_x = [x for roi in releasing_rois.values() for x in roi['xpix']]
     all_roi_mask = np.zeros((512, 512), dtype=bool)
     all_roi_mask[all_roi_y, all_roi_x] = True
-    
-    # now we loop over all the rois with collision exclusion
+
+    CROP_PAD = MAX_DILATE + 8
+
+    # now loop over all the rois with collision exclusion
     for roi_id, roi in tqdm(releasing_rois.items(),
                             total=len(releasing_rois),
                             desc='Looping over ROIs'):
@@ -120,57 +144,101 @@ for path in paths:
 
         dilated_masks = {}
         ring_masks = {}
-        for dilation in range(0, MAX_DILATE+1, DILATE_STEP):
+
+        for dilation in range(0, MAX_DILATE + 1, DILATE_STEP):
             if dilation == 0:
                 dilated_masks[0] = base_mask
-                ring_masks[0] = base_mask
+                ring_masks[0] = base_mask & thres_mask
             else:
-                dilated_masks[dilation] = binary_dilation(base_mask, structure=STRUCT, iterations=dilation)
-                dilated_masks[dilation] = dilated_masks[dilation] & ~all_roi_mask  # collision exclusion
-                
-                ring_masks[dilation] = dilated_masks[dilation] & ~dilated_masks[dilation-DILATE_STEP]
+                dm = binary_dilation(base_mask, structure=STRUCT, iterations=dilation)
 
-            # now extract per-window medians
+                # collision exclusion
+                dm = dm & ~all_roi_mask
+
+                dilated_masks[dilation] = dm
+                ring_masks[dilation] = dm & ~dilated_masks[dilation - DILATE_STEP]
+                ring_masks[dilation] = ring_masks[dilation] & thres_mask
+
+            # now extract per-window means from thresholded ring only
             for wname, bins in WINDOW_BINS.items():
-                vals = pixel_RI_bins[:, :, bins][ring_masks[dilation]]  # shape: (#pixels × #bins)
-                val_mean = np.nanmean(vals)  # collapse across pixels & time bins
+                vals = pixel_RI_bins[:, :, bins][ring_masks[dilation]]
+                val_mean = np.nanmean(vals)
 
                 if roi_id not in dilation_results_all[wname]:
                     dilation_results_all[wname][roi_id] = {}
                 if dilation not in dilation_results_all[wname][roi_id]:
                     dilation_results_all[wname][roi_id][dilation] = []
 
-                dilation_results_all[wname][roi_id][dilation] = val_mean 
-                
-        # plot ring masks 
-        sorted_items = sorted(ring_masks.items())  # (dilation, mask)
+                dilation_results_all[wname][roi_id][dilation] = val_mean
 
-        row1 = sorted_items[:10]   # 0–9 px
-        row2 = sorted_items[10:]   # 10–20 px
-        
-        ncols = max(len(row1), len(row2))  # 11
-        
-        fig, axes = plt.subplots(2, ncols, figsize=(1.2 * ncols, 3))
-        
+        # plot ring masks on cropped ch2 background
+        sorted_items = sorted(ring_masks.items())
+
+        row1 = sorted_items[:10]
+        row2 = sorted_items[10:]
+        ncols = max(len(row1), len(row2))
+
+        fig, axes = plt.subplots(2, ncols, figsize=(1.6 * ncols, 3.4))
+
+        if ncols == 1:
+            axes = np.array([[axes[0]], [axes[1]]])
+
+        # fixed crop box per ROI, based on original ROI mask
+        ypix = np.array(roi['ypix'])
+        xpix = np.array(roi['xpix'])
+
+        y0 = max(0, np.min(ypix) - CROP_PAD)
+        y1 = min(ref_ch2.shape[0], np.max(ypix) + CROP_PAD + 1)
+        x0 = max(0, np.min(xpix) - CROP_PAD)
+        x1 = min(ref_ch2.shape[1], np.max(xpix) + CROP_PAD + 1)
+
+        ref_ch2_crop = ref_ch2[y0:y1, x0:x1]
+
         # first row
         for j, (d, mask) in enumerate(row1):
-            axes[0, j].imshow(mask.astype(int), cmap='gray')
-            axes[0, j].set_title(f'{d}px', fontsize=8)
-            axes[0, j].axis('off')
-        
+            ax = axes[0, j]
+            mask_crop = mask[y0:y1, x0:x1]
+
+            ax.imshow(ref_ch2_crop, cmap='gray', interpolation='none')
+
+            overlay = np.zeros((*mask_crop.shape, 4), dtype=float)
+            overlay[mask_crop, 0] = 0.0
+            overlay[mask_crop, 1] = 0.39215686
+            overlay[mask_crop, 2] = 0.0
+            overlay[mask_crop, 3] = 1.0
+
+            ax.imshow(overlay, interpolation='none')
+            ax.set_title(f'{d}px', fontsize=8)
+            ax.axis('off')
+
         # second row
         for j, (d, mask) in enumerate(row2):
-            axes[1, j].imshow(mask.astype(int), cmap='gray')
-            axes[1, j].set_title(f'{d}px', fontsize=8)
-            axes[1, j].axis('off')
-        
-        # hide unused axes (row 1 col 10)
+            ax = axes[1, j]
+            mask_crop = mask[y0:y1, x0:x1]
+
+            ax.imshow(ref_ch2_crop, cmap='gray', interpolation='none')
+
+            overlay = np.zeros((*mask_crop.shape, 4), dtype=float)
+            overlay[mask_crop, 0] = 0.0
+            overlay[mask_crop, 1] = 0.39215686
+            overlay[mask_crop, 2] = 0.0
+            overlay[mask_crop, 3] = 1.0
+
+            ax.imshow(overlay, interpolation='none')
+            ax.set_title(f'{d}px', fontsize=8)
+            ax.axis('off')
+
+        # hide unused axes
         for j in range(len(row1), ncols):
             axes[0, j].axis('off')
+        for j in range(len(row2), ncols):
+            axes[1, j].axis('off')
+
         fig.suptitle(f'{recname} – ROI {roi_id}', fontsize=10)
         plt.tight_layout()
 
         savepath = save_stem / 'all_ring_masks' / f'{recname}_ROI{roi_id}_rings'
+        savepath.parent.mkdir(parents=True, exist_ok=True)
         for ext in ['.png', '.pdf']:
             fig.savefig(f'{savepath}{ext}', dpi=550)
         plt.close(fig)

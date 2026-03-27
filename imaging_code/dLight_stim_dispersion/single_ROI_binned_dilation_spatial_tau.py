@@ -2,6 +2,7 @@
 """
 Created on Mon Sep 16 2025
 Modified on Wed 28 Jan 2026
+Modified on 23 Mar 2026
 
 systematic ROI dilation analysis for dLight LC opto
     builds ROI mask directly from ROI_dict,
@@ -9,6 +10,8 @@ systematic ROI dilation analysis for dLight LC opto
     compares dLight signal distributions with boxplots
     across time bins (0–4 s)
 Modified to calculate spatial tau based on tighter spatial binning 
+Modified to use union of masks with dLight-expression-thresholded mask to 
+    extract values 
 
 @author: Dinghao Luo
 """
@@ -22,8 +25,11 @@ from scipy.stats import sem, ttest_1samp
 from scipy.ndimage import binary_dilation
 from scipy.optimize import curve_fit
 
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
+
+# Jingyu's utils for generating dLight-expression-thresholded mask, 23 Mar 2026
+from common.mask.utils_mask import generate_adaptive_membrane_mask
 
 import rec_list
 paths = rec_list.pathdLightLCOpto
@@ -59,6 +65,10 @@ WINDOW_BINS = {
     '3-4 s':   range(30, 40),
 }
 
+# new, thresholding needs to be capped, 24 March 2026
+PIXEL_REDUCTION_THRESH = 0.5   # remove sessions with >50% pixels removed
+skipped_sessions = []
+
 
 #%% main
 # initialise containers
@@ -69,10 +79,18 @@ for path in paths:
     recname = Path(path).name
     print(f'\n{recname}')
 
+    ref_ch1_path       = all_sess_stem / recname / f'processed_data/{recname}_ref_mat_ch1.npy'
+    ref_ch2_path       = all_sess_stem / recname / f'processed_data/{recname}_ref_mat_ch2.npy'
     pixel_RI_path      = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_bins.npy'
     pixel_RI_stim_path = all_sess_stem / recname / f'processed_data/{recname}_pixel_RI_stim.npy'
     roi_dict_path      = all_sess_stem / recname / f'processed_data/{recname}_ROI_dict.npy'
 
+    if not ref_ch1_path.exists():
+        print('No mean image for ch1; skipped')
+        continue
+    if not ref_ch2_path.exists():
+        print('No mean image for ch2; skipped')
+        continue
     if not pixel_RI_path.exists():
         print('No pixel_RI_bins; skipped')
         continue
@@ -84,7 +102,8 @@ for path in paths:
         continue
 
     # load data
-    print('Loading data...')
+    ref_ch1       = np.load(ref_ch1_path, allow_pickle=True)
+    ref_ch2       = np.load(ref_ch2_path, allow_pickle=True)
     pixel_RI_bins = np.load(pixel_RI_path, allow_pickle=True)  # (512,512,40)
     pixel_RI_stim = np.load(pixel_RI_stim_path, allow_pickle=True)
     roi_dict      = np.load(roi_dict_path, allow_pickle=True).item()
@@ -106,11 +125,31 @@ for path in paths:
         continue 
     # ---- identification ends ----
     
+    # new, dLight-expression-thresholded masks first, 23 March 2026
+    thres_mask = generate_adaptive_membrane_mask(ref_ch1, visualize=0)
+    
     # all ROIs
     all_ROI_mask = _build_roi_mask(roi_dict)
     
     # grand releasing-ROIs
-    releasing_mask = _build_roi_mask(releasing_rois)
+    releasing_mask_raw     = _build_roi_mask(releasing_rois)
+    releasing_mask_reduced = releasing_mask_raw & thres_mask
+    
+    # filter sessions based on pixel reduction
+    n_raw = np.sum(releasing_mask_raw)
+    n_thres = np.sum(releasing_mask_reduced)
+    
+    if n_raw == 0:
+        print(f'{recname} skipped: no ROI pixels')
+        skipped_sessions.append(recname)
+        continue
+    
+    pixel_reduction = 1 - (n_thres / n_raw)
+    
+    if pixel_reduction > PIXEL_REDUCTION_THRESH:
+        print(f'{recname} skipped: pixel_reduction={pixel_reduction:.3f}')
+        skipped_sessions.append(recname)
+        continue
     
     # actual dilation 
     dilated_masks = {}
@@ -118,16 +157,17 @@ for path in paths:
     
     for dilation in range(0, MAX_DILATE + 1, DILATE_STEP):
         if dilation == 0:
-            dilated_masks[0] = releasing_mask
-            ring_masks[0] = releasing_mask
+            dilated_masks[0] = releasing_mask_raw
+            ring_masks[0] = releasing_mask_raw & thres_mask  # new with dLight-thresholding, 23 Mar 2026
         else:
-            dm = binary_dilation(releasing_mask, structure=STRUCT, iterations=dilation)
+            dm = binary_dilation(releasing_mask_raw, structure=STRUCT, iterations=dilation)
     
             # collision exclusion against *all* rois (including releasing ones)
             dm = dm & ~all_ROI_mask
     
             dilated_masks[dilation] = dm
             ring_masks[dilation] = dm & ~dilated_masks[dilation - DILATE_STEP]
+            ring_masks[dilation] = ring_masks[dilation] & thres_mask  # new with dLight-thresholding, 23 Mar 2026
     
         # per-window mean
         for wname, bins in WINDOW_BINS.items():
@@ -143,18 +183,32 @@ for path in paths:
     plot_dilations = list(range(0, MAX_DILATE + 1, 2))  # or 5
 
     fig, axes = plt.subplots(1, len(plot_dilations), figsize=(12, 2))
+
     for j, d in enumerate(plot_dilations):
-        axes[j].imshow(ring_masks[d].astype(int), cmap='gray')
-        axes[j].set_title(f'{d}px', fontsize=8)
-        axes[j].axis('off')
-    
+        ax = axes[j]
+
+        # background ch2 image
+        ax.imshow(ref_ch2, cmap='gray')
+
+        # overlay ring mask
+        overlay = np.zeros((*ring_masks[d].shape, 4), dtype=float)
+        overlay[ring_masks[d], 0] = 0.0
+        overlay[ring_masks[d], 1] = 0.39215686  # that's what the docs said for 'darkgreen' so...
+        overlay[ring_masks[d], 2] = 0.0
+        overlay[ring_masks[d], 3] = 1
+
+        ax.imshow(overlay)
+
+        ax.set_title(f'{d} px', fontsize=8)
+        ax.axis('off')
+
     fig.suptitle(f'{recname} – grand releasing rings', fontsize=10)
     plt.tight_layout()
-    
+
     savepath = save_stem / 'all_ring_masks' / f'{recname}_grand_releasing_rings'
     savepath.parent.mkdir(parents=True, exist_ok=True)
     for ext in ['.png', '.pdf']:
-        fig.savefig(f'{savepath}{ext}', dpi=200)
+        fig.savefig(f'{savepath}{ext}', dpi=500)
     plt.close(fig)
 
 
@@ -245,6 +299,78 @@ for wname in WINDOW_BINS.keys():
             dpi=300,
             bbox_inches='tight'
         )
+    
+    plt.close()
+
+
+#%% single-session radial decay curves
+singleplot_stem = save_stem / 'single_session_radial_curves'
+singleplot_stem.mkdir(parents=True, exist_ok=True)
+
+for wname, results in dilation_results_all.items():
+    print(f'\nplotting single-session curves for {wname}')
+
+    if not results:
+        print(f'No data for {wname}, skipped.')
+        continue
+
+    # one figure per session
+    for recname, curve in results.items():
+        dilations = np.array(sorted(curve.keys()))
+        R = np.array([curve[d] for d in dilations], dtype=float)
+
+        fig, ax = plt.subplots(figsize=(3.2, 2.4), dpi=300)
+
+        # raw session curve
+        ax.plot(
+            dilations,
+            R,
+            marker='o',
+            markersize=3,
+            linewidth=1.2,
+            color='teal'
+        )
+
+        # optional tau annotation for this session
+        tau_hat = tau_results_all[wname].get(recname, np.nan)
+        if np.isfinite(tau_hat):
+            if tau_hat <= 20:
+                ax.axvline(
+                    tau_hat,
+                    color='lightblue',
+                    linestyle='--',
+                    linewidth=1.2,
+                    alpha=0.9
+                )
+                ymax = np.nanmax(R)
+                if np.isfinite(ymax):
+                    ax.text(
+                        tau_hat,
+                        ymax * 1.02,
+                        rf'$\tau$={tau_hat:.2f}',
+                        ha='center',
+                        va='bottom',
+                        fontsize=7,
+                        color='lightblue'
+                    )
+
+        ax.spines[['top', 'right']].set_visible(False)
+        ax.set(
+            xlabel='Dilation (px)',
+            xlim=(-1, 21),
+            ylabel='Mean dLight RI',
+            title=f'{recname}\n{wname}'
+        )
+
+        savepath = singleplot_stem / wname.replace(' ', '_').replace('-', '_') / f'{recname}_radial_curve'
+        savepath.parent.mkdir(parents=True, exist_ok=True)
+
+        for ext in ['.pdf', '.png']:
+            fig.savefig(
+                f'{savepath}{ext}',
+                dpi=300,
+                bbox_inches='tight'
+            )
 
 
 #%% median radial decay curves with IQR

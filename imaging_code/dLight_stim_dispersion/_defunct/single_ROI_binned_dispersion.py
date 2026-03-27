@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import ttest_1samp, sem
 from scipy.optimize import curve_fit
 
-from common import mpl_formatting
+from common_functions import mpl_formatting
 mpl_formatting()
 
 import rec_list
