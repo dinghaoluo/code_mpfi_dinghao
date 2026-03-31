@@ -74,7 +74,7 @@ def plot_bar_with_paired_scatter(
     errs  = [sem(ctrl, nan_policy='omit'), sem(stim, nan_policy='omit')]
 
     barc = ax.bar(
-        [0, 1], means, yerr=errs, capsize=2, width=0.6, edgecolor='none',
+        [0, 1], means, yerr=errs, capsize=2, width=0.6, edgecolor='0.2', linewidth=0.8,
         alpha=.6, zorder=2,
         error_kw={'elinewidth': 0.6, 'capthick': 0.6, 'ecolor': 'k'}
     )
