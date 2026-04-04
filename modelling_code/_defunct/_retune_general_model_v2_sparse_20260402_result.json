@@ -1,0 +1,61 @@
+{
+  "params": {
+    "baseline_mean": 1.1,
+    "baseline_sd": 0.75,
+    "wR_mean": 0.54,
+    "wR_sd": 0.12,
+    "wW_mean": 0.46,
+    "intrinsic_tau_mean": 0.28,
+    "baseline_tau_coupling": 0.12,
+    "run_on_mid": 0.0,
+    "run_off_mid": 1.7,
+    "run_fall_scale": 0.38,
+    "reward_on_mid": 0.76,
+    "lc_to_da_gain": 5.4,
+    "da_kernel_tau": 2.8,
+    "da_ca1_delay": 0.75,
+    "da_half_rate": 3.25,
+    "da_rate_slope": 0.25,
+    "wDA_global": 0.02,
+    "frac_da_targ": 0.2,
+    "da_targ_wR_bias": 0.06,
+    "da_block_scale": 0.15
+  },
+  "score": 138.83319138489392,
+  "preview": {
+    "up_baselines": [
+      1.21,
+      1.04,
+      0.721
+    ],
+    "up_peaks": [
+      2.046,
+      2.147,
+      2.1
+    ],
+    "up_peak_times": [
+      1.27,
+      1.33,
+      1.43
+    ],
+    "tau_r": 0.173,
+    "tau_p": 0.0021,
+    "base_up_pct": 30.39,
+    "base_down_pct": 10.5,
+    "exp1_up_early": 0.044,
+    "exp1_up_late": 0.186,
+    "exp1_down_late": 0.013,
+    "exp2_up_early": 0.038,
+    "exp2_up_late": 0.109,
+    "exp2_down_late": -0.013,
+    "exp3_up_early": -0.039,
+    "exp3_up_late": -0.067,
+    "exp3_down_late": -0.003,
+    "exp1_up_prop": 1.81,
+    "exp1_down_prop": -0.45,
+    "exp2_up_prop": 4.94,
+    "exp2_down_prop": -0.69,
+    "exp3_up_prop": -1.31,
+    "exp3_down_prop": 0.34
+  }
+}

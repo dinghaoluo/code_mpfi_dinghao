@@ -74,7 +74,7 @@ def plot_bar_with_paired_scatter(
     errs  = [sem(ctrl, nan_policy='omit'), sem(stim, nan_policy='omit')]
 
     barc = ax.bar(
-        [0, 1], means, yerr=errs, capsize=2, width=0.6, edgecolor='0.2', linewidth=0.8,
+        [0, 1], means, yerr=errs, capsize=2, width=0.8, edgecolor='0.2', linewidth=1.0,
         alpha=.6, zorder=2,
         error_kw={'elinewidth': 0.6, 'capthick': 0.6, 'ecolor': 'k'}
     )
@@ -85,13 +85,14 @@ def plot_bar_with_paired_scatter(
     x0 = np.zeros(len(ctrl))
     x1 = np.ones(len(stim))
     for y0, y1 in zip(ctrl, stim):
-        ax.plot([0, 1], [y0, y1], lw=0.6, color='k', alpha=.3, zorder=3)
-    ax.scatter(x0, ctrl, s=8, color=colors[0], edgecolor='none', alpha=.5, zorder=4)
-    ax.scatter(x1, stim, s=8, color=colors[1], edgecolor='none', alpha=.5, zorder=4)
+        ax.plot([0, 1], [y0, y1], lw=0.8, color='k', alpha=.3, zorder=3)
+    ax.scatter(x0, ctrl, s=10, color=colors[0], edgecolor='none', alpha=.5, zorder=4)
+    ax.scatter(x1, stim, s=10, color=colors[1], edgecolor='none', alpha=.5, zorder=4)
 
     # axes + limits
     ylims = (0, 100) if ylim is None else ylim
-    ax.set(xticks=[0,1], xticklabels=xticklabels, ylabel=ylabel, title=title, ylim=ylims)
+    xlims = (-0.5, 1.5)
+    ax.set(xticks=[0,1], xticklabels=xticklabels, ylabel=ylabel, title=title, xlim=xlims, ylim=ylims)
     for s in ['top','right']:
         ax.spines[s].set_visible(False)
 
@@ -114,10 +115,10 @@ def plot_bar_with_paired_scatter(
     top_y = max(top_data_val, top_bar_val)
 
     y1 = top_y
-    y2 = y1
+    y2 = y1 + 0.06 * yrange
     annotate(ax, 0, 1, y1, f"Wilcoxon p={w_p:.4g} ({sigstars(w_p)})", yrange)
     annotate(ax, 0, 1, y2, f"t-test p={t_p:.4g} ({sigstars(t_p)})", yrange)
-    ax.set_ylim(ylims[0], max(ylims[1], y2 + 0.08 * yrange))
+    ax.set_ylim(ylims[0], max(ylims[1], y2 + 0.10 * yrange))
 
     print(f'Wilc p = {w_p}\nttest p = {t_p}')
 # ------------------------------------
