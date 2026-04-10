@@ -1,14 +1,11 @@
-"""Standalone script generated from general_model_v3.ipynb.
-This is the final LC-DA-CA1 model script corresponding to notebook v3.
-"""
+"""Standalone LC-DA-CA1 model runner extracted from the archive notebook."""
 
 from pathlib import Path
-import sys
+import argparse
+import os
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-UTILS_DIR = REPO_ROOT / 'utils'
-if str(UTILS_DIR) not in sys.path:
-    sys.path.insert(0, str(UTILS_DIR))
+PROJECT_ROOT = Path(__file__).resolve().parent
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / 'outputs'
 
 # %% [markdown] cell 0
 # # LC-DA-CA1 Model (v3)
@@ -104,6 +101,8 @@ if str(UTILS_DIR) not in sys.path:
 # imports
 import warnings
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from copy import deepcopy
@@ -112,8 +111,8 @@ from pathlib import Path
 from scipy.optimize import curve_fit
 from scipy.stats import linregress, ttest_rel, wilcoxon
 
-import plotting_functions as pf
-from common_functions import mpl_formatting
+from support import plotting_functions as pf
+from support.common_functions import mpl_formatting
 mpl_formatting()
 plt.rcParams.update({
     'font.size': 10,
@@ -124,7 +123,39 @@ plt.rcParams.update({
     'legend.fontsize': 9,
 })
 
-PLOT_SAVE_DIR = Path('Z:/Dinghao/code_dinghao/modelling')
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Run the standalone LC-DA-CA1 synthetic model and save publication-style figures.'
+    )
+    parser.add_argument(
+        '--output-dir',
+        type=Path,
+        default=Path(os.getenv('LC_DA_CA1_OUTPUT_DIR', DEFAULT_OUTPUT_DIR)),
+        help='Directory used for all generated figures.',
+    )
+    parser.add_argument(
+        '--n-bootstrap',
+        type=int,
+        default=None,
+        help='Override the number of paired bootstrap replicates.',
+    )
+    parser.add_argument(
+        '--n-cells',
+        type=int,
+        default=None,
+        help='Override the number of synthetic cells per replicate.',
+    )
+    parser.add_argument(
+        '--seed-start',
+        type=int,
+        default=None,
+        help='Override the starting RNG seed.',
+    )
+    return parser.parse_args()
+
+
+ARGS = parse_args()
+PLOT_SAVE_DIR = ARGS.output_dir.expanduser().resolve()
 PLOT_SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 warnings.filterwarnings('ignore', message='Matplotlib is currently using agg')
@@ -664,6 +695,12 @@ def run_bootstrap_suite(p):
 # %% cell 5
 # run the paired synthetic-population bootstrap suite
 p = PARAMS()
+if ARGS.n_bootstrap is not None:
+    p.n_bootstrap = ARGS.n_bootstrap
+if ARGS.n_cells is not None:
+    p.n_cells = ARGS.n_cells
+if ARGS.seed_start is not None:
+    p.seed_start = ARGS.seed_start
 results = run_bootstrap_suite(p)
 
 
